@@ -40,6 +40,10 @@ import { SplitSelectedTool } from '@/components/assistant-ui/tools/split-selecte
 import { TrimSelectedTool } from '@/components/assistant-ui/tools/trim-selected-tool';
 import { SetColorTool } from '@/components/assistant-ui/tools/set-color-tool';
 import { SetTimingsTool } from '@/components/assistant-ui/tools/set-timings-tool';
+import { WebSearchTool } from '@/components/assistant-ui/tools/web-search-tool';
+import { WriteVoiceoverTool } from '@/components/assistant-ui/tools/write-voiceover-tool';
+import { EditVoiceoverTool } from '@/components/assistant-ui/tools/edit-voiceover-tool';
+import { QuestionFlow } from '@/components/assistant-ui/question-flow';
 
 import { cn } from '@/lib/utils';
 
@@ -270,6 +274,10 @@ const AssistantMessage: FC = () => {
                   trim_selected: TrimSelectedTool,
                   set_color: SetColorTool,
                   set_timings: SetTimingsTool,
+                  webSearch: WebSearchTool,
+                  writeVoiceover: WriteVoiceoverTool,
+                  editVoiceover: EditVoiceoverTool,
+                  askQuestion: QuestionFlow,
                 },
               },
             }}
