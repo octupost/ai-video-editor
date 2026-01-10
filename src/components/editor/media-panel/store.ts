@@ -14,6 +14,7 @@ import {
 import { create } from 'zustand';
 
 export type Tab =
+  | 'uploads'
   | 'visuals'
   | 'music'
   | 'text'
@@ -27,6 +28,10 @@ export type Tab =
 export const tabs: {
   [key in Tab]: { icon: React.FC<IconProps>; label: string };
 } = {
+  uploads: {
+    icon: IconFolder,
+    label: 'Uploads',
+  },
   visuals: {
     icon: IconPhoto,
     label: 'Visuals',
@@ -76,12 +81,12 @@ interface MediaPanelStore {
 }
 
 export const useMediaPanelStore = create<MediaPanelStore>((set) => ({
-  activeTab: 'visuals',
+  activeTab: 'uploads',
   setActiveTab: (tab) => set({ activeTab: tab, showProperties: false }),
   highlightMediaId: null,
   requestRevealMedia: (mediaId) =>
     set({
-      activeTab: 'visuals',
+      activeTab: 'uploads',
       highlightMediaId: mediaId,
       showProperties: false,
     }),

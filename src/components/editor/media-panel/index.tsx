@@ -3,6 +3,7 @@
 import { TabBar } from './tabbar';
 import { useMediaPanelStore, type Tab } from './store';
 import { Separator } from '@/components/ui/separator';
+import { PanelUploads } from './panel/uploads';
 import { PanelVisuals } from './panel/visuals';
 import PanelEffect from './panel/effects';
 import PanelTransition from './panel/transition';
@@ -18,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { useStudioStore } from '@/stores/studio-store';
 
 const viewMap: Record<Tab, React.ReactNode> = {
+  uploads: <PanelUploads />,
   visuals: <PanelVisuals />,
   music: <PanelMusic />,
   voiceovers: <PanelVoiceovers />,

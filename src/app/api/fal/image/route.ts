@@ -2,12 +2,12 @@ import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
 
 // Aspect ratio presets with explicit dimensions
-type AspectRatio = "square" | "portrait" | "landscape";
+type AspectRatio = "16:9" | "9:16" | "1:1";
 
 const ASPECT_RATIO_DIMENSIONS: Record<AspectRatio, { width: number; height: number }> = {
-  square: { width: 1024, height: 1024 },      // 1:1
-  portrait: { width: 768, height: 1344 },     // 9:16 (vertical)
-  landscape: { width: 1344, height: 768 },    // 16:9 (horizontal)
+  "1:1": { width: 1024, height: 1024 },      // 1:1 square
+  "9:16": { width: 1024, height: 1920 },     // 9:16 portrait
+  "16:9": { width: 1920, height: 1024 },    // 16:9 landscape
 };
 
 type OutputFormat = "jpeg" | "png" | "webp";
@@ -15,7 +15,7 @@ type Acceleration = "none" | "regular" | "high";
 
 // Default configuration (easily modifiable)
 const DEFAULTS = {
-  aspectRatio: "landscape" as AspectRatio,
+  aspectRatio: "9:16" as AspectRatio,
   numInferenceSteps: 8,
   numImages: 1,
   enableSafetyChecker: true,
