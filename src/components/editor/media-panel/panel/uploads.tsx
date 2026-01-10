@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Film,
   ChevronDown,
+  Trash2,
 } from 'lucide-react';
 import { uploadFile } from '@/lib/upload-utils';
 import {
@@ -132,6 +133,10 @@ export function PanelUploads() {
     }
   };
 
+  const removeUpload = (id: string) => {
+    setUploads((prev) => prev.filter((a) => a.id !== id));
+  };
+
   const filteredAssets = uploads.filter((asset) => {
     const matchesSearch = asset.name
       .toLowerCase()
@@ -241,6 +246,17 @@ export function PanelUploads() {
                     />
                   </div>
                 )}
+
+                {/* Delete button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeUpload(asset.id);
+                  }}
+                  className="absolute top-1 right-1 p-1 rounded bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-red-500/80 transition-all"
+                >
+                  <Trash2 size={14} className="text-white" />
+                </button>
 
                 {/* Overlay info */}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">

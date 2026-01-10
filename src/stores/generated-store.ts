@@ -45,21 +45,6 @@ const getArrayKey = (type: GeneratedAsset['type']) => {
   }
 };
 
-const getGeneratingKey = (type: GeneratedAsset['type']) => {
-  switch (type) {
-    case 'voiceover':
-      return 'voiceover';
-    case 'sfx':
-      return 'sfx';
-    case 'music':
-      return 'music';
-    case 'image':
-      return 'image';
-    case 'video':
-      return 'video';
-  }
-};
-
 export const useGeneratedStore = create<GeneratedState>()(
   persist(
     (set) => ({
@@ -89,15 +74,12 @@ export const useGeneratedStore = create<GeneratedState>()(
         }),
 
       setGenerating: (type, isGenerating) =>
-        set((state) => {
-          const key = getGeneratingKey(type);
-          return {
-            isGenerating: {
-              ...state.isGenerating,
-              [key]: isGenerating,
-            },
-          };
-        }),
+        set((state) => ({
+          isGenerating: {
+            ...state.isGenerating,
+            [type]: isGenerating,
+          },
+        })),
     }),
     {
       name: 'generated-assets-storage',

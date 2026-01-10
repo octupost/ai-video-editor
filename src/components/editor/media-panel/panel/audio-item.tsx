@@ -1,15 +1,17 @@
 import { Button } from '@/components/ui/button';
-import { IconPlayerPause, IconPlayerPlay, IconPlus } from '@tabler/icons-react';
+import { IconPlayerPause, IconPlayerPlay, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useRef, useState, useEffect } from 'react';
 
 export const AudioItem = ({
   item,
   onAdd,
+  onDelete,
   playingId,
   setPlayingId,
 }: {
   item: any;
   onAdd: (url: string) => void;
+  onDelete?: () => void;
   playingId: string | null;
   setPlayingId: (id: string | null) => void;
 }) => {
@@ -75,14 +77,25 @@ export const AudioItem = ({
         <span className="text-[10px] text-muted-foreground">{duration}</span>
       </div>
 
-      <Button
-        size="icon"
-        // variant="secon"
-        className="size-5.5 cursor-pointer rounded-full opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 top-1/2 -translate-y-1/2"
-        onClick={() => onAdd(item.url)}
-      >
-        <IconPlus className="size-4" />
-      </Button>
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {onDelete && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-5.5 cursor-pointer rounded-full hover:bg-red-500/80"
+            onClick={onDelete}
+          >
+            <IconTrash className="size-3.5" />
+          </Button>
+        )}
+        <Button
+          size="icon"
+          className="size-5.5 cursor-pointer rounded-full"
+          onClick={() => onAdd(item.url)}
+        >
+          <IconPlus className="size-4" />
+        </Button>
+      </div>
     </div>
   );
 };

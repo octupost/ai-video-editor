@@ -1,20 +1,28 @@
 'use client';
 
+import { useState } from 'react';
 import { IconPhoto } from '@tabler/icons-react';
-import { Film } from 'lucide-react';
+import { Film, Trash2 } from 'lucide-react';
 import { useGeneratedStore, GeneratedAsset } from '@/stores/generated-store';
 import { useStudioStore } from '@/stores/studio-store';
 import { ImageClip, VideoClip, Log } from '@designcombo/video';
 import { VisualsChatPanel } from '../visuals-chat-panel';
 
+type FilterType = 'all' | 'images' | 'videos';
+
 export function PanelVisuals() {
   const { studio } = useStudioStore();
-  const { images, videos } = useGeneratedStore();
+  const { images, videos, removeAsset } = useGeneratedStore();
+  const [filter, setFilter] = useState<FilterType>('all');
 
-  // Combine images and videos, sorted by creation time (newest first)
-  const visuals = [...images, ...videos].sort(
-    (a, b) => b.createdAt - a.createdAt
-  );
+  // Get filtered visuals based on selection
+  const getFilteredVisuals = () => {
+    if (filter === 'images') return [...images].sort((a, b) => b.createdAt - a.createdAt);
+    if (filter === 'videos') return [...videos].sort((a, b) => b.createdAt - a.createdAt);
+    return [...images, ...videos].sort((a, b) => b.createdAt - a.createdAt);
+  };
+
+  const visuals = getFilteredVisuals();
 
   const addItemToCanvas = async (asset: GeneratedAsset) => {
     if (!studio) return;
@@ -43,6 +51,23 @@ export function PanelVisuals() {
 
   return (
     <div className="flex flex-col h-full w-full">
+      {/* Filter chips */}
+      <div className="flex gap-1.5 px-4 py-2 border-b border-border/50">
+        {(['all', 'images', 'videos'] as FilterType[]).map((type) => (
+          <button
+            key={type}
+            onClick={() => setFilter(type)}
+            className={`px-3 py-1 text-xs rounded-full transition-colors ${
+              filter === type
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground'
+            }`}
+          >
+            {type.charAt(0).toUpperCase() + type.slice(1)}
+          </button>
+        ))}
+      </div>
+
       <div className="flex-1 overflow-y-auto">
         {visuals.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-4 gap-4">
@@ -82,6 +107,17 @@ export function PanelVisuals() {
                       />
                     </div>
                   )}
+
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeAsset(asset.id, asset.type);
+                    }}
+                    className="absolute top-1 right-1 p-1 rounded bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-red-500/80 transition-all"
+                  >
+                    <Trash2 size={14} className="text-white" />
+                  </button>
 
                   {/* Overlay info */}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
