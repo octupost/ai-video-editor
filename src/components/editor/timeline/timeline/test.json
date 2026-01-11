@@ -1,0 +1,46 @@
+{
+  "id": "uuid",
+  "voiceover_text": "John Duran has played in MLS, the Saudi Pro League, and is now destined for Turkey, all before turning 22. This man's career has already been bizarre. Age 15, Direan made his pro debut and by 17 was poached by MLS club Chicago Fire. After just one season in America, Jirean was on his way to the Premier League. His potential was clear, and despite being Villa's second choice striker, the Colombian kept scoring important goals off the bench. In the 24-25 season, he was averaging a goal every 88 minutes. And these weren't just tap-ins either. Villa wanted to keep him, but when that Saudi money came in, both Villa and Duran couldn't say no. Yet, just 6 months following his al-Naser move, Duran already wants out and has found an interesting new destination in Mourinho's Fenrobachce on loan. This deal is wild. Fenrobache is set to pay a sizable loan fee plus his full 20 mil annual salary, which is crazy considering this loan fee will be more expensive than their previous club record transfer of star striker Ysef in this series for 19 mil. DR's latest chapter is emblematic of his entire career.",
+  "music_prompt": "Upbeat corporate, inspiring, 120bpm",
+  
+  "scenes": [
+    {
+      "scene_id": "scene_001",
+      "type": "hook",
+      "script_segment": "Did you know that 90% of startups fail?",
+      "start_time": 0,
+      "end_time": 5.2,
+      
+      "avatar": {
+        "visible": true,
+        "position": "bottom-right",
+        "size": "small"
+      },
+      
+      "hero_image": {
+        "prompt": "Dramatic startup failure, office with empty desks",
+        "style": "cinematic",
+        "animation": "ken-burns-zoom-in"
+      }
+    },
+    {
+      "scene_id": "scene_002", 
+      "type": "problem",
+      "script_segment": "The main reason? They run out of cash.",
+      "start_time": 5.2,
+      "end_time": 9.8,
+      
+      "avatar": {
+        "visible": true,
+        "position": "bottom-right",
+        "size": "small"
+      },
+      
+      "hero_image": {
+        "prompt": "Empty wallet, burning money, financial crisis",
+        "style": "cinematic",
+        "animation": "slow-zoom-out"
+      }
+    }
+  ]
+}

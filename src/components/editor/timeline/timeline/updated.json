@@ -1,30 +1,34 @@
 {
   "tracks": [
     {
+      "id": "track_1768153700367_df6tkh9yb",
+      "name": "Track 5",
+      "type": "Audio",
+      "clipIds": ["clip_1768153700367_37nsb4cg0"]
+    },
+    {
+      "id": "track_1768153684575_626t55tg2",
+      "name": "Track 5",
+      "type": "Audio",
+      "clipIds": ["clip_1768153684575_0rttxr51x"]
+    },
+    {
       "id": "track_1768149426931_g4xzg6jb5",
       "name": "Track 3",
       "type": "Effect",
-      "clipIds": [
-        "clip_1768149426931_weh110vez"
-      ]
+      "clipIds": ["clip_1768149426931_weh110vez"]
     },
     {
       "id": "track_1768149381407_r86q1tv3z",
       "name": "Track 2",
       "type": "Text",
-      "clipIds": [
-        "clip_1768149381401_3ynmrvw7g"
-      ]
+      "clipIds": ["clip_1768149381401_3ynmrvw7g"]
     },
     {
       "id": "track_1768149376324_pmcqv72dg",
       "name": "Track 1",
       "type": "Image",
-      "clipIds": [
-        "clip_1768149376324_l0a5qcus0",
-        "clip_1768149402639_ev2n2m0zh",
-        "clip_1768149412677_r6dkvm06d"
-      ]
+      "clipIds": ["clip_1768149376324_l0a5qcus0", "clip_1768149402639_ev2n2m0zh", "clip_1768149412677_r6dkvm06d"]
     }
   ],
   "clips": [
@@ -45,9 +49,7 @@
       "zIndex": 10,
       "opacity": 1,
       "flip": null,
-      "style": {
-
-      },
+      "style": {},
       "trim": {
         "from": 0,
         "to": 0
@@ -112,9 +114,7 @@
       "zIndex": 10,
       "opacity": 1,
       "flip": null,
-      "style": {
-
-      },
+      "style": {},
       "trim": {
         "from": 0,
         "to": 7732244.89795918
@@ -141,9 +141,7 @@
       "zIndex": 10,
       "opacity": 1,
       "flip": null,
-      "style": {
-
-      },
+      "style": {},
       "trim": {
         "from": 0,
         "to": 0
@@ -163,10 +161,10 @@
       "src": "",
       "display": {
         "from": 0,
-        "to": 5000000
+        "to": 2340000
       },
       "playbackRate": 1,
-      "duration": 5000000,
+      "duration": 2340000,
       "left": 0,
       "top": 0,
       "width": 0,
@@ -175,9 +173,7 @@
       "zIndex": 30,
       "opacity": 1,
       "flip": null,
-      "style": {
-
-      },
+      "style": {},
       "trim": {
         "from": 0,
         "to": 0
@@ -189,6 +185,56 @@
       },
       "id": "clip_1768149426931_weh110vez",
       "effects": []
+    },
+    {
+      "type": "Audio",
+      "src": "https://pub-7c224200bed84701ba0e1f8ad0d2d4a4.r2.dev/voiceovers/1768153678311.mp3",
+      "display": {
+        "from": 0,
+        "to": 2168145.8333333335
+      },
+      "playbackRate": 1,
+      "duration": 2168145.8333333335,
+      "left": 0,
+      "top": 0,
+      "width": 0,
+      "height": 0,
+      "angle": 0,
+      "zIndex": 40,
+      "opacity": 1,
+      "flip": null,
+      "style": {},
+      "trim": {
+        "from": 0,
+        "to": 0
+      },
+      "loop": false,
+      "volume": 1
+    },
+    {
+      "type": "Audio",
+      "src": "https://pub-7c224200bed84701ba0e1f8ad0d2d4a4.r2.dev/music/1768153697719.mp3",
+      "display": {
+        "from": 0,
+        "to": 10000000
+      },
+      "playbackRate": 1,
+      "duration": 10000000,
+      "left": 0,
+      "top": 0,
+      "width": 0,
+      "height": 0,
+      "angle": 0,
+      "zIndex": 50,
+      "opacity": 1,
+      "flip": null,
+      "style": {},
+      "trim": {
+        "from": 0,
+        "to": 0
+      },
+      "loop": false,
+      "volume": 1
     }
   ],
   "settings": {
