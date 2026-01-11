@@ -343,6 +343,8 @@
       "effects": []
     }
   ],
+  "transition": [],
+  "globalEffects": [],
   "settings": {
     "width": 1080,
     "height": 1920,
@@ -350,3 +352,5 @@
     "bgColor": "#18181b"
   }
 }
+
+
