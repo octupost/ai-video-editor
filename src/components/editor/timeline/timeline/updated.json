@@ -1,302 +1,58 @@
 {
   "tracks": [
     {
-      "id": "track_1765839676243_vwm2qde1v",
-      "name": "Track 1",
-      "type": "Caption",
-      "clipIds": ["clip_1765839676199_ml94zhfwp"]
-    },
-    {
-      "id": "track_1765839676267_uj35pubjg",
-      "name": "Track 2",
-      "type": "Caption",
-      "clipIds": ["clip_1765839676223_rq1v07yy8"]
-    },
-    {
-      "id": "track_1765839676270_wusg2ypsg",
+      "id": "track_1768149426931_g4xzg6jb5",
       "name": "Track 3",
-      "type": "Caption",
-      "clipIds": ["clip_1765839676232_zf4d7dcpe"]
+      "type": "Effect",
+      "clipIds": [
+        "clip_1768149426931_weh110vez"
+      ]
     },
     {
-      "id": "track_1765839678831_8814q4245",
-      "name": "Track 4",
+      "id": "track_1768149381407_r86q1tv3z",
+      "name": "Track 2",
       "type": "Text",
-      "clipIds": ["clip_1765839678811_umwj4lrrz"]
+      "clipIds": [
+        "clip_1768149381401_3ynmrvw7g"
+      ]
+    },
+    {
+      "id": "track_1768149376324_pmcqv72dg",
+      "name": "Track 1",
+      "type": "Image",
+      "clipIds": [
+        "clip_1768149376324_l0a5qcus0",
+        "clip_1768149402639_ev2n2m0zh",
+        "clip_1768149412677_r6dkvm06d"
+      ]
     }
   ],
   "clips": [
     {
-      "type": "Caption",
-      "src": "",
+      "type": "Image",
+      "src": "https://pub-7c224200bed84701ba0e1f8ad0d2d4a4.r2.dev/mockuser/3b87b7f8-1a3b-452c-b299-9ad60262a63c-arda.webp?v=1768149375868",
       "display": {
         "from": 0,
-        "to": 1000000
+        "to": 5000000
       },
       "playbackRate": 1,
-      "duration": 1000000,
-      "left": 392,
-      "top": 615,
-      "width": 496,
-      "height": 75,
+      "duration": 5000000,
+      "left": 0,
+      "top": 150,
+      "width": 1080,
+      "height": 1620,
       "angle": 0,
-      "zIndex": 0,
+      "zIndex": 10,
       "opacity": 1,
       "flip": null,
-      "text": "hello world this is a test",
       "style": {
-        "fontSize": 32,
-        "fontFamily": "Bangers-Regular",
-        "fontWeight": "700",
-        "fontStyle": "normal",
-        "color": "#ffffff",
-        "align": "center",
-        "fontUrl": "https://fonts.gstatic.com/s/poppins/v15/pxiByp8kv8JHgFVrLCz7V1tvFP-KUEg.ttf",
-        "stroke": {
-          "color": "#000000",
-          "width": 4
-        },
-        "shadow": {
-          "color": "#17e64e",
-          "alpha": 0.5,
-          "blur": 4,
-          "offsetX": 3.999624199206202,
-          "offsetY": 0.0548294184188299
-        }
+
       },
-      "caption": {
-        "words": [
-          {
-            "text": "HELLO",
-            "from": 0,
-            "to": 200,
-            "isKeyWord": true
-          },
-          {
-            "text": "WORLD",
-            "from": 200,
-            "to": 400,
-            "isKeyWord": false
-          },
-          {
-            "text": "THIS",
-            "from": 400,
-            "to": 600,
-            "isKeyWord": false
-          },
-          {
-            "text": "IS",
-            "from": 600,
-            "to": 750,
-            "isKeyWord": false
-          },
-          {
-            "text": "A",
-            "from": 750,
-            "to": 850,
-            "isKeyWord": false
-          },
-          {
-            "text": "TEST",
-            "from": 850,
-            "to": 1000,
-            "isKeyWord": true
-          }
-        ],
-        "colors": {
-          "appeared": "#ffffff",
-          "active": "#ffffff",
-          "activeFill": "#FF5700",
-          "background": "",
-          "keyword": "#ffffff"
-        },
-        "preserveKeywordColor": true,
-        "positioning": {
-          "videoWidth": 1280,
-          "videoHeight": 720
-        }
+      "trim": {
+        "from": 0,
+        "to": 0
       },
-      "id": "clip_1765839676199_ml94zhfwp",
-      "effects": []
-    },
-    {
-      "type": "Caption",
-      "src": "",
-      "display": {
-        "from": 1000000,
-        "to": 2000000
-      },
-      "playbackRate": 1,
-      "duration": 1000000,
-      "left": 418,
-      "top": 615,
-      "width": 444,
-      "height": 75,
-      "angle": 0,
-      "zIndex": 0,
-      "opacity": 1,
-      "flip": null,
-      "text": "coding with pixi is fun",
-      "style": {
-        "fontSize": 32,
-        "fontFamily": "Bangers-Regular",
-        "fontWeight": "700",
-        "fontStyle": "normal",
-        "color": "#ffffff",
-        "align": "center",
-        "fontUrl": "https://fonts.gstatic.com/s/poppins/v15/pxiByp8kv8JHgFVrLCz7V1tvFP-KUEg.ttf",
-        "stroke": {
-          "color": "#000000",
-          "width": 4
-        },
-        "shadow": {
-          "color": "#17e64e",
-          "alpha": 0.5,
-          "blur": 4,
-          "offsetX": 3.999624199206202,
-          "offsetY": 0.0548294184188299
-        }
-      },
-      "caption": {
-        "words": [
-          {
-            "text": "CODING",
-            "from": 0,
-            "to": 200,
-            "isKeyWord": true
-          },
-          {
-            "text": "WITH",
-            "from": 200,
-            "to": 400,
-            "isKeyWord": false
-          },
-          {
-            "text": "PIXI",
-            "from": 400,
-            "to": 600,
-            "isKeyWord": true
-          },
-          {
-            "text": "IS",
-            "from": 600,
-            "to": 750,
-            "isKeyWord": false
-          },
-          {
-            "text": "FUN",
-            "from": 750,
-            "to": 1000,
-            "isKeyWord": true
-          }
-        ],
-        "colors": {
-          "appeared": "#ffffff",
-          "active": "#ffffff",
-          "activeFill": "#FF5700",
-          "background": "",
-          "keyword": "#ffffff"
-        },
-        "preserveKeywordColor": true,
-        "positioning": {
-          "videoWidth": 1280,
-          "videoHeight": 720
-        }
-      },
-      "id": "clip_1765839676223_rq1v07yy8",
-      "effects": []
-    },
-    {
-      "type": "Caption",
-      "src": "",
-      "display": {
-        "from": 2000000,
-        "to": 3400000
-      },
-      "playbackRate": 1,
-      "duration": 1400000,
-      "left": 350.5,
-      "top": 615,
-      "width": 579,
-      "height": 75,
-      "angle": 0,
-      "zIndex": 0,
-      "opacity": 1,
-      "flip": null,
-      "text": "life is beautiful when we code",
-      "style": {
-        "fontSize": 32,
-        "fontFamily": "Bangers-Regular",
-        "fontWeight": "700",
-        "fontStyle": "normal",
-        "color": "#ffffff",
-        "align": "center",
-        "fontUrl": "https://fonts.gstatic.com/s/poppins/v15/pxiByp8kv8JHgFVrLCz7V1tvFP-KUEg.ttf",
-        "stroke": {
-          "color": "#000000",
-          "width": 4
-        },
-        "shadow": {
-          "color": "#17e64e",
-          "alpha": 0.5,
-          "blur": 4,
-          "offsetX": 3.999624199206202,
-          "offsetY": 0.0548294184188299
-        }
-      },
-      "caption": {
-        "words": [
-          {
-            "text": "LIFE",
-            "from": 0,
-            "to": 200,
-            "isKeyWord": true
-          },
-          {
-            "text": "IS",
-            "from": 200,
-            "to": 400,
-            "isKeyWord": false
-          },
-          {
-            "text": "BEAUTIFUL",
-            "from": 400,
-            "to": 700,
-            "isKeyWord": true
-          },
-          {
-            "text": "WHEN",
-            "from": 700,
-            "to": 900,
-            "isKeyWord": false
-          },
-          {
-            "text": "WE",
-            "from": 900,
-            "to": 1100,
-            "isKeyWord": false
-          },
-          {
-            "text": "CODE",
-            "from": 1100,
-            "to": 1400,
-            "isKeyWord": true
-          }
-        ],
-        "colors": {
-          "appeared": "#ffffff",
-          "active": "#ffffff",
-          "activeFill": "#FF5700",
-          "background": "",
-          "keyword": "#ffffff"
-        },
-        "preserveKeywordColor": true,
-        "positioning": {
-          "videoWidth": 1280,
-          "videoHeight": 720
-        }
-      },
-      "id": "clip_1765839676232_zf4d7dcpe",
+      "id": "clip_1768149376324_l0a5qcus0",
       "effects": []
     },
     {
@@ -308,43 +64,133 @@
       },
       "playbackRate": 1,
       "duration": 5000000,
-      "left": 0,
-      "top": 0,
-      "width": 440,
-      "height": 398,
+      "left": 136.547842401501,
+      "top": 43.1003752345215,
+      "width": 800,
+      "height": 72,
       "angle": 0,
-      "zIndex": 0,
+      "zIndex": 20,
       "opacity": 1,
       "flip": null,
-      "text": "This is a text clip",
       "style": {
-        "fontSize": 124,
-        "fontFamily": "Arial",
-        "fontWeight": "bold",
-        "fontStyle": "italic",
+        "fontSize": 60,
+        "fontFamily": "Montserrat",
+        "fontWeight": "900",
+        "fontStyle": "normal",
         "color": "#ffffff",
-        "align": "left",
+        "align": "center",
         "wordWrap": true,
-        "wordWrapWidth": 440,
+        "wordWrapWidth": 800,
         "stroke": {
-          "color": "#ffffff",
-          "width": 5,
+          "color": "#000000",
+          "width": 2,
           "join": "round"
-        },
-        "shadow": {
-          "color": "#ffffff",
-          "alpha": 0.5,
-          "blur": 4,
-          "offsetX": 5.999749463958002,
-          "offsetY": 0.05483037238305627
         }
       },
-      "id": "clip_1765839678811_umwj4lrrz",
+      "trim": {
+        "from": 0,
+        "to": 0
+      },
+      "text": "Arda Guler",
+      "id": "clip_1768149381401_3ynmrvw7g",
+      "effects": []
+    },
+    {
+      "type": "Video",
+      "src": "https://pub-7c224200bed84701ba0e1f8ad0d2d4a4.r2.dev/mockuser/c3a7e635-ff2c-45e9-a62b-67ec08423380-_Avatar__Jan_04___Text_1b58.mp4",
+      "display": {
+        "from": 5000000,
+        "to": 12732245
+      },
+      "playbackRate": 1,
+      "duration": 7732245,
+      "left": -1.13686837721616e-13,
+      "top": 0,
+      "width": 1080.97091932458,
+      "height": 1715.09380863039,
+      "angle": 0,
+      "zIndex": 10,
+      "opacity": 1,
+      "flip": null,
+      "style": {
+
+      },
+      "trim": {
+        "from": 0,
+        "to": 7732244.89795918
+      },
+      "audio": true,
+      "volume": 1,
+      "id": "clip_1768149402639_ev2n2m0zh",
+      "effects": []
+    },
+    {
+      "type": "Transition",
+      "src": "",
+      "display": {
+        "from": 4000000,
+        "to": 6000000
+      },
+      "playbackRate": 1,
+      "duration": 2000000,
+      "left": 0,
+      "top": 0,
+      "width": 0,
+      "height": 0,
+      "angle": 0,
+      "zIndex": 10,
+      "opacity": 1,
+      "flip": null,
+      "style": {
+
+      },
+      "trim": {
+        "from": 0,
+        "to": 0
+      },
+      "transitionEffect": {
+        "id": "trans_1768149412677",
+        "key": "BowTieVertical",
+        "name": "BowTieVertical"
+      },
+      "fromClipId": "clip_1768149376324_l0a5qcus0",
+      "toClipId": "clip_1768149402639_ev2n2m0zh",
+      "id": "clip_1768149412677_r6dkvm06d",
+      "effects": []
+    },
+    {
+      "type": "Effect",
+      "src": "",
+      "display": {
+        "from": 0,
+        "to": 5000000
+      },
+      "playbackRate": 1,
+      "duration": 5000000,
+      "left": 0,
+      "top": 0,
+      "width": 0,
+      "height": 0,
+      "angle": 0,
+      "zIndex": 30,
+      "opacity": 1,
+      "flip": null,
+      "style": {
+
+      },
+      "trim": {
+        "from": 0,
+        "to": 0
+      },
+      "effect": {
+        "id": "eff_1768149426931",
+        "key": "invert",
+        "name": "invert"
+      },
+      "id": "clip_1768149426931_weh110vez",
       "effects": []
     }
   ],
-  "transition": [],
-  "globalEffects": [],
   "settings": {
     "width": 1080,
     "height": 1920,
@@ -352,5 +198,3 @@
     "bgColor": "#18181b"
   }
 }
-
-

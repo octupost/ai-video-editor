@@ -53,7 +53,7 @@ export default async function Dashboard() {
             </p>
           </div>
 
-          <Link href="/editor">
+          <Link href="/editor" target="_blank">
             <Button size="lg" className="h-12 px-8 text-base gap-2 group">
               Open Editor
               <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

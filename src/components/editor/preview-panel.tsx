@@ -57,9 +57,7 @@ export function PreviewPanel({ onReady }: PreviewPanelProps) {
         ]),
         previewRef.current?.ready,
       ]);
-        // Load initial project data into Studio
-      const initialData = await import('./timeline/timeline/updated.json');
-      await previewRef.current?.loadFromJSON(initialData.default as any);
+      
       console.log('Studio ready');
       onReady?.();
     };

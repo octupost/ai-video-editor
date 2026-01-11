@@ -21,6 +21,7 @@ export function loadStudioData() {
     muted: false,
   }));
 
+
   // const tracks: ITimelineTrack[] = [];
   // Ensure clipIds in tracks actually exist in clips map (Optional validation)
   tracks.forEach((track) => {
