@@ -57,7 +57,10 @@ export function PreviewPanel({ onReady }: PreviewPanelProps) {
         ]),
         previewRef.current?.ready,
       ]);
-      
+
+      const initalData = await import('./timeline/timeline/updated.json');
+      await previewRef.current?.loadFromJSON(initalData as any);
+
       console.log('Studio ready');
       onReady?.();
     };
