@@ -13,7 +13,7 @@ import {
   IconChevronDown,
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
-import { useGeneratedStore } from '@/stores/generated-store';
+import { useAssetStore } from '@/stores/asset-store';
 import { useProjectId } from '@/contexts/project-context';
 import {
   DropdownMenu,
@@ -36,7 +36,7 @@ export const VisualsChatPanel = () => {
   const [mediaType, setMediaType] = useState<MediaType>('image');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16');
   const [loading, setLoading] = useState(false);
-  const { addAsset } = useGeneratedStore();
+  const { addAsset } = useAssetStore();
   const projectId = useProjectId();
 
   const handleGenerate = async () => {
@@ -59,9 +59,10 @@ export const VisualsChatPanel = () => {
       const data = await response.json();
 
       addAsset({
-        id: crypto.randomUUID(),
+        id: data.id || crypto.randomUUID(),
         url: data.url,
-        text: prompt,
+        name: prompt,
+        prompt: prompt,
         type: mediaType,
         createdAt: Date.now(),
       });

@@ -2,7 +2,7 @@
 
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
-import { useGeneratedStore } from '@/stores/generated-store';
+import { useAssetStore } from '@/stores/asset-store';
 import { IconMusic } from '@tabler/icons-react';
 import { AudioItem } from './audio-item';
 import { useState } from 'react';
@@ -11,7 +11,7 @@ import { addMediaToCanvas } from '@/lib/editor-utils';
 
 export default function PanelMusic() {
   const { studio } = useStudioStore();
-  const { music, deleteAsset } = useGeneratedStore();
+  const { music, deleteAsset } = useAssetStore();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const handleAddToCanvas = async (url: string) => {
@@ -21,6 +21,14 @@ export default function PanelMusic() {
       await addMediaToCanvas(studio, { url, type: 'audio' });
     } catch (error) {
       Log.error('Failed to add audio:', error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAsset(id, 'music');
+    } catch (error) {
+      console.error('Failed to delete music:', error);
     }
   };
 
@@ -41,7 +49,7 @@ export default function PanelMusic() {
                 key={item.id}
                 item={item}
                 onAdd={handleAddToCanvas}
-                onDelete={() => deleteAsset(item.id, 'music')}
+                onDelete={() => handleDelete(item.id)}
                 playingId={playingId}
                 setPlayingId={setPlayingId}
               />

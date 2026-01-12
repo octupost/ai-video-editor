@@ -1,3 +1,22 @@
+/**
+ * @deprecated This component is deprecated as of January 2026.
+ *
+ * REASON: Asset types have been unified into a single Asset interface.
+ * The VisualAsset type and local state management in this file have been
+ * replaced by the unified asset-store.ts which uses the Asset type from
+ * src/types/media.ts.
+ *
+ * NEW COMPONENT: Use uploads-panel.tsx instead, which uses the unified
+ * useAssetStore hook for consistent asset management across the application.
+ *
+ * This file is kept for reference purposes only. Do not use in new code.
+ *
+ * Key differences in the new implementation:
+ * - Uses Asset type instead of VisualAsset
+ * - Uses useAssetStore instead of local useState
+ * - Asset.name field is used for display (was also .name here)
+ * - No need to filter by type='upload' separately, store handles it
+ */
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
@@ -28,6 +47,7 @@ import {
   InputGroupInput,
 } from '@/components/ui/input-group';
 
+/** @deprecated Use Asset from '@/types/media' instead */
 interface VisualAsset {
   id: string;
   type: 'image' | 'video';
@@ -43,6 +63,7 @@ interface VisualAsset {
 // OLD: localStorage key (replaced with Supabase)
 // const STORAGE_KEY = 'designcombo_uploads';
 
+/** @deprecated Use PanelUploads from './uploads-panel' instead */
 export function PanelUploads() {
   const { studio } = useStudioStore();
   const projectId = useProjectId();

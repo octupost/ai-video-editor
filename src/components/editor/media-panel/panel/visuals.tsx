@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { IconPhoto } from '@tabler/icons-react';
 import { Film, Trash2 } from 'lucide-react';
-import { useGeneratedStore, GeneratedAsset } from '@/stores/generated-store';
+import { useAssetStore } from '@/stores/asset-store';
+import { Asset } from '@/types/media';
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
 import { VisualsChatPanel } from '../visuals-chat-panel';
@@ -13,25 +14,33 @@ type FilterType = 'all' | 'images' | 'videos';
 
 export function PanelVisuals() {
   const { studio } = useStudioStore();
-  const { images, videos, deleteAsset } = useGeneratedStore();
+  const { images, videos, deleteAsset } = useAssetStore();
   const [filter, setFilter] = useState<FilterType>('all');
 
   // Get filtered visuals based on selection
   const getFilteredVisuals = () => {
-    if (filter === 'images') return [...images].sort((a, b) => b.createdAt - a.createdAt);
-    if (filter === 'videos') return [...videos].sort((a, b) => b.createdAt - a.createdAt);
+    if (filter === 'images') return images;
+    if (filter === 'videos') return videos;
     return [...images, ...videos].sort((a, b) => b.createdAt - a.createdAt);
   };
 
-  const visuals = getFilteredVisuals();
+  const filteredVisuals = getFilteredVisuals();
 
-  const handleAddToCanvas = async (asset: GeneratedAsset) => {
+  const handleAddToCanvas = async (asset: Asset) => {
     if (!studio) return;
 
     try {
       await addMediaToCanvas(studio, { url: asset.url, type: asset.type as 'image' | 'video' });
     } catch (error) {
       Log.error(`Failed to add ${asset.type}:`, error);
+    }
+  };
+
+  const handleDelete = async (asset: Asset) => {
+    try {
+      await deleteAsset(asset.id, asset.type);
+    } catch (error) {
+      console.error('Failed to delete asset:', error);
     }
   };
 
@@ -55,7 +64,7 @@ export function PanelVisuals() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {visuals.length === 0 ? (
+        {filteredVisuals.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-4 gap-4">
             <IconPhoto className="size-7 text-muted-foreground" stroke={1.5} />
             <div className="flex flex-col gap-2 text-center">
@@ -69,7 +78,7 @@ export function PanelVisuals() {
         ) : (
           <div className="p-4">
             <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
-              {visuals.map((asset) => (
+              {filteredVisuals.map((asset) => (
                 <div
                   key={asset.id}
                   className="group relative aspect-square rounded-md overflow-hidden bg-secondary/50 cursor-pointer border border-transparent hover:border-primary/50 transition-all"
@@ -78,7 +87,7 @@ export function PanelVisuals() {
                   {asset.type === 'image' ? (
                     <img
                       src={asset.url}
-                      alt={asset.text}
+                      alt={asset.name}
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -98,7 +107,7 @@ export function PanelVisuals() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      deleteAsset(asset.id, asset.type);
+                      handleDelete(asset);
                     }}
                     className="absolute top-1 right-1 p-1 rounded bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-red-500/80 transition-all"
                   >
@@ -108,7 +117,7 @@ export function PanelVisuals() {
                   {/* Overlay info */}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <p className="text-[10px] text-white truncate font-medium">
-                      {asset.text}
+                      {asset.name}
                     </p>
                   </div>
                 </div>

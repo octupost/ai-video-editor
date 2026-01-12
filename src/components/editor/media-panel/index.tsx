@@ -3,7 +3,7 @@
 import { TabBar } from './tabbar';
 import { useMediaPanelStore, type Tab } from './store';
 import { Separator } from '@/components/ui/separator';
-import { PanelUploads } from './panel/uploads';
+import { PanelUploads } from './panel/uploads-panel';
 import { PanelVisuals } from './panel/visuals';
 import PanelEffect from './panel/effects';
 import PanelTransition from './panel/transition';
@@ -17,7 +17,7 @@ import { PropertiesPanel } from '../properties-panel';
 import { IClip } from '@designcombo/video';
 import { useEffect, useState } from 'react';
 import { useStudioStore } from '@/stores/studio-store';
-import { useGeneratedStore } from '@/stores/generated-store';
+import { useAssetStore } from '@/stores/asset-store';
 import { useProjectId } from '@/contexts/project-context';
 
 const viewMap: Record<Tab, React.ReactNode> = {
@@ -37,10 +37,10 @@ export function MediaPanel() {
   const { activeTab } = useMediaPanelStore();
   const [selectedClips, setSelectedClips] = useState<IClip[]>([]);
   const { studio, setSelectedClips: setStudioSelectedClips } = useStudioStore();
-  const { fetchAssets } = useGeneratedStore();
+  const { fetchAssets } = useAssetStore();
   const projectId = useProjectId();
 
-  // NEW: Fetch generated assets from Supabase on mount
+  // Fetch all assets from Supabase on mount
   useEffect(() => {
     if (projectId) {
       fetchAssets(projectId);

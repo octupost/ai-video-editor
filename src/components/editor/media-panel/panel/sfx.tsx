@@ -2,7 +2,7 @@
 
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
-import { useGeneratedStore } from '@/stores/generated-store';
+import { useAssetStore } from '@/stores/asset-store';
 import { IconWaveSine } from '@tabler/icons-react';
 import { useState } from 'react';
 import { AudioItem } from './audio-item';
@@ -11,7 +11,7 @@ import { addMediaToCanvas } from '@/lib/editor-utils';
 
 export default function PanelSFX() {
   const { studio } = useStudioStore();
-  const { sfx, deleteAsset } = useGeneratedStore();
+  const { sfx, deleteAsset } = useAssetStore();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const handleAddToCanvas = async (url: string) => {
@@ -21,6 +21,14 @@ export default function PanelSFX() {
       await addMediaToCanvas(studio, { url, type: 'audio' });
     } catch (error) {
       Log.error('Failed to add audio:', error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAsset(id, 'sfx');
+    } catch (error) {
+      console.error('Failed to delete sfx:', error);
     }
   };
 
@@ -45,7 +53,7 @@ export default function PanelSFX() {
                 key={item.id}
                 item={item}
                 onAdd={handleAddToCanvas}
-                onDelete={() => deleteAsset(item.id, 'sfx')}
+                onDelete={() => handleDelete(item.id)}
                 playingId={playingId}
                 setPlayingId={setPlayingId}
               />

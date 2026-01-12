@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { IconLoader2, IconClock, IconCheck } from '@tabler/icons-react';
 import { toast } from 'sonner';
-import { useGeneratedStore } from '@/stores/generated-store';
+import { useAssetStore } from '@/stores/asset-store';
 import { useProjectId } from '@/contexts/project-context';
 import {
   Popover,
@@ -18,7 +18,7 @@ export const MusicChatPanel = () => {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [duration, setDuration] = useState(30);
-  const { addAsset } = useGeneratedStore();
+  const { addAsset } = useAssetStore();
   const projectId = useProjectId();
 
   const handleGenerate = async () => {
@@ -39,9 +39,10 @@ export const MusicChatPanel = () => {
       const data = await response.json();
 
       addAsset({
-        id: crypto.randomUUID(),
+        id: data.id || crypto.randomUUID(),
         url: data.url,
-        text: text,
+        name: text,
+        prompt: text,
         type: 'music',
         createdAt: Date.now(),
       });

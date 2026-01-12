@@ -1,6 +1,15 @@
 import { Button } from '@/components/ui/button';
 import { IconPlayerPause, IconPlayerPlay, IconPlus, IconTrash } from '@tabler/icons-react';
 import { useRef, useState, useEffect } from 'react';
+import { Asset } from '@/types/media';
+
+interface AudioItemProps {
+  item: Asset;
+  onAdd: (url: string) => void;
+  onDelete?: () => void;
+  playingId: string | null;
+  setPlayingId: (id: string | null) => void;
+}
 
 export const AudioItem = ({
   item,
@@ -8,13 +17,7 @@ export const AudioItem = ({
   onDelete,
   playingId,
   setPlayingId,
-}: {
-  item: any;
-  onAdd: (url: string) => void;
-  onDelete?: () => void;
-  playingId: string | null;
-  setPlayingId: (id: string | null) => void;
-}) => {
+}: AudioItemProps) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [duration, setDuration] = useState<string>('--:--');
   const isPlaying = playingId === item.id;
@@ -72,7 +75,7 @@ export const AudioItem = ({
 
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-xs font-medium truncate mb-0.5 text-zinc-300">
-          {item.text}
+          {item.name}
         </span>
         <span className="text-[10px] text-muted-foreground">{duration}</span>
       </div>

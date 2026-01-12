@@ -6,6 +6,7 @@ import type { ITimelineTrack, IClip, TrackType } from '@/types/timeline';
 import type { TimelineCanvas } from './timeline';
 import { generateUUID } from '@/utils/id';
 import { clipToJSON, jsonToClip } from '@designcombo/video';
+import { toast } from 'sonner';
 
 interface TimelineStudioSyncProps {
   timelineCanvas?: TimelineCanvas | null;
@@ -463,9 +464,16 @@ export const TimelineStudioSync = ({
       fromClipId: string;
       toClipId: string;
     }) => {
-      console.log('handleTransitionAdd', fromClipId, toClipId);
       if (!studio) return;
-      await studio.addTransition('GridFlip', 2_000_000, fromClipId, toClipId);
+      
+      const selectedTransitionKey = useStudioStore.getState().selectedTransitionKey;
+      
+      if (!selectedTransitionKey) {
+        toast.error('Select a transition type first');
+        return;
+      }
+      
+      await studio.addTransition(selectedTransitionKey, 2_000_000, fromClipId, toClipId);
     };
 
     timelineCanvas.on('clip:modified', handleClipModified);
