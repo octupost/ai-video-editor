@@ -25,12 +25,6 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from '@/components/ui/input-group';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable';
-import { VisualsChatPanel } from '../visuals-chat-panel';
 
 interface VisualAsset {
   id: string;
@@ -44,7 +38,8 @@ interface VisualAsset {
   size?: number;
 }
 
-const STORAGE_KEY = 'designcombo_uploads';
+// OLD: localStorage key (replaced with Supabase)
+// const STORAGE_KEY = 'designcombo_uploads';
 
 export function PanelUploads() {
   const { studio } = useStudioStore();
@@ -58,25 +53,60 @@ export function PanelUploads() {
 
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load uploads from local storage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setUploads(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error('Failed to load uploads', e);
-    } finally {
-      setIsLoaded(true);
-    }
-  }, []);
+  // OLD: Load uploads from local storage on mount (replaced with Supabase)
+  // useEffect(() => {
+  //   try {
+  //     const stored = localStorage.getItem(STORAGE_KEY);
+  //     if (stored) {
+  //       setUploads(JSON.parse(stored));
+  //     }
+  //   } catch (e) {
+  //     console.error('Failed to load uploads', e);
+  //   } finally {
+  //     setIsLoaded(true);
+  //   }
+  // }, []);
 
-  // Save uploads to local storage whenever they change
+  // OLD: Save uploads to local storage whenever they change (replaced with Supabase)
+  // useEffect(() => {
+  //   if (!isLoaded) return;
+  //   localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads));
+  // }, [uploads, isLoaded]);
+
+  // NEW: Load uploads from Supabase on mount
   useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads));
-  }, [uploads, isLoaded]);
+    const fetchUploads = async () => {
+      try {
+        const response = await fetch('/api/assets?type=upload');
+        if (!response.ok) {
+          throw new Error('Failed to fetch uploads');
+        }
+        const { assets } = await response.json();
+
+        // Transform Supabase assets to VisualAsset format
+        const visualAssets: VisualAsset[] = assets.map((asset: {
+          id: string;
+          url: string;
+          name: string;
+          size?: number;
+        }) => ({
+          id: asset.id,
+          type: asset.name.match(/\.(mp4|webm|mov|avi)$/i) ? 'video' : 'image',
+          src: asset.url,
+          name: asset.name,
+          size: asset.size,
+        }));
+
+        setUploads(visualAssets);
+      } catch (error) {
+        console.error('Failed to fetch uploads:', error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    fetchUploads();
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -87,8 +117,26 @@ export function PanelUploads() {
       const result = await uploadFile(file);
       const type = file.type.startsWith('image/') ? 'image' : 'video';
 
+      // NEW: Save to Supabase
+      const saveResponse = await fetch('/api/assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'upload',
+          url: result.url,
+          name: result.fileName,
+          size: file.size,
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save upload to database');
+      }
+
+      const { asset } = await saveResponse.json();
+
       const newAsset: VisualAsset = {
-        id: crypto.randomUUID(),
+        id: asset.id,
         type,
         src: result.url,
         name: result.fileName,
@@ -133,8 +181,21 @@ export function PanelUploads() {
     }
   };
 
-  const removeUpload = (id: string) => {
-    setUploads((prev) => prev.filter((a) => a.id !== id));
+  // NEW: Delete from Supabase
+  const removeUpload = async (id: string) => {
+    try {
+      const response = await fetch(`/api/assets?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete upload');
+      }
+
+      setUploads((prev) => prev.filter((a) => a.id !== id));
+    } catch (error) {
+      console.error('Failed to delete upload:', error);
+    }
   };
 
   const filteredAssets = uploads.filter((asset) => {

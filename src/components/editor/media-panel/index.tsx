@@ -17,6 +17,7 @@ import { PropertiesPanel } from '../properties-panel';
 import { IClip } from '@designcombo/video';
 import { useEffect, useState } from 'react';
 import { useStudioStore } from '@/stores/studio-store';
+import { useGeneratedStore } from '@/stores/generated-store';
 
 const viewMap: Record<Tab, React.ReactNode> = {
   uploads: <PanelUploads />,
@@ -35,6 +36,12 @@ export function MediaPanel() {
   const { activeTab } = useMediaPanelStore();
   const [selectedClips, setSelectedClips] = useState<IClip[]>([]);
   const { studio, setSelectedClips: setStudioSelectedClips } = useStudioStore();
+  const { fetchAssets } = useGeneratedStore();
+
+  // NEW: Fetch generated assets from Supabase on mount
+  useEffect(() => {
+    fetchAssets();
+  }, [fetchAssets]);
 
   useEffect(() => {
     if (!studio) return;

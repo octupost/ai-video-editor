@@ -10,7 +10,7 @@ import { VoiceoverChatPanel } from '../voiceover-chat-panel';
 
 export default function PanelVoiceovers() {
   const { studio } = useStudioStore();
-  const { voiceovers, removeAsset } = useGeneratedStore();
+  const { voiceovers, deleteAsset } = useGeneratedStore();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const handleAddAudio = async (url: string) => {
@@ -48,7 +48,7 @@ export default function PanelVoiceovers() {
                   key={item.id}
                   item={item}
                   onAdd={handleAddAudio}
-                  onDelete={() => removeAsset(item.id, 'voiceover')}
+                  onDelete={() => deleteAsset(item.id, 'voiceover')}
                   playingId={playingId}
                   setPlayingId={setPlayingId}
                 />

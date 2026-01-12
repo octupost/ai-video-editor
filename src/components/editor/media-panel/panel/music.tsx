@@ -10,7 +10,7 @@ import { MusicChatPanel } from '../music-chat-panel';
 
 export default function PanelMusic() {
   const { studio } = useStudioStore();
-  const { music, removeAsset } = useGeneratedStore();
+  const { music, deleteAsset } = useGeneratedStore();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const handleAddAudio = async (url: string) => {
@@ -41,7 +41,7 @@ export default function PanelMusic() {
                 key={item.id}
                 item={item}
                 onAdd={handleAddAudio}
-                onDelete={() => removeAsset(item.id, 'music')}
+                onDelete={() => deleteAsset(item.id, 'music')}
                 playingId={playingId}
                 setPlayingId={setPlayingId}
               />

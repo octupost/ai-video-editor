@@ -12,7 +12,7 @@ type FilterType = 'all' | 'images' | 'videos';
 
 export function PanelVisuals() {
   const { studio } = useStudioStore();
-  const { images, videos, removeAsset } = useGeneratedStore();
+  const { images, videos, deleteAsset } = useGeneratedStore();
   const [filter, setFilter] = useState<FilterType>('all');
 
   // Get filtered visuals based on selection
@@ -112,7 +112,7 @@ export function PanelVisuals() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeAsset(asset.id, asset.type);
+                      deleteAsset(asset.id, asset.type);
                     }}
                     className="absolute top-1 right-1 p-1 rounded bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-red-500/80 transition-all"
                   >

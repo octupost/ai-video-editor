@@ -1,5 +1,6 @@
 import { fal } from "@fal-ai/client";
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 // Aspect ratio presets with explicit dimensions
 type AspectRatio = "16:9" | "9:16" | "1:1";
@@ -67,7 +68,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ url: imageUrl });
+    // Save to Supabase
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { data: asset, error: dbError } = await supabase
+      .from("assets")
+      .insert({
+        user_id: user.id,
+        type: "image",
+        url: imageUrl,
+        name: prompt.substring(0, 100),
+        prompt: prompt,
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error("Database error:", dbError);
+      // Still return the URL even if DB save fails
+      return NextResponse.json({ url: imageUrl });
+    }
+
+    return NextResponse.json({ url: imageUrl, id: asset.id });
   } catch (error) {
     console.error("Image generation error:", error);
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+// OLD: localStorage persistence (replaced with Supabase)
+// import { persist } from 'zustand/middleware';
 
 export interface GeneratedAsset {
   id: string;
@@ -25,9 +26,18 @@ interface GeneratedState {
     video: boolean;
   };
 
+  // Loading state for fetching from Supabase
+  isLoading: boolean;
+  hasFetched: boolean;
+
   addAsset: (asset: GeneratedAsset) => void;
   removeAsset: (id: string, type: GeneratedAsset['type']) => void;
   setGenerating: (type: GeneratedAsset['type'], isGenerating: boolean) => void;
+
+  // NEW: Supabase integration
+  fetchAssets: () => Promise<void>;
+  deleteAsset: (id: string, type: GeneratedAsset['type']) => Promise<void>;
+  setAssets: (assets: GeneratedAsset[]) => void;
 }
 
 const getArrayKey = (type: GeneratedAsset['type']) => {
@@ -45,51 +55,198 @@ const getArrayKey = (type: GeneratedAsset['type']) => {
   }
 };
 
-export const useGeneratedStore = create<GeneratedState>()(
-  persist(
-    (set) => ({
-      voiceovers: [],
-      sfx: [],
-      music: [],
-      images: [],
-      videos: [],
-      isGenerating: {
-        voiceover: false,
-        sfx: false,
-        music: false,
-        image: false,
-        video: false,
-      },
+// OLD: localStorage persistence (replaced with Supabase)
+// export const useGeneratedStore = create<GeneratedState>()(
+//   persist(
+//     (set) => ({
+//       voiceovers: [],
+//       sfx: [],
+//       music: [],
+//       images: [],
+//       videos: [],
+//       isGenerating: {
+//         voiceover: false,
+//         sfx: false,
+//         music: false,
+//         image: false,
+//         video: false,
+//       },
+//
+//       addAsset: (asset) =>
+//         set((state) => {
+//           const key = getArrayKey(asset.type);
+//           return { [key]: [asset, ...state[key]] };
+//         }),
+//
+//       removeAsset: (id, type) =>
+//         set((state) => {
+//           const key = getArrayKey(type);
+//           return { [key]: state[key].filter((a) => a.id !== id) };
+//         }),
+//
+//       setGenerating: (type, isGenerating) =>
+//         set((state) => ({
+//           isGenerating: {
+//             ...state.isGenerating,
+//             [type]: isGenerating,
+//           },
+//         })),
+//     }),
+//     {
+//       name: 'generated-assets-storage',
+//       partialize: (state) => ({
+//         voiceovers: state.voiceovers,
+//         sfx: state.sfx,
+//         music: state.music,
+//         images: state.images,
+//         videos: state.videos,
+//       }), // Don't persist isGenerating
+//     }
+//   )
+// );
 
-      addAsset: (asset) =>
-        set((state) => {
-          const key = getArrayKey(asset.type);
-          return { [key]: [asset, ...state[key]] };
-        }),
+// NEW: Supabase implementation
+export const useGeneratedStore = create<GeneratedState>()((set, get) => ({
+  voiceovers: [],
+  sfx: [],
+  music: [],
+  images: [],
+  videos: [],
+  isGenerating: {
+    voiceover: false,
+    sfx: false,
+    music: false,
+    image: false,
+    video: false,
+  },
+  isLoading: false,
+  hasFetched: false,
 
-      removeAsset: (id, type) =>
-        set((state) => {
-          const key = getArrayKey(type);
-          return { [key]: state[key].filter((a) => a.id !== id) };
-        }),
-
-      setGenerating: (type, isGenerating) =>
-        set((state) => ({
-          isGenerating: {
-            ...state.isGenerating,
-            [type]: isGenerating,
-          },
-        })),
+  addAsset: (asset) =>
+    set((state) => {
+      const key = getArrayKey(asset.type);
+      return { [key]: [asset, ...state[key]] };
     }),
-    {
-      name: 'generated-assets-storage',
-      partialize: (state) => ({
-        voiceovers: state.voiceovers,
-        sfx: state.sfx,
-        music: state.music,
-        images: state.images,
-        videos: state.videos,
-      }), // Don't persist isGenerating
+
+  removeAsset: (id, type) =>
+    set((state) => {
+      const key = getArrayKey(type);
+      return { [key]: state[key].filter((a) => a.id !== id) };
+    }),
+
+  setGenerating: (type, isGenerating) =>
+    set((state) => ({
+      isGenerating: {
+        ...state.isGenerating,
+        [type]: isGenerating,
+      },
+    })),
+
+  // NEW: Fetch all assets from Supabase
+  fetchAssets: async () => {
+    if (get().hasFetched) return; // Don't fetch if already fetched
+
+    set({ isLoading: true });
+    try {
+      const response = await fetch('/api/assets');
+      if (!response.ok) {
+        throw new Error('Failed to fetch assets');
+      }
+      const { assets } = await response.json();
+
+      // Transform Supabase assets to GeneratedAsset format and categorize
+      const voiceovers: GeneratedAsset[] = [];
+      const sfx: GeneratedAsset[] = [];
+      const music: GeneratedAsset[] = [];
+      const images: GeneratedAsset[] = [];
+      const videos: GeneratedAsset[] = [];
+
+      for (const asset of assets) {
+        const generatedAsset: GeneratedAsset = {
+          id: asset.id,
+          url: asset.url,
+          text: asset.prompt || asset.name,
+          type: asset.type as GeneratedAsset['type'],
+          createdAt: new Date(asset.created_at).getTime(),
+        };
+
+        switch (asset.type) {
+          case 'voiceover':
+            voiceovers.push(generatedAsset);
+            break;
+          case 'sfx':
+            sfx.push(generatedAsset);
+            break;
+          case 'music':
+            music.push(generatedAsset);
+            break;
+          case 'image':
+            images.push(generatedAsset);
+            break;
+          case 'video':
+            videos.push(generatedAsset);
+            break;
+        }
+      }
+
+      set({ voiceovers, sfx, music, images, videos, hasFetched: true });
+    } catch (error) {
+      console.error('Failed to fetch assets:', error);
+    } finally {
+      set({ isLoading: false });
     }
-  )
-);
+  },
+
+  // NEW: Delete asset from Supabase
+  deleteAsset: async (id, type) => {
+    try {
+      const response = await fetch(`/api/assets?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete asset');
+      }
+
+      // Remove from local state
+      const key = getArrayKey(type);
+      set((state) => ({
+        [key]: state[key].filter((a) => a.id !== id),
+      }));
+    } catch (error) {
+      console.error('Failed to delete asset:', error);
+      throw error;
+    }
+  },
+
+  // NEW: Set assets directly (used after generation)
+  setAssets: (assets) => {
+    const voiceovers: GeneratedAsset[] = [];
+    const sfx: GeneratedAsset[] = [];
+    const music: GeneratedAsset[] = [];
+    const images: GeneratedAsset[] = [];
+    const videos: GeneratedAsset[] = [];
+
+    for (const asset of assets) {
+      switch (asset.type) {
+        case 'voiceover':
+          voiceovers.push(asset);
+          break;
+        case 'sfx':
+          sfx.push(asset);
+          break;
+        case 'music':
+          music.push(asset);
+          break;
+        case 'image':
+          images.push(asset);
+          break;
+        case 'video':
+          videos.push(asset);
+          break;
+      }
+    }
+
+    set({ voiceovers, sfx, music, images, videos });
+  },
+}));
