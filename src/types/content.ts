@@ -1,57 +1,73 @@
-export type MediaType =
+export type AEffectType =
+  | 'glitch'
+  | 'pixelate' 
+  | 'spring'
+  | 'slitScan'
+  | 'perspectiveSingle'
+  | 'scaleMoveBlur'  
+  | 'retro70s'
+  | 'fastZoom'
+
+export type AMediaType =
   | 'Avatar'
   | 'Video'
   | 'Audio'
   | 'Image'
   | 'Text'
-  | 'Caption'
   | 'Effect'
-  | 'Transition'; 
 
-export type LayoutType = 
+export type ALayoutType = 
   | 'Stack'
   | 'Row'
   | 'Column';
 
-export interface Dimensions {
+export interface AMediaEffect {
+  type: AEffectType;
+  triggerWordIndex?: number;  // 0 would start right away
+  endWordIndex?: number;      // -1 for to the end of the AScene
+}
+
+export interface ADimensions {
   width?: number;
   height?: number;
 }
 
-export interface Media {
-  type: MediaType;
+export interface AMedia {
+  type: AMediaType;
   prompt: string; 
-  dimensions?: Dimensions
   triggerWordIndex: number;    // 0 would start right away
-  endWordIndex: number;        //-1 for to the end of the scene
+  endWordIndex: number;        //-1 for to the end of the AScene
   zIndex: number;
+  AMediaEffect?: AMediaEffect;  
+  enterEffect?: AMediaEffect;
+  exitEffect?: AMediaEffect;
+  ADimensions?: ADimensions
 }
 
-export interface Layout {
-  type: LayoutType;
-  dimensions?: Dimensions
-  background?: Media;
-  layout?: Layout[];
-  media?: Media[];
+export interface ALayout {
+  type: ALayoutType;
+  ADimensions?: ADimensions
+  background?: AMedia;
+  ALayout?: ALayout[];
+  AMedia?: AMedia[];
 }
 
-export interface Scene {
+export interface AScene {
+  id: string;
+  order: number; 
+  text: string;
+  ALayout: ALayout[],
+}
+
+export interface AContent {
   id: string;
   text: string;
-  layout: Layout[],
+  ADimensions: ADimensions
+  scenes?: AScene[];
 }
-
-export interface Content {
-  id: string;
-  title: string;
-  text: string;
-  dimensions: Dimensions
-  scenes: Scene[]
-}
-// If the with and height is ndefined for a layout or a media it will be inherited from the parents
+// If the with and height is ndefined for a ALayout or a AMedia it will be inherited from the parents
 const john_duran = {
-  "id": "3f078a6f-56c7-44b0-a885-5d170f99105a",
-  "title": "Jhon Duran's an ELITE Bag Chaser! 😂",
+  "id": "a7c3e291-4f8b-4d2a-9e6c-8b1f3a5d7e9f",
   "text": "John Duran has played in MLS, the Saudi Pro League, and is now destined for Turkey, all before turning 22. This man's career has already been bizarre. Age 15, Duran made his pro debut and by 17 was poached by MLS club Chicago Fire. After just one season in America, Duran was on his way to the Premier League. His potential was clear, and despite being Villa's second choice striker, the Colombian kept scoring important goals off the bench. In the 24-25 season, he was averaging a goal every 88 minutes. And these weren't just tap-ins either. Villa wanted to keep him, but when that Saudi money came in, both Villa and Duran couldn't say no. Yet, just 6 months following his Al-Nassr move, Duran already wants out and has found an interesting new destination in Mourinho's Fenerbahçe on loan. This deal is wild. Fenerbahçe is set to pay a sizable loan fee plus his full 20 mil annual salary, which is crazy considering this loan fee will be more expensive than their previous club record transfer of star striker Yusuf En-Nesyri for 19 mil. Duran's latest chapter is emblematic of his entire career.",
   "dimensions": {
     "width": 1080,
@@ -59,7 +75,8 @@ const john_duran = {
   },
   "scenes": [
     {
-      "id": "scene_001",
+      "id": "b2d4f6a8-1c3e-5b7d-9f0a-2e4c6d8b0a1c",
+      "order": 0,
       "text": "John Duran has played in MLS, the Saudi Pro League, and is now destined for Turkey, all before turning 22. This man's career has already been bizarre.",
       "layout": [
         {
@@ -86,7 +103,17 @@ const john_duran = {
                       "dimensions": { "width": 540, "height": 660 },
                       "triggerWordIndex": 0,
                       "endWordIndex": 7,
-                      "zIndex": 1
+                      "zIndex": 1,
+                      "enterEffect": {
+                        "type": "spring",
+                        "triggerWordIndex": 0,
+                        "endWordIndex": 2
+                      },
+                      "exitEffect": {
+                        "type": "scaleMoveBlur",
+                        "triggerWordIndex": 6,
+                        "endWordIndex": 7
+                      }
                     },
                     {
                       "type": "Image",
@@ -94,7 +121,17 @@ const john_duran = {
                       "dimensions": { "width": 540, "height": 660 },
                       "triggerWordIndex": 8,
                       "endWordIndex": 14,
-                      "zIndex": 2
+                      "zIndex": 2,
+                      "enterEffect": {
+                        "type": "spring",
+                        "triggerWordIndex": 8,
+                        "endWordIndex": 10
+                      },
+                      "exitEffect": {
+                        "type": "scaleMoveBlur",
+                        "triggerWordIndex": 13,
+                        "endWordIndex": 14
+                      }
                     }
                   ]
                 }
@@ -106,7 +143,17 @@ const john_duran = {
                   "dimensions": { "width": 700, "height": 700 },
                   "triggerWordIndex": 15,
                   "endWordIndex": 21,
-                  "zIndex": 3
+                  "zIndex": 3,
+                  "enterEffect": {
+                    "type": "fastZoom",
+                    "triggerWordIndex": 15,
+                    "endWordIndex": 17
+                  },
+                  "exitEffect": {
+                    "type": "glitch",
+                    "triggerWordIndex": 20,
+                    "endWordIndex": 21
+                  }
                 },
                 {
                   "type": "Image",
@@ -114,7 +161,17 @@ const john_duran = {
                   "dimensions": { "width": 1080, "height": 960 },
                   "triggerWordIndex": 22,
                   "endWordIndex": -1,
-                  "zIndex": 4
+                  "zIndex": 4,
+                  "enterEffect": {
+                    "type": "perspectiveSingle",
+                    "triggerWordIndex": 22,
+                    "endWordIndex": 24
+                  },
+                  "mediaEffect": {
+                    "type": "glitch",
+                    "triggerWordIndex": 26,
+                    "endWordIndex": -1
+                  }
                 }
               ]
             },
@@ -137,7 +194,8 @@ const john_duran = {
       ]
     },
     {
-      "id": "scene_002",
+      "id": "c3e5a7b9-2d4f-6c8e-0a1b-3f5d7e9c1b2d",
+      "order": 1,
       "text": "Age 15, Duran made his pro debut and by 17 was poached by MLS club Chicago Fire.",
       "layout": [
         {
@@ -161,7 +219,17 @@ const john_duran = {
                   "dimensions": { "width": 600, "height": 800 },
                   "triggerWordIndex": 0,
                   "endWordIndex": 7,
-                  "zIndex": 1
+                  "zIndex": 1,
+                  "enterEffect": {
+                    "type": "spring",
+                    "triggerWordIndex": 0,
+                    "endWordIndex": 2
+                  },
+                  "exitEffect": {
+                    "type": "pixelate",
+                    "triggerWordIndex": 6,
+                    "endWordIndex": 7
+                  }
                 },
                 {
                   "type": "Image",
@@ -169,7 +237,12 @@ const john_duran = {
                   "dimensions": { "width": 700, "height": 850 },
                   "triggerWordIndex": 8,
                   "endWordIndex": -1,
-                  "zIndex": 2
+                  "zIndex": 2,
+                  "enterEffect": {
+                    "type": "fastZoom",
+                    "triggerWordIndex": 8,
+                    "endWordIndex": 10
+                  }
                 }
               ]
             },
@@ -192,7 +265,8 @@ const john_duran = {
       ]
     },
     {
-      "id": "scene_003",
+      "id": "d4f6b8c0-3e5a-7d9f-1b2c-4a6e8c0d2f3e",
+      "order": 2,
       "text": "After just one season in America, Duran was on his way to the Premier League. His potential was clear, and despite being Villa's second choice striker, the Colombian kept scoring important goals off the bench.",
       "layout": [
         {
@@ -216,7 +290,17 @@ const john_duran = {
                   "dimensions": { "width": 800, "height": 900 },
                   "triggerWordIndex": 0,
                   "endWordIndex": 14,
-                  "zIndex": 1
+                  "zIndex": 1,
+                  "enterEffect": {
+                    "type": "perspectiveSingle",
+                    "triggerWordIndex": 0,
+                    "endWordIndex": 3
+                  },
+                  "exitEffect": {
+                    "type": "scaleMoveBlur",
+                    "triggerWordIndex": 13,
+                    "endWordIndex": 14
+                  }
                 },
                 {
                   "type": "Image",
@@ -224,7 +308,12 @@ const john_duran = {
                   "dimensions": { "width": 850, "height": 900 },
                   "triggerWordIndex": 15,
                   "endWordIndex": -1,
-                  "zIndex": 2
+                  "zIndex": 2,
+                  "enterEffect": {
+                    "type": "spring",
+                    "triggerWordIndex": 15,
+                    "endWordIndex": 18
+                  }
                 }
               ]
             },
@@ -247,7 +336,8 @@ const john_duran = {
       ]
     },
     {
-      "id": "scene_004",
+      "id": "e5a7c9d1-4f6b-8e0a-2c3d-5b7f9a1e3c4d",
+      "order": 3,
       "text": "In the 24-25 season, he was averaging a goal every 88 minutes. And these weren't just tap-ins either.",
       "layout": [
         {
@@ -271,7 +361,17 @@ const john_duran = {
                   "dimensions": { "width": 600, "height": 200 },
                   "triggerWordIndex": 0,
                   "endWordIndex": 10,
-                  "zIndex": 1
+                  "zIndex": 1,
+                  "enterEffect": {
+                    "type": "glitch",
+                    "triggerWordIndex": 0,
+                    "endWordIndex": 3
+                  },
+                  "mediaEffect": {
+                    "type": "retro70s",
+                    "triggerWordIndex": 4,
+                    "endWordIndex": 10
+                  }
                 },
                 {
                   "type": "Image",
@@ -279,7 +379,17 @@ const john_duran = {
                   "dimensions": { "width": 900, "height": 800 },
                   "triggerWordIndex": 11,
                   "endWordIndex": -1,
-                  "zIndex": 2
+                  "zIndex": 2,
+                  "enterEffect": {
+                    "type": "fastZoom",
+                    "triggerWordIndex": 11,
+                    "endWordIndex": 13
+                  },
+                  "mediaEffect": {
+                    "type": "slitScan",
+                    "triggerWordIndex": 14,
+                    "endWordIndex": -1
+                  }
                 }
               ]
             },
@@ -302,7 +412,8 @@ const john_duran = {
       ]
     },
     {
-      "id": "scene_005",
+      "id": "f6b8d0e2-5a7c-9f1b-3d4e-6c8a0b2d4f5e",
+      "order": 4,
       "text": "Villa wanted to keep him, but when that Saudi money came in, both Villa and Duran couldn't say no.",
       "layout": [
         {
@@ -326,7 +437,17 @@ const john_duran = {
                   "dimensions": { "width": 600, "height": 750 },
                   "triggerWordIndex": 0,
                   "endWordIndex": 8,
-                  "zIndex": 1
+                  "zIndex": 1,
+                  "enterEffect": {
+                    "type": "spring",
+                    "triggerWordIndex": 0,
+                    "endWordIndex": 2
+                  },
+                  "exitEffect": {
+                    "type": "pixelate",
+                    "triggerWordIndex": 7,
+                    "endWordIndex": 8
+                  }
                 },
                 {
                   "type": "Image",
@@ -334,7 +455,17 @@ const john_duran = {
                   "dimensions": { "width": 800, "height": 850 },
                   "triggerWordIndex": 9,
                   "endWordIndex": -1,
-                  "zIndex": 2
+                  "zIndex": 2,
+                  "enterEffect": {
+                    "type": "scaleMoveBlur",
+                    "triggerWordIndex": 9,
+                    "endWordIndex": 12
+                  },
+                  "mediaEffect": {
+                    "type": "retro70s",
+                    "triggerWordIndex": 13,
+                    "endWordIndex": -1
+                  }
                 }
               ]
             },
@@ -357,7 +488,8 @@ const john_duran = {
       ]
     },
     {
-      "id": "scene_006",
+      "id": "a7c9e1f3-6b8d-0a2c-4e5f-7d9b1c3e5a6f",
+      "order": 5,
       "text": "Yet, just 6 months following his Al-Nassr move, Duran already wants out and has found an interesting new destination in Mourinho's Fenerbahçe on loan.",
       "layout": [
         {
@@ -381,7 +513,17 @@ const john_duran = {
                   "dimensions": { "width": 550, "height": 700 },
                   "triggerWordIndex": 0,
                   "endWordIndex": 10,
-                  "zIndex": 1
+                  "zIndex": 1,
+                  "enterEffect": {
+                    "type": "spring",
+                    "triggerWordIndex": 0,
+                    "endWordIndex": 2
+                  },
+                  "mediaEffect": {
+                    "type": "glitch",
+                    "triggerWordIndex": 8,
+                    "endWordIndex": 10
+                  }
                 },
                 {
                   "type": "Image",
@@ -389,7 +531,17 @@ const john_duran = {
                   "dimensions": { "width": 500, "height": 700 },
                   "triggerWordIndex": 11,
                   "endWordIndex": 18,
-                  "zIndex": 2
+                  "zIndex": 2,
+                  "enterEffect": {
+                    "type": "perspectiveSingle",
+                    "triggerWordIndex": 11,
+                    "endWordIndex": 13
+                  },
+                  "exitEffect": {
+                    "type": "scaleMoveBlur",
+                    "triggerWordIndex": 17,
+                    "endWordIndex": 18
+                  }
                 },
                 {
                   "type": "Image",
@@ -397,7 +549,12 @@ const john_duran = {
                   "dimensions": { "width": 850, "height": 900 },
                   "triggerWordIndex": 19,
                   "endWordIndex": -1,
-                  "zIndex": 3
+                  "zIndex": 3,
+                  "enterEffect": {
+                    "type": "fastZoom",
+                    "triggerWordIndex": 19,
+                    "endWordIndex": 21
+                  }
                 }
               ]
             },
@@ -420,7 +577,8 @@ const john_duran = {
       ]
     },
     {
-      "id": "scene_007",
+      "id": "b8d0f2a4-7c9e-1b3d-5f6a-8e0c2d4b6a7c",
+      "order": 6,
       "text": "This deal is wild. Fenerbahçe is set to pay a sizable loan fee plus his full 20 mil annual salary, which is crazy considering this loan fee will be more expensive than their previous club record transfer of star striker Yusuf En-Nesyri for 19 mil.",
       "layout": [
         {
@@ -444,7 +602,17 @@ const john_duran = {
                   "dimensions": { "width": 500, "height": 150 },
                   "triggerWordIndex": 0,
                   "endWordIndex": 12,
-                  "zIndex": 1
+                  "zIndex": 1,
+                  "enterEffect": {
+                    "type": "glitch",
+                    "triggerWordIndex": 0,
+                    "endWordIndex": 3
+                  },
+                  "mediaEffect": {
+                    "type": "retro70s",
+                    "triggerWordIndex": 4,
+                    "endWordIndex": 12
+                  }
                 },
                 {
                   "type": "Image",
@@ -452,7 +620,17 @@ const john_duran = {
                   "dimensions": { "width": 500, "height": 650 },
                   "triggerWordIndex": 13,
                   "endWordIndex": 35,
-                  "zIndex": 2
+                  "zIndex": 2,
+                  "enterEffect": {
+                    "type": "spring",
+                    "triggerWordIndex": 13,
+                    "endWordIndex": 16
+                  },
+                  "exitEffect": {
+                    "type": "pixelate",
+                    "triggerWordIndex": 34,
+                    "endWordIndex": 35
+                  }
                 },
                 {
                   "type": "Text",
@@ -460,7 +638,12 @@ const john_duran = {
                   "dimensions": { "width": 500, "height": 150 },
                   "triggerWordIndex": 36,
                   "endWordIndex": -1,
-                  "zIndex": 3
+                  "zIndex": 3,
+                  "enterEffect": {
+                    "type": "glitch",
+                    "triggerWordIndex": 36,
+                    "endWordIndex": 38
+                  }
                 }
               ]
             },
@@ -483,7 +666,8 @@ const john_duran = {
       ]
     },
     {
-      "id": "scene_008",
+      "id": "c9e1a3b5-8d0f-2c4e-6a7b-9f1d3e5c7b8d",
+      "order": 7,
       "text": "Duran's latest chapter is emblematic of his entire career.",
       "layout": [
         {
@@ -498,7 +682,12 @@ const john_duran = {
                 "prompt": "Dramatic montage background with multiple faded jerseys: Chicago Fire, Aston Villa, Al-Nassr, Fenerbahçe.",
                 "triggerWordIndex": 0,
                 "endWordIndex": -1,
-                "zIndex": 0
+                "zIndex": 0,
+                "mediaEffect": {
+                  "type": "slitScan",
+                  "triggerWordIndex": 0,
+                  "endWordIndex": -1
+                }
               },
               "media": [
                 {
@@ -507,7 +696,17 @@ const john_duran = {
                   "dimensions": { "width": 900, "height": 900 },
                   "triggerWordIndex": 0,
                   "endWordIndex": -1,
-                  "zIndex": 1
+                  "zIndex": 1,
+                  "enterEffect": {
+                    "type": "perspectiveSingle",
+                    "triggerWordIndex": 0,
+                    "endWordIndex": 3
+                  },
+                  "mediaEffect": {
+                    "type": "retro70s",
+                    "triggerWordIndex": 4,
+                    "endWordIndex": -1
+                  }
                 }
               ]
             },
