@@ -1,18 +1,6 @@
 {
   "tracks": [
     {
-      "id": "track_1768153700367_df6tkh9yb",
-      "name": "Track 5",
-      "type": "Audio",
-      "clipIds": ["clip_1768153700367_37nsb4cg0"]
-    },
-    {
-      "id": "track_1768153684575_626t55tg2",
-      "name": "Track 5",
-      "type": "Audio",
-      "clipIds": ["clip_1768153684575_0rttxr51x"]
-    },
-    {
       "id": "track_1768149426931_g4xzg6jb5",
       "name": "Track 3",
       "type": "Effect",
