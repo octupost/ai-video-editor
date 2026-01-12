@@ -5,8 +5,9 @@ import { IconPhoto } from '@tabler/icons-react';
 import { Film, Trash2 } from 'lucide-react';
 import { useGeneratedStore, GeneratedAsset } from '@/stores/generated-store';
 import { useStudioStore } from '@/stores/studio-store';
-import { ImageClip, VideoClip, Log } from '@designcombo/video';
+import { Log } from '@designcombo/video';
 import { VisualsChatPanel } from '../visuals-chat-panel';
+import { addMediaToCanvas } from '@/lib/editor-utils';
 
 type FilterType = 'all' | 'images' | 'videos';
 
@@ -24,26 +25,11 @@ export function PanelVisuals() {
 
   const visuals = getFilteredVisuals();
 
-  const addItemToCanvas = async (asset: GeneratedAsset) => {
+  const handleAddToCanvas = async (asset: GeneratedAsset) => {
     if (!studio) return;
 
     try {
-      if (asset.type === 'image') {
-        const imageClip = await ImageClip.fromUrl(
-          asset.url + '?v=' + Date.now()
-        );
-        imageClip.display = { from: 0, to: 5 * 1e6 };
-        imageClip.duration = 5 * 1e6;
-
-        // Scale to fit and center in scene
-        await imageClip.scaleToFit(1080, 1920);
-        imageClip.centerInScene(1080, 1920);
-
-        await studio.addClip(imageClip);
-      } else {
-        const videoClip = await VideoClip.fromUrl(asset.url);
-        await studio.addClip(videoClip);
-      }
+      await addMediaToCanvas(studio, { url: asset.url, type: asset.type as 'image' | 'video' });
     } catch (error) {
       Log.error(`Failed to add ${asset.type}:`, error);
     }
@@ -87,7 +73,7 @@ export function PanelVisuals() {
                 <div
                   key={asset.id}
                   className="group relative aspect-square rounded-md overflow-hidden bg-secondary/50 cursor-pointer border border-transparent hover:border-primary/50 transition-all"
-                  onClick={() => addItemToCanvas(asset)}
+                  onClick={() => handleAddToCanvas(asset)}
                 >
                   {asset.type === 'image' ? (
                     <img

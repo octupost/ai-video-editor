@@ -3,21 +3,21 @@
 import { IconMicrophone } from '@tabler/icons-react';
 import { useGeneratedStore } from '@/stores/generated-store';
 import { useStudioStore } from '@/stores/studio-store';
-import { AudioClip, Log } from '@designcombo/video';
+import { Log } from '@designcombo/video';
 import { AudioItem } from './audio-item';
 import { useState } from 'react';
 import { VoiceoverChatPanel } from '../voiceover-chat-panel';
+import { addMediaToCanvas } from '@/lib/editor-utils';
 
 export default function PanelVoiceovers() {
   const { studio } = useStudioStore();
   const { voiceovers, deleteAsset } = useGeneratedStore();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
-  const handleAddAudio = async (url: string) => {
+  const handleAddToCanvas = async (url: string) => {
     if (!studio) return;
     try {
-      const audioClip = await AudioClip.fromUrl(url);
-      await studio.addClip(audioClip, url);
+      await addMediaToCanvas(studio, { url, type: 'audio' });
     } catch (error) {
       Log.error('Failed to add audio:', error);
     }
@@ -47,7 +47,7 @@ export default function PanelVoiceovers() {
                 <AudioItem
                   key={item.id}
                   item={item}
-                  onAdd={handleAddAudio}
+                  onAdd={handleAddToCanvas}
                   onDelete={() => deleteAsset(item.id, 'voiceover')}
                   playingId={playingId}
                   setPlayingId={setPlayingId}

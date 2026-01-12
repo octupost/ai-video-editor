@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
-import { ImageClip, VideoClip, Log } from '@designcombo/video';
+import { Log } from '@designcombo/video';
 import {
   Upload,
   Search,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { uploadFile } from '@/lib/upload-utils';
 import { useProjectId } from '@/contexts/project-context';
+import { addMediaToCanvas } from '@/lib/editor-utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +31,7 @@ import {
 interface VisualAsset {
   id: string;
   type: 'image' | 'video';
-  src: string;
+  url: string;
   name: string;
   preview?: string;
   width?: number;
@@ -96,7 +97,7 @@ export function PanelUploads() {
         }) => ({
           id: asset.id,
           type: asset.name.match(/\.(mp4|webm|mov|avi)$/i) ? 'video' : 'image',
-          src: asset.url,
+          url: asset.url,
           name: asset.name,
           size: asset.size,
         }));
@@ -143,7 +144,7 @@ export function PanelUploads() {
       const newAsset: VisualAsset = {
         id: asset.id,
         type,
-        src: result.url,
+        url: result.url,
         name: result.fileName,
         size: file.size,
       };
@@ -160,27 +161,11 @@ export function PanelUploads() {
     }
   };
 
-  const addItemToCanvas = async (asset: VisualAsset) => {
+  const handleAddToCanvas = async (asset: VisualAsset) => {
     if (!studio) return;
 
     try {
-      if (asset.type === 'image') {
-        const imageClip = await ImageClip.fromUrl(
-          asset.src + '?v=' + Date.now()
-        );
-        imageClip.display = { from: 0, to: 5 * 1e6 };
-        imageClip.duration = 5 * 1e6;
-
-        // Scale to fit and center in scene (1280x720)
-        await imageClip.scaleToFit(1080, 1920);
-        imageClip.centerInScene(1080, 1920);
-
-        await studio.addClip(imageClip);
-      } else {
-        const videoClip = await VideoClip.fromUrl(asset.src);
-        // VideoClip defaults usually handle duration automatically or via metadata
-        await studio.addClip(videoClip);
-      }
+      await addMediaToCanvas(studio, { url: asset.url, type: asset.type });
     } catch (error) {
       Log.error(`Failed to add ${asset.type}:`, error);
     }
@@ -292,18 +277,18 @@ export function PanelUploads() {
               <div
                 key={asset.id}
                 className="group relative aspect-square rounded-md overflow-hidden bg-secondary/50 cursor-pointer border border-transparent hover:border-primary/50 transition-all"
-                onClick={() => addItemToCanvas(asset)}
+                onClick={() => handleAddToCanvas(asset)}
               >
                 {asset.type === 'image' ? (
                   <img
-                    src={asset.src}
+                    src={asset.url}
                     alt={asset.name}
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-black/20">
                     <video
-                      src={asset.src}
+                      src={asset.url}
                       className="w-full h-full object-cover pointer-events-none"
                     />
                     <Film
