@@ -18,6 +18,7 @@ import { IClip } from '@designcombo/video';
 import { useEffect, useState } from 'react';
 import { useStudioStore } from '@/stores/studio-store';
 import { useGeneratedStore } from '@/stores/generated-store';
+import { useProjectId } from '@/contexts/project-context';
 
 const viewMap: Record<Tab, React.ReactNode> = {
   uploads: <PanelUploads />,
@@ -37,11 +38,14 @@ export function MediaPanel() {
   const [selectedClips, setSelectedClips] = useState<IClip[]>([]);
   const { studio, setSelectedClips: setStudioSelectedClips } = useStudioStore();
   const { fetchAssets } = useGeneratedStore();
+  const projectId = useProjectId();
 
   // NEW: Fetch generated assets from Supabase on mount
   useEffect(() => {
-    fetchAssets();
-  }, [fetchAssets]);
+    if (projectId) {
+      fetchAssets(projectId);
+    }
+  }, [fetchAssets, projectId]);
 
   useEffect(() => {
     if (!studio) return;

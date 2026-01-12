@@ -14,6 +14,7 @@ import {
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { useGeneratedStore } from '@/stores/generated-store';
+import { useProjectId } from '@/contexts/project-context';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,6 +37,7 @@ export const VisualsChatPanel = () => {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16');
   const [loading, setLoading] = useState(false);
   const { addAsset } = useGeneratedStore();
+  const projectId = useProjectId();
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -47,7 +49,7 @@ export const VisualsChatPanel = () => {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, aspectRatio }),
+        body: JSON.stringify({ prompt, aspectRatio, project_id: projectId }),
       });
 
       if (!response.ok) {

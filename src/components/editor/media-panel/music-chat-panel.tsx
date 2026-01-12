@@ -4,6 +4,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { IconLoader2, IconClock, IconCheck } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { useGeneratedStore } from '@/stores/generated-store';
+import { useProjectId } from '@/contexts/project-context';
 import {
   Popover,
   PopoverContent,
@@ -18,6 +19,7 @@ export const MusicChatPanel = () => {
   const [loading, setLoading] = useState(false);
   const [duration, setDuration] = useState(30);
   const { addAsset } = useGeneratedStore();
+  const projectId = useProjectId();
 
   const handleGenerate = async () => {
     if (!text.trim()) return;
@@ -27,7 +29,7 @@ export const MusicChatPanel = () => {
       const response = await fetch('/api/elevenlabs/music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, duration }),
+        body: JSON.stringify({ text, duration, project_id: projectId }),
       });
 
       if (!response.ok) {

@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
-// GET - Fetch user's assets (with optional type filter)
-export async function GET(req: NextRequest) {
+// GET - Fetch user's projects
+export async function GET() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -14,39 +14,23 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(req.url);
-    const type = searchParams.get('type');
-    const projectId = searchParams.get('project_id');
-
-    let query = supabase
-      .from('assets')
+    const { data: projects, error } = await supabase
+      .from('projects')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    // Filter by project_id if provided
-    if (projectId) {
-      query = query.eq('project_id', projectId);
-    }
-
-    // Filter by type if provided
-    if (type) {
-      query = query.eq('type', type);
-    }
-
-    const { data: assets, error } = await query;
-
     if (error) {
       console.error('Database error:', error);
       return NextResponse.json(
-        { error: 'Failed to fetch assets' },
+        { error: 'Failed to fetch projects' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ assets });
+    return NextResponse.json({ projects });
   } catch (error) {
-    console.error('Fetch assets error:', error);
+    console.error('Fetch projects error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -54,7 +38,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST - Create a new asset (for uploads)
+// POST - Create a new project
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -68,24 +52,20 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { type, url, name, size, project_id } = body;
+    const { name } = body;
 
-    if (!type || !url || !name || !project_id) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json(
-        { error: 'type, url, name, and project_id are required' },
+        { error: 'Project name is required' },
         { status: 400 }
       );
     }
 
-    const { data: asset, error } = await supabase
-      .from('assets')
+    const { data: project, error } = await supabase
+      .from('projects')
       .insert({
         user_id: user.id,
-        project_id,
-        type,
-        url,
-        name,
-        size: size || null,
+        name: name.trim(),
       })
       .select()
       .single();
@@ -93,14 +73,14 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('Database error:', error);
       return NextResponse.json(
-        { error: 'Failed to create asset' },
+        { error: 'Failed to create project' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ asset });
+    return NextResponse.json({ project });
   } catch (error) {
-    console.error('Create asset error:', error);
+    console.error('Create project error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -108,7 +88,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE - Remove asset by ID
+// DELETE - Remove project by ID (assets cascade delete via FK)
 export async function DELETE(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -126,28 +106,28 @@ export async function DELETE(req: NextRequest) {
 
     if (!id) {
       return NextResponse.json(
-        { error: 'Asset ID is required' },
+        { error: 'Project ID is required' },
         { status: 400 }
       );
     }
 
     const { error } = await supabase
-      .from('assets')
+      .from('projects')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id); // Ensure user can only delete their own assets
+      .eq('user_id', user.id); // Ensure user can only delete their own projects
 
     if (error) {
       console.error('Database error:', error);
       return NextResponse.json(
-        { error: 'Failed to delete asset' },
+        { error: 'Failed to delete project' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Delete asset error:', error);
+    console.error('Delete project error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

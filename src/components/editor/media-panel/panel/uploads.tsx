@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { uploadFile } from '@/lib/upload-utils';
+import { useProjectId } from '@/contexts/project-context';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ interface VisualAsset {
 
 export function PanelUploads() {
   const { studio } = useStudioStore();
+  const projectId = useProjectId();
   const [activeTab, setActiveTab] = useState<
     'all' | 'images' | 'videos' | 'uploads'
   >('all');
@@ -75,9 +77,11 @@ export function PanelUploads() {
 
   // NEW: Load uploads from Supabase on mount
   useEffect(() => {
+    if (!projectId) return;
+
     const fetchUploads = async () => {
       try {
-        const response = await fetch('/api/assets?type=upload');
+        const response = await fetch(`/api/assets?type=upload&project_id=${projectId}`);
         if (!response.ok) {
           throw new Error('Failed to fetch uploads');
         }
@@ -106,7 +110,7 @@ export function PanelUploads() {
     };
 
     fetchUploads();
-  }, []);
+  }, [projectId]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -126,6 +130,7 @@ export function PanelUploads() {
           url: result.url,
           name: result.fileName,
           size: file.size,
+          project_id: projectId,
         }),
       });
 

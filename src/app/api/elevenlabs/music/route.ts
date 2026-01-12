@@ -15,11 +15,11 @@ const r2 = new R2StorageService({
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, duration } = await req.json();
+    const { text, duration, project_id } = await req.json();
 
-    if (!text) {
+    if (!text || !project_id) {
       return NextResponse.json(
-        { error: 'Text/Description is required' },
+        { error: 'Text/Description and project_id are required' },
         { status: 400 }
       );
     }
@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
       .from('assets')
       .insert({
         user_id: user.id,
+        project_id,
         type: 'music',
         url: publicUrl,
         name: text.substring(0, 100),

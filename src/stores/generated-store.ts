@@ -29,15 +29,18 @@ interface GeneratedState {
   // Loading state for fetching from Supabase
   isLoading: boolean;
   hasFetched: boolean;
+  currentProjectId: string | null;
 
   addAsset: (asset: GeneratedAsset) => void;
   removeAsset: (id: string, type: GeneratedAsset['type']) => void;
   setGenerating: (type: GeneratedAsset['type'], isGenerating: boolean) => void;
 
   // NEW: Supabase integration
-  fetchAssets: () => Promise<void>;
+  fetchAssets: (projectId: string) => Promise<void>;
   deleteAsset: (id: string, type: GeneratedAsset['type']) => Promise<void>;
   setAssets: (assets: GeneratedAsset[]) => void;
+  setCurrentProject: (projectId: string) => void;
+  resetForProject: (projectId: string) => void;
 }
 
 const getArrayKey = (type: GeneratedAsset['type']) => {
@@ -121,6 +124,7 @@ export const useGeneratedStore = create<GeneratedState>()((set, get) => ({
   },
   isLoading: false,
   hasFetched: false,
+  currentProjectId: null,
 
   addAsset: (asset) =>
     set((state) => {
@@ -142,13 +146,15 @@ export const useGeneratedStore = create<GeneratedState>()((set, get) => ({
       },
     })),
 
-  // NEW: Fetch all assets from Supabase
-  fetchAssets: async () => {
-    if (get().hasFetched) return; // Don't fetch if already fetched
+  // NEW: Fetch all assets from Supabase for a project
+  fetchAssets: async (projectId: string) => {
+    const state = get();
+    // Don't fetch if already fetched for this project
+    if (state.hasFetched && state.currentProjectId === projectId) return;
 
-    set({ isLoading: true });
+    set({ isLoading: true, currentProjectId: projectId });
     try {
-      const response = await fetch('/api/assets');
+      const response = await fetch(`/api/assets?project_id=${projectId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch assets');
       }
@@ -248,5 +254,23 @@ export const useGeneratedStore = create<GeneratedState>()((set, get) => ({
     }
 
     set({ voiceovers, sfx, music, images, videos });
+  },
+
+  // Set current project without fetching
+  setCurrentProject: (projectId: string) => {
+    set({ currentProjectId: projectId });
+  },
+
+  // Reset store for a new project
+  resetForProject: (projectId: string) => {
+    set({
+      voiceovers: [],
+      sfx: [],
+      music: [],
+      images: [],
+      videos: [],
+      hasFetched: false,
+      currentProjectId: projectId,
+    });
   },
 }));

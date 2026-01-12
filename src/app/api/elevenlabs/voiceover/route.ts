@@ -12,10 +12,10 @@ const r2 = new R2StorageService({
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, voiceId = '21m00Tcm4TlvDq8ikWAM' } = await req.json();
+    const { text, voiceId = '21m00Tcm4TlvDq8ikWAM', project_id } = await req.json();
 
-    if (!text) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    if (!text || !project_id) {
+      return NextResponse.json({ error: 'Text and project_id are required' }, { status: 400 });
     }
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       .from('assets')
       .insert({
         user_id: user.id,
+        project_id,
         type: 'voiceover',
         url: publicUrl,
         name: text.substring(0, 100),

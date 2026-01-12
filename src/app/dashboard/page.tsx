@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { DashboardContent } from '@/components/dashboard/dashboard-content';
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -41,25 +41,8 @@ export default async function Dashboard() {
       </header>
 
       {/* Main content */}
-      <main className="relative z-10 flex-1 flex items-center justify-center">
-        <div className="text-center space-y-8 px-4">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-              Ready to create?
-            </h1>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Jump into the editor and start building your next masterpiece with
-              AI assistance.
-            </p>
-          </div>
-
-          <Link href="/editor" target="_blank">
-            <Button size="lg" className="h-12 px-8 text-base gap-2 group">
-              Open Editor
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Button>
-          </Link>
-        </div>
+      <main className="relative z-10 flex-1 flex items-center justify-center px-6 py-8">
+        <DashboardContent />
       </main>
 
       {/* Footer */}

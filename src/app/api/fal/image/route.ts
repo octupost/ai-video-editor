@@ -26,11 +26,11 @@ const DEFAULTS = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { prompt, aspectRatio } = await req.json();
+    const { prompt, aspectRatio, project_id } = await req.json();
 
-    if (!prompt) {
+    if (!prompt || !project_id) {
       return NextResponse.json(
-        { error: "Prompt is required" },
+        { error: "Prompt and project_id are required" },
         { status: 400 }
       );
     }
@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
       .from("assets")
       .insert({
         user_id: user.id,
+        project_id,
         type: "image",
         url: imageUrl,
         name: prompt.substring(0, 100),
