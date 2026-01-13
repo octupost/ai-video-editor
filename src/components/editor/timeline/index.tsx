@@ -8,6 +8,7 @@ import { usePlaybackStore } from '@/stores/playback-store';
 import { useTimelineZoom } from '@/hooks/use-timeline-zoom';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import {
   TimelinePlayhead,
   useTimelinePlayheadRuler,
@@ -33,6 +34,7 @@ export function Timeline() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
   const [isInTimeline, setIsInTimeline] = useState(false);
+  const { confirm } = useDeleteConfirmation();
 
   // Track mouse down/up for distinguishing clicks from drag/resize ends
   const mouseTrackingRef = useRef({
@@ -350,9 +352,16 @@ export function Timeline() {
     }
   }, [zoomLevel, tracks, clips]);
 
-  const handleDelete = useCallback(() => {
-    timelineCanvasRef.current?.deleteSelectedClips();
-  }, []);
+  const handleDelete = useCallback(async () => {
+    const confirmed = await confirm({
+      title: 'Delete Element',
+      description: 'Are you sure you want to delete the selected element(s)? This action cannot be undone.',
+    });
+
+    if (confirmed) {
+      timelineCanvasRef.current?.deleteSelectedClips();
+    }
+  }, [confirm]);
 
   const handleDuplicate = useCallback(() => {
     timelineCanvasRef.current?.duplicateSelectedClips();

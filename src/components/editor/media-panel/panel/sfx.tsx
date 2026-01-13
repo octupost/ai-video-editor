@@ -3,6 +3,7 @@
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
 import { useAssetStore } from '@/stores/asset-store';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { IconWaveSine } from '@tabler/icons-react';
 import { useState } from 'react';
 import { AudioItem } from './audio-item';
@@ -12,6 +13,7 @@ import { addMediaToCanvas } from '@/lib/editor-utils';
 export default function PanelSFX() {
   const { studio } = useStudioStore();
   const { sfx, deleteAsset } = useAssetStore();
+  const { confirm } = useDeleteConfirmation();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const handleAddToCanvas = async (url: string) => {
@@ -25,10 +27,17 @@ export default function PanelSFX() {
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteAsset(id, 'sfx');
-    } catch (error) {
-      console.error('Failed to delete sfx:', error);
+    const confirmed = await confirm({
+      title: 'Delete Sound Effect',
+      description: 'Are you sure you want to delete this sound effect? This action cannot be undone.',
+    });
+
+    if (confirmed) {
+      try {
+        await deleteAsset(id, 'sfx');
+      } catch (error) {
+        console.error('Failed to delete sfx:', error);
+      }
     }
   };
 

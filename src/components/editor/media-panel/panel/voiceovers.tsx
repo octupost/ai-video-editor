@@ -2,6 +2,7 @@
 
 import { IconMicrophone } from '@tabler/icons-react';
 import { useAssetStore } from '@/stores/asset-store';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
 import { AudioItem } from './audio-item';
@@ -12,6 +13,7 @@ import { addMediaToCanvas } from '@/lib/editor-utils';
 export default function PanelVoiceovers() {
   const { studio } = useStudioStore();
   const { voiceovers, deleteAsset } = useAssetStore();
+  const { confirm } = useDeleteConfirmation();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const handleAddToCanvas = async (url: string) => {
@@ -24,10 +26,17 @@ export default function PanelVoiceovers() {
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteAsset(id, 'voiceover');
-    } catch (error) {
-      console.error('Failed to delete voiceover:', error);
+    const confirmed = await confirm({
+      title: 'Delete Voiceover',
+      description: 'Are you sure you want to delete this voiceover? This action cannot be undone.',
+    });
+
+    if (confirmed) {
+      try {
+        await deleteAsset(id, 'voiceover');
+      } catch (error) {
+        console.error('Failed to delete voiceover:', error);
+      }
     }
   };
 

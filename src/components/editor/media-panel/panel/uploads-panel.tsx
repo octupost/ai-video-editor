@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { useStudioStore } from '@/stores/studio-store';
 import { useAssetStore } from '@/stores/asset-store';
 import { Asset } from '@/types/media';
@@ -36,7 +37,8 @@ export function PanelUploads() {
   const { studio } = useStudioStore();
   const projectId = useProjectId();
   const { uploads, addAsset, deleteAsset } = useAssetStore();
-  
+  const { confirm } = useDeleteConfirmation();
+
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -106,10 +108,17 @@ export function PanelUploads() {
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteAsset(id, 'upload');
-    } catch (error) {
-      console.error('Failed to delete upload:', error);
+    const confirmed = await confirm({
+      title: 'Delete Upload',
+      description: 'Are you sure you want to delete this upload? This action cannot be undone.',
+    });
+
+    if (confirmed) {
+      try {
+        await deleteAsset(id, 'upload');
+      } catch (error) {
+        console.error('Failed to delete upload:', error);
+      }
     }
   };
 

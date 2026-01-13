@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { IconPhoto } from '@tabler/icons-react';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { Film, Trash2 } from 'lucide-react';
 import { useAssetStore } from '@/stores/asset-store';
 import { Asset } from '@/types/media';
@@ -15,6 +16,7 @@ type FilterType = 'all' | 'images' | 'videos';
 export function PanelVisuals() {
   const { studio } = useStudioStore();
   const { images, videos, deleteAsset } = useAssetStore();
+  const { confirm } = useDeleteConfirmation();
   const [filter, setFilter] = useState<FilterType>('all');
 
   // Get filtered visuals based on selection
@@ -37,10 +39,17 @@ export function PanelVisuals() {
   };
 
   const handleDelete = async (asset: Asset) => {
-    try {
-      await deleteAsset(asset.id, asset.type);
-    } catch (error) {
-      console.error('Failed to delete asset:', error);
+    const confirmed = await confirm({
+      title: 'Delete Visual',
+      description: 'Are you sure you want to delete this visual? This action cannot be undone.',
+    });
+
+    if (confirmed) {
+      try {
+        await deleteAsset(asset.id, asset.type);
+      } catch (error) {
+        console.error('Failed to delete asset:', error);
+      }
     }
   };
 

@@ -40,20 +40,28 @@ export default function Header() {
     }
   };
 
-  const handleNew = () => {
+  const handleNew = async () => {
     if (!studio) return;
     const confirmed = window.confirm(
-      'Are you sure you want to start a new project? Unsaved changes will be lost.'
+      'Are you sure you want to start a new project? Current project will be saved first.'
     );
     if (confirmed) {
-      studio.clear();
+      try {
+        await saveTimeline(projectId, studio.tracks, studio.clips);
+        studio.clear();
+      } catch (error) {
+        Log.error('Save before new error:', error);
+      }
     }
   };
 
-  const handleExportJSON = () => {
+  const handleExportJSON = async () => {
     if (!studio) return;
 
     try {
+      // Save first
+      await saveTimeline(projectId, studio.tracks, studio.clips);
+
       // Get all clips from studio
       const clips = (studio as any).clips as IClip[];
       if (clips.length === 0) {
@@ -142,6 +150,16 @@ export default function Header() {
     input.click();
   };
 
+  const handleDownload = async () => {
+    if (!studio) return;
+    try {
+      await saveTimeline(projectId, studio.tracks, studio.clips);
+    } catch (error) {
+      Log.error('Save before download error:', error);
+    }
+    setIsExportModalOpen(true);
+  };
+
   return (
     <header className="relative flex h-14 w-full shrink-0 items-center justify-between border-b bg-background px-4">
       {/* Left Section */}
@@ -193,7 +211,7 @@ export default function Header() {
         <Button
           size="sm"
           className="gap-2 rounded-full"
-          onClick={() => setIsExportModalOpen(true)}
+          onClick={handleDownload}
         >
           Download
         </Button>

@@ -20,7 +20,7 @@ export type Tab =
   | 'text'
   | 'captions'
   | 'effects'
-  | 'elements'
+  // | 'elements'
   | 'voiceovers'
   | 'sfx'
   | 'transitions';
@@ -40,10 +40,10 @@ export const tabs: {
     icon: IconLetterT,
     label: 'Text',
   },
-  elements: {
-    icon: IconCircleSquare,
-    label: 'Elements',
-  },
+  // elements: {
+  //   icon: IconCircleSquare,
+  //   label: 'Elements',
+  // },
   captions: {
     icon: IconSubtitles,
     label: 'Captions',

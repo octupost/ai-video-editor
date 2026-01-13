@@ -3,6 +3,7 @@
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
 import { useAssetStore } from '@/stores/asset-store';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { IconMusic } from '@tabler/icons-react';
 import { AudioItem } from './audio-item';
 import { useState } from 'react';
@@ -12,6 +13,7 @@ import { addMediaToCanvas } from '@/lib/editor-utils';
 export default function PanelMusic() {
   const { studio } = useStudioStore();
   const { music, deleteAsset } = useAssetStore();
+  const { confirm } = useDeleteConfirmation();
   const [playingId, setPlayingId] = useState<string | null>(null);
 
   const handleAddToCanvas = async (url: string) => {
@@ -25,10 +27,17 @@ export default function PanelMusic() {
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteAsset(id, 'music');
-    } catch (error) {
-      console.error('Failed to delete music:', error);
+    const confirmed = await confirm({
+      title: 'Delete Music',
+      description: 'Are you sure you want to delete this music track? This action cannot be undone.',
+    });
+
+    if (confirmed) {
+      try {
+        await deleteAsset(id, 'music');
+      } catch (error) {
+        console.error('Failed to delete music:', error);
+      }
     }
   };
 
