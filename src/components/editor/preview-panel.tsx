@@ -8,6 +8,8 @@ import {
 } from '@designcombo/video';
 import { useStudioStore } from '@/stores/studio-store';
 import { editorFont } from './constants';
+import { loadTimeline, reconstructProjectJSON } from '@/lib/supabase/timeline-service';
+import { useProjectId } from '@/contexts/project-context';
 const defaultSize = {
   width: 1080,
   height: 1920,
@@ -25,6 +27,7 @@ export function PreviewPanel({ onReady }: PreviewPanelProps) {
   const [isSeeking, setIsSeeking] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [clips, setClips] = useState<IClip[]>([]);
+  const projectId = useProjectId();
 
   // Initialize Studio
   useEffect(() => {
@@ -58,8 +61,22 @@ export function PreviewPanel({ onReady }: PreviewPanelProps) {
         previewRef.current?.ready,
       ]);
 
-      const initalData = await import('./timeline/timeline/updated.json');
-      await previewRef.current?.loadFromJSON(initalData as any);
+      // Try to load from Supabase first
+      const savedData = await loadTimeline(projectId);
+      if (savedData && savedData.length > 0) {
+        console.log('Loading from Supabase...');
+        const projectJson = reconstructProjectJSON(savedData);
+
+        // DEBUG: Log the reconstructed JSON to verify structure
+        console.log('Reconstructed JSON from Supabase:', JSON.stringify(projectJson, null, 2));
+
+        await previewRef.current?.loadFromJSON(projectJson as any);
+      } else {
+        // Fallback to default JSON
+        console.log('No saved data, loading default...');
+        const initalData = await import('./timeline/timeline/updated.json');
+        await previewRef.current?.loadFromJSON(initalData as any);
+      }
 
       console.log('Studio ready');
       onReady?.();

@@ -5,6 +5,7 @@ import {
   IconDots,
   IconPlus,
   IconUpload,
+  IconDeviceFloppy,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,10 +17,28 @@ import {
 import { useStudioStore } from '@/stores/studio-store';
 import { Log, type IClip } from '@designcombo/video';
 import { ExportModal } from './export-modal';
+import { saveTimeline } from '@/lib/supabase/timeline-service';
+import { useProjectId } from '@/contexts/project-context';
 
 export default function Header() {
   const { studio } = useStudioStore();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const projectId = useProjectId();
+
+  const handleSave = async () => {
+    if (!studio) return;
+    setIsSaving(true);
+    try {
+      await saveTimeline(projectId, studio.tracks, studio.clips);
+      alert('Saved to cloud!');
+    } catch (error) {
+      Log.error('Save error:', error);
+      alert('Save failed: ' + (error as Error).message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleNew = () => {
     if (!studio) return;
@@ -146,6 +165,10 @@ export default function Header() {
               <IconDownload className="mr-2 size-4" />
               Export
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSave} disabled={isSaving}>
+              <IconDeviceFloppy className="mr-2 size-4" />
+              {isSaving ? 'Saving...' : 'Save'}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -157,6 +180,16 @@ export default function Header() {
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          <IconDeviceFloppy className="size-4" />
+          {isSaving ? 'Saving...' : 'Save'}
+        </Button>
         <Button
           size="sm"
           className="gap-2 rounded-full"
