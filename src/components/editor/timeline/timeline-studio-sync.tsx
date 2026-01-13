@@ -95,11 +95,13 @@ export const TimelineStudioSync = ({
 
       useTimelineStore.setState((state) => {
         const { [clipId]: removed, ...restClips } = state.clips;
-        // Remove from tracks
-        const updatedTracks = state._tracks.map((t) => ({
-          ...t,
-          clipIds: t.clipIds.filter((id) => id !== clipId),
-        }));
+        // Remove from tracks and filter out empty tracks
+        const updatedTracks = state._tracks
+          .map((t) => ({
+            ...t,
+            clipIds: t.clipIds.filter((id) => id !== clipId),
+          }))
+          .filter((t) => t.clipIds.length > 0);
         return {
           ...state,
           clips: restClips,

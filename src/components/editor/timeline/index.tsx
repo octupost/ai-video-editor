@@ -8,7 +8,6 @@ import { usePlaybackStore } from '@/stores/playback-store';
 import { useTimelineZoom } from '@/hooks/use-timeline-zoom';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import {
   TimelinePlayhead,
   useTimelinePlayheadRuler,
@@ -34,7 +33,6 @@ export function Timeline() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
   const [isInTimeline, setIsInTimeline] = useState(false);
-  const { confirm } = useDeleteConfirmation();
 
   // Track mouse down/up for distinguishing clicks from drag/resize ends
   const mouseTrackingRef = useRef({
@@ -352,16 +350,9 @@ export function Timeline() {
     }
   }, [zoomLevel, tracks, clips]);
 
-  const handleDelete = useCallback(async () => {
-    const confirmed = await confirm({
-      title: 'Delete Element',
-      description: 'Are you sure you want to delete the selected element(s)? This action cannot be undone.',
-    });
-
-    if (confirmed) {
-      timelineCanvasRef.current?.deleteSelectedClips();
-    }
-  }, [confirm]);
+  const handleDelete = useCallback(() => {
+    timelineCanvasRef.current?.deleteSelectedClips();
+  }, []);
 
   const handleDuplicate = useCallback(() => {
     timelineCanvasRef.current?.duplicateSelectedClips();
@@ -492,7 +483,10 @@ export function Timeline() {
 
                       <div
                         className="flex items-center px-3 group bg-zinc-800"
-                        style={{ height: getTrackHeight(track.type as any) }}
+                        style={{
+                          height: getTrackHeight(track.type as any),
+                          borderLeft: `3px solid ${TRACK_ACCENT_COLORS[track.type] || '#38396F'}`,
+                        }}
                       >
                         <div className="flex items-center justify-center flex-1 min-w-0">
                           <TrackIcon track={track} />
@@ -524,27 +518,32 @@ export function Timeline() {
   );
 }
 
+// Track accent colors matching clip colors
+const TRACK_ACCENT_COLORS: Record<string, string> = {
+  Audio: '#1e3a8a',
+  Image: '#164e63',
+  Video: '#38396F',
+  Text: '#166534',
+  Caption: '#166534',
+  Effect: '#511D34',
+  Transition: '#EC4899',
+};
+
 function TrackIcon({ track }: { track: TimelineTrack }) {
+  // Use smaller icons for 32px height tracks (Text, Caption)
+  const isSmallTrack = track.type === 'Text' || track.type === 'Caption';
+  const iconClass = isSmallTrack
+    ? 'w-3 h-3 shrink-0 text-muted-foreground'
+    : 'w-4 h-4 shrink-0 text-muted-foreground';
+
   return (
     <>
-      {track.type === 'Image' && (
-        <Image className="w-4 h-4 shrink-0 text-muted-foreground" />
-      )}
-      {track.type === 'Video' && (
-        <Video className="w-4 h-4 shrink-0 text-muted-foreground" />
-      )}
-      {track.type === 'Text' && (
-        <TypeIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
-      )}
-      {track.type === 'Caption' && (
-        <TypeIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
-      )}
-      {track.type === 'Audio' && (
-        <Music className="w-4 h-4 shrink-0 text-muted-foreground" />
-      )}
-      {track.type === 'Effect' && (
-        <SparklesIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
-      )}
+      {track.type === 'Image' && <Image className={iconClass} />}
+      {track.type === 'Video' && <Video className={iconClass} />}
+      {track.type === 'Text' && <TypeIcon className={iconClass} />}
+      {track.type === 'Caption' && <TypeIcon className={iconClass} />}
+      {track.type === 'Audio' && <Music className={iconClass} />}
+      {track.type === 'Effect' && <SparklesIcon className={iconClass} />}
     </>
   );
 }

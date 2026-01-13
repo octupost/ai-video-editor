@@ -1,11 +1,23 @@
 import { create } from 'zustand';
 import { Asset, AssetType } from '@/types/media';
+import { useTimelineStore } from '@/stores/timeline-store';
+import { useStudioStore } from '@/stores/studio-store';
 
 // Re-export Asset type for convenience
 export type { Asset, AssetType };
 
 // Generation types (excludes 'upload' which is user-uploaded)
 type GenerationType = Exclude<AssetType, 'upload'>;
+
+// Helper to get base URL without query parameters
+const getBaseUrl = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin + parsed.pathname;
+  } catch {
+    return url;
+  }
+};
 
 // Helper to get the array key for a given asset type
 const getArrayKey = (type: AssetType): keyof Pick<AssetState, 'voiceovers' | 'sfx' | 'music' | 'images' | 'videos' | 'uploads'> => {
@@ -166,9 +178,15 @@ export const useAssetStore = create<AssetState>()((set, get) => ({
     }
   },
 
-  // Delete asset from Supabase
+  // Delete asset from Supabase and remove from timeline
   deleteAsset: async (id, type) => {
     try {
+      // Get asset URL before deleting
+      const key = getArrayKey(type);
+      const asset = get()[key].find((a) => a.id === id);
+      const assetUrl = asset?.url;
+
+      // 1. Delete from Supabase
       const response = await fetch(`/api/assets?id=${id}`, {
         method: 'DELETE',
       });
@@ -177,11 +195,28 @@ export const useAssetStore = create<AssetState>()((set, get) => ({
         throw new Error('Failed to delete asset');
       }
 
-      // Remove from local state
-      const key = getArrayKey(type);
+      // 2. Remove from local asset state
       set((state) => ({
         [key]: state[key].filter((a) => a.id !== id),
       }));
+
+      // 3. Remove clips using this asset from timeline
+      if (assetUrl) {
+        const { clips } = useTimelineStore.getState();
+        const assetBaseUrl = getBaseUrl(assetUrl);
+        const clipIdsToRemove = Object.entries(clips)
+          .filter(([_, clip]) => clip.src && getBaseUrl(clip.src) === assetBaseUrl)
+          .map(([clipId]) => clipId);
+
+        if (clipIdsToRemove.length > 0) {
+          const { studio } = useStudioStore.getState();
+          if (studio) {
+            for (const clipId of clipIdsToRemove) {
+              await studio.removeClipById(clipId);
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Failed to delete asset:', error);
       throw error;
