@@ -1,4 +1,46 @@
 import { CanvasSize } from '@/types/editor';
+import { MediaType } from '@/types/media';
+import { Studio, ImageClip, VideoClip, AudioClip } from '@designcombo/video';
+
+// ============================================
+// Media Utilities
+// ============================================
+
+export interface MediaAsset {
+  url: string;
+  type: MediaType;
+}
+
+/**
+ * Add any media type (image, video, audio) to the studio canvas
+ * @param studio The studio instance
+ * @param asset The media asset with url and type
+ * @param sceneSize Optional scene dimensions for scaling images
+ */
+export async function addMediaToCanvas(
+  studio: Studio,
+  asset: MediaAsset,
+  sceneSize = { width: 1080, height: 1920 }
+): Promise<void> {
+  if (asset.type === 'image') {
+    const clip = await ImageClip.fromUrl(asset.url + '?v=' + Date.now());
+    clip.display = { from: 0, to: 5 * 1e6 };
+    clip.duration = 5 * 1e6;
+    await clip.scaleToFit(sceneSize.width, sceneSize.height);
+    clip.centerInScene(sceneSize.width, sceneSize.height);
+    await studio.addClip(clip);
+  } else if (asset.type === 'video') {
+    const clip = await VideoClip.fromUrl(asset.url);
+    await studio.addClip(clip);
+  } else if (asset.type === 'audio') {
+    const clip = await AudioClip.fromUrl(asset.url);
+    await studio.addClip(clip, asset.url);
+  }
+}
+
+// ============================================
+// Canvas Presets
+// ============================================
 
 const DEFAULT_CANVAS_PRESETS = [
   { name: '16:9', width: 1920, height: 1080 },

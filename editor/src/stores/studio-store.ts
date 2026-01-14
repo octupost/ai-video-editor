@@ -6,6 +6,8 @@ interface StudioState {
   setStudio: (studio: Studio | null) => void;
   selectedClips: IClip[];
   setSelectedClips: (clips: IClip[]) => void;
+  selectedTransitionKey: string | null;
+  setSelectedTransitionKey: (key: string | null) => void;
 }
 
 export const useStudioStore = create<StudioState>((set) => ({
@@ -13,4 +15,6 @@ export const useStudioStore = create<StudioState>((set) => ({
   setStudio: (studio) => set({ studio }),
   selectedClips: [],
   setSelectedClips: (clips) => set({ selectedClips: clips }),
+  selectedTransitionKey: null,
+  setSelectedTransitionKey: (key) => set({ selectedTransitionKey: key }),
 }));

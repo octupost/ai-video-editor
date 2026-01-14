@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { GL_TRANSITION_OPTIONS, TransitionClip } from '@designcombo/video';
+import { GL_TRANSITION_OPTIONS } from '@designcombo/video';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
 import { Loader2 } from 'lucide-react';
 
 const PanelTransition = () => {
-  const { studio, selectedClips } = useStudioStore();
-  const TRANSITION_DURATION_DEFAULT = 2_000_000;
+  const { selectedTransitionKey, setSelectedTransitionKey } = useStudioStore();
 
   const [loaded, setLoaded] = useState<
     Record<string, { static: boolean; dynamic: boolean }>
@@ -32,32 +31,19 @@ const PanelTransition = () => {
           {GL_TRANSITION_OPTIONS.map((effect) => {
             const isReady =
               loaded[effect.key]?.static && loaded[effect.key]?.dynamic;
+            const isSelected = selectedTransitionKey === effect.key;
 
             return (
               <div
                 key={effect.key}
                 className="flex w-full items-center gap-2 flex-col group cursor-pointer"
                 onClick={() => {
-                  if (!studio) return;
-
-                  studio.addTransition(effect.key, TRANSITION_DURATION_DEFAULT);
-
-                  // const clip = selectedClips[0];
-                  // if (clip instanceof TransitionClip) {
-                  //   const fromClipId = clip.fromClipId;
-                  //   const toClipId = clip.toClipId;
-                  //   studio.addTransition(
-                  //     effect.key,
-                  //     TRANSITION_DURATION_DEFAULT,
-                  //     fromClipId,
-                  //     toClipId
-                  //   );
-                  // } else {
-                  //   alert('Please select a transition clip');
-                  // }
+                  setSelectedTransitionKey(effect.key);
                 }}
               >
-                <div className="relative w-full aspect-video rounded-md bg-input/30 border overflow-hidden">
+                <div className={`relative w-full aspect-video rounded-md bg-input/30 border overflow-hidden ${
+                  isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
+                }`}>
                   {!isReady && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
                       <Loader2 className="animate-spin text-muted-foreground" />

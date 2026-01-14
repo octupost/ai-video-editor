@@ -1,5 +1,6 @@
 import { R2StorageService } from '@/lib/r2';
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 const r2 = new R2StorageService({
   bucketName: process.env.R2_BUCKET_NAME || '',
@@ -11,10 +12,10 @@ const r2 = new R2StorageService({
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, voiceId = '21m00Tcm4TlvDq8ikWAM' } = await req.json();
+    const { text, voiceId = '21m00Tcm4TlvDq8ikWAM', project_id } = await req.json();
 
-    if (!text) {
-      return NextResponse.json({ error: 'Text is required' }, { status: 400 });
+    if (!text || !project_id) {
+      return NextResponse.json({ error: 'Text and project_id are required' }, { status: 400 });
     }
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -57,7 +58,37 @@ export async function POST(req: NextRequest) {
     const fileName = `voiceovers/${Date.now()}.mp3`;
     const publicUrl = await r2.uploadData(fileName, buffer, 'audio/mpeg');
 
-    return NextResponse.json({ url: publicUrl });
+    // Save to Supabase
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { data: asset, error: dbError } = await supabase
+      .from('assets')
+      .insert({
+        user_id: user.id,
+        project_id,
+        type: 'voiceover',
+        url: publicUrl,
+        name: text.substring(0, 100),
+        prompt: text,
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      // Still return the URL even if DB save fails
+      return NextResponse.json({ url: publicUrl });
+    }
+
+    return NextResponse.json({ url: publicUrl, id: asset.id });
   } catch (error) {
     console.error('Voiceover generation error:', error);
     return NextResponse.json(

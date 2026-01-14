@@ -1,23 +1,51 @@
+/**
+ * @deprecated This component is deprecated as of January 2026.
+ *
+ * REASON: Asset types have been unified into a single Asset interface.
+ * The VisualAsset type and local state management in this file have been
+ * replaced by the unified asset-store.ts which uses the Asset type from
+ * src/types/media.ts.
+ *
+ * NEW COMPONENT: Use uploads-panel.tsx instead, which uses the unified
+ * useAssetStore hook for consistent asset management across the application.
+ *
+ * This file is kept for reference purposes only. Do not use in new code.
+ *
+ * Key differences in the new implementation:
+ * - Uses Asset type instead of VisualAsset
+ * - Uses useAssetStore instead of local useState
+ * - Asset.name field is used for display (was also .name here)
+ * - No need to filter by type='upload' separately, store handles it
+ */
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
-import { ImageClip, VideoClip, Log } from '@designcombo/video';
-import { Upload, Search, Image as ImageIcon, Film } from 'lucide-react';
+import { Log } from '@designcombo/video';
+import {
+  Upload,
+  Search,
+  Image as ImageIcon,
+  Film,
+  ChevronDown,
+  Trash2,
+} from 'lucide-react';
 import { uploadFile } from '@/lib/upload-utils';
+import { useProjectId } from '@/contexts/project-context';
+import { addMediaToCanvas } from '@/lib/editor-utils';
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
 } from '@/components/ui/input-group';
-import { VisualsChatPanel } from '../visuals-chat-panel';
 
+/** @deprecated Use Asset from '@/types/media' instead */
 interface VisualAsset {
   id: string;
   type: 'image' | 'video';
-  src: string;
+  url: string;
   name: string;
   preview?: string;
   width?: number;
@@ -26,10 +54,16 @@ interface VisualAsset {
   size?: number;
 }
 
-const STORAGE_KEY = 'designcombo_uploads';
+// OLD: localStorage key (replaced with Supabase)
+// const STORAGE_KEY = 'designcombo_uploads';
 
+/** @deprecated Use PanelUploads from './uploads-panel' instead */
 export default function PanelUploads() {
   const { studio } = useStudioStore();
+  const projectId = useProjectId();
+  const [activeTab, setActiveTab] = useState<
+    'all' | 'images' | 'videos' | 'uploads'
+  >('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [uploads, setUploads] = useState<VisualAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -37,25 +71,62 @@ export default function PanelUploads() {
 
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load uploads from local storage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setUploads(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error('Failed to load uploads', e);
-    } finally {
-      setIsLoaded(true);
-    }
-  }, []);
+  // OLD: Load uploads from local storage on mount (replaced with Supabase)
+  // useEffect(() => {
+  //   try {
+  //     const stored = localStorage.getItem(STORAGE_KEY);
+  //     if (stored) {
+  //       setUploads(JSON.parse(stored));
+  //     }
+  //   } catch (e) {
+  //     console.error('Failed to load uploads', e);
+  //   } finally {
+  //     setIsLoaded(true);
+  //   }
+  // }, []);
 
-  // Save uploads to local storage whenever they change
+  // OLD: Save uploads to local storage whenever they change (replaced with Supabase)
+  // useEffect(() => {
+  //   if (!isLoaded) return;
+  //   localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads));
+  // }, [uploads, isLoaded]);
+
+  // NEW: Load uploads from Supabase on mount
   useEffect(() => {
-    if (!isLoaded) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads));
-  }, [uploads, isLoaded]);
+    if (!projectId) return;
+
+    const fetchUploads = async () => {
+      try {
+        const response = await fetch(`/api/assets?type=upload&project_id=${projectId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch uploads');
+        }
+        const { assets } = await response.json();
+
+        // Transform Supabase assets to VisualAsset format
+        const visualAssets: VisualAsset[] = assets.map((asset: {
+          id: string;
+          url: string;
+          name: string;
+          size?: number;
+        }) => ({
+          id: asset.id,
+          type: asset.name.match(/\.(mp4|webm|mov|avi)$/i) ? 'video' : 'image',
+          url: asset.url,
+          name: asset.name,
+          size: asset.size,
+        }));
+
+        setUploads(visualAssets);
+      } catch (error) {
+        console.error('Failed to fetch uploads:', error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    fetchUploads();
+  }, [projectId]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,10 +137,29 @@ export default function PanelUploads() {
       const result = await uploadFile(file);
       const type = file.type.startsWith('image/') ? 'image' : 'video';
 
+      // NEW: Save to Supabase
+      const saveResponse = await fetch('/api/assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'upload',
+          url: result.url,
+          name: result.fileName,
+          size: file.size,
+          project_id: projectId,
+        }),
+      });
+
+      if (!saveResponse.ok) {
+        throw new Error('Failed to save upload to database');
+      }
+
+      const { asset } = await saveResponse.json();
+
       const newAsset: VisualAsset = {
-        id: crypto.randomUUID(),
+        id: asset.id,
         type,
-        src: result.url,
+        url: result.url,
         name: result.fileName,
         size: file.size,
       };
@@ -85,31 +175,30 @@ export default function PanelUploads() {
     }
   };
 
-  const addItemToCanvas = async (asset: VisualAsset) => {
+  const handleAddToCanvas = async (asset: VisualAsset) => {
     if (!studio) return;
 
     try {
-      if (asset.type === 'image') {
-        const imageClip = await ImageClip.fromUrl(
-          asset.src + '?v=' + Date.now()
-        );
-        imageClip.display = { from: 0, to: 5 * 1e6 };
-        imageClip.duration = 5 * 1e6;
-
-        // Scale to fit and center in scene (1080x1920)
-        await imageClip.scaleToFit(1080, 1920);
-        imageClip.centerInScene(1080, 1920);
-
-        await studio.addClip(imageClip);
-      } else {
-        const videoClip = await VideoClip.fromUrl(asset.src);
-        // Scale to fit and center in scene (1080x1920)
-        await videoClip.scaleToFit(1080, 1920);
-        videoClip.centerInScene(1080, 1920);
-        await studio.addClip(videoClip);
-      }
+      await addMediaToCanvas(studio, { url: asset.url, type: asset.type });
     } catch (error) {
       Log.error(`Failed to add ${asset.type}:`, error);
+    }
+  };
+
+  // NEW: Delete from Supabase
+  const removeUpload = async (id: string) => {
+    try {
+      const response = await fetch(`/api/assets?id=${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete upload');
+      }
+
+      setUploads((prev) => prev.filter((a) => a.id !== id));
+    } catch (error) {
+      console.error('Failed to delete upload:', error);
     }
   };
 
@@ -159,18 +248,18 @@ export default function PanelUploads() {
               <div
                 key={asset.id}
                 className="group relative aspect-square rounded-md overflow-hidden bg-secondary/50 cursor-pointer border border-transparent hover:border-primary/50 transition-all"
-                onClick={() => addItemToCanvas(asset)}
+                onClick={() => handleAddToCanvas(asset)}
               >
                 {asset.type === 'image' ? (
                   <img
-                    src={asset.src}
+                    src={asset.url}
                     alt={asset.name}
                     className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-black/20">
                     <video
-                      src={asset.src}
+                      src={asset.url}
                       className="w-full h-full object-cover pointer-events-none"
                     />
                     <Film
@@ -180,7 +269,19 @@ export default function PanelUploads() {
                   </div>
                 )}
 
-                <div className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* Delete button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeUpload(asset.id);
+                  }}
+                  className="absolute top-1 right-1 p-1 rounded bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-red-500/80 transition-all"
+                >
+                  <Trash2 size={14} className="text-white" />
+                </button>
+
+                {/* Overlay info */}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-[10px] text-white truncate font-medium">
                     {asset.name}
                   </p>
@@ -190,6 +291,7 @@ export default function PanelUploads() {
           </div>
         )}
       </ScrollArea>
+      <div className="h-2 bg-background"></div>
     </div>
   );
 }

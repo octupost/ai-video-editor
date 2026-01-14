@@ -6,6 +6,7 @@ import type { ITimelineTrack, IClip, TrackType } from '@/types/timeline';
 import type { TimelineCanvas } from './timeline';
 import { generateUUID } from '@/utils/id';
 import { clipToJSON, jsonToClip } from '@designcombo/video';
+import { toast } from 'sonner';
 
 interface TimelineStudioSyncProps {
   timelineCanvas?: TimelineCanvas | null;
@@ -92,11 +93,13 @@ export const TimelineStudioSync = ({
 
       useTimelineStore.setState((state) => {
         const { [clipId]: removed, ...restClips } = state.clips;
-        // Remove from tracks
-        const updatedTracks = state._tracks.map((t) => ({
-          ...t,
-          clipIds: t.clipIds.filter((id) => id !== clipId),
-        }));
+        // Remove from tracks and filter out empty tracks
+        const updatedTracks = state._tracks
+          .map((t) => ({
+            ...t,
+            clipIds: t.clipIds.filter((id) => id !== clipId),
+          }))
+          .filter((t) => t.clipIds.length > 0);
         return {
           ...state,
           clips: restClips,
@@ -566,7 +569,15 @@ export const TimelineStudioSync = ({
       toClipId: string;
     }) => {
       if (!studio) return;
-      await studio.addTransition('GridFlip', 2_000_000, fromClipId, toClipId);
+      
+      const selectedTransitionKey = useStudioStore.getState().selectedTransitionKey;
+      
+      if (!selectedTransitionKey) {
+        toast.error('Select a transition type first');
+        return;
+      }
+      
+      await studio.addTransition(selectedTransitionKey, 2_000_000, fromClipId, toClipId);
     };
 
     timelineCanvas.on('clip:modified', handleClipModified);
