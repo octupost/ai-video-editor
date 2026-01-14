@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Player } from './player.js';
+import { Player } from './player';
 import {
   Studio,
   Compositor,
@@ -7,7 +7,7 @@ import {
   fontManager,
 } from '@designcombo/video';
 import { useStudioStore } from '@/stores/studio-store';
-import { editorFont } from './constants.js';
+import { editorFont } from './constants';
 import { loadTimeline, reconstructProjectJSON } from '@/lib/supabase/timeline-service';
 import { useProjectId } from '@/contexts/project-context';
 const defaultSize = {

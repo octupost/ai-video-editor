@@ -11,17 +11,17 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   TimelinePlayhead,
   useTimelinePlayheadRuler,
-} from './timeline-playhead.js';
+} from './timeline-playhead';
 import type { TimelineTrack } from '@/types/timeline';
-import { TimelineRuler } from './timeline-ruler.js';
+import { TimelineRuler } from './timeline-ruler';
 import {
   getTrackHeight,
   TIMELINE_CONSTANTS,
   snapTimeToFrame,
 } from '@/constants/timeline-constants';
-import { TimelineToolbar } from './timeline-toolbar.js';
-import { TimelineCanvas } from './timeline.js';
-import { TimelineStudioSync } from './timeline-studio-sync.js';
+import { TimelineToolbar } from './timeline-toolbar';
+import { TimelineCanvas } from './timeline';
+import { TimelineStudioSync } from './timeline-studio-sync';
 export function Timeline() {
   // Timeline shows all tracks (video, audio, effects) and their elements.
   // You can drag media here to add it to your project.

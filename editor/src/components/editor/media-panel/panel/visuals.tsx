@@ -8,7 +8,7 @@ import { useAssetStore } from '@/stores/asset-store';
 import { Asset } from '@/types/media';
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
-import { VisualsChatPanel } from '../visuals-chat-panel.js';
+import { VisualsChatPanel } from '../visuals-chat-panel';
 import { addMediaToCanvas } from '@/lib/editor-utils';
 
 type FilterType = 'all' | 'images' | 'videos';

@@ -1,13 +1,13 @@
 import { type FabricObject } from 'fabric';
-import type Timeline from '../canvas.js';
-import { clearAuxiliaryObjects } from '../guidelines/utils.js';
+import type Timeline from '../canvas';
+import { clearAuxiliaryObjects } from '../guidelines/utils';
 import { generateUUID } from '@/utils/id';
 import {
   type ITimelineTrack,
   MICROSECONDS_PER_SECOND,
   type TrackType,
 } from '@/types/timeline';
-import { TIMELINE_CONSTANTS } from '../utils.js';
+import { TIMELINE_CONSTANTS } from '../utils';
 
 /**
  * Helper to safely update the local clips map in Timeline to reflect the new visual state

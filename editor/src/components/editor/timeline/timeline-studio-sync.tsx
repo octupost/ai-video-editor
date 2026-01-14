@@ -3,7 +3,7 @@ import { useTimelineStore } from '@/stores/timeline-store';
 import { useStudioStore } from '@/stores/studio-store';
 import { usePlaybackStore } from '@/stores/playback-store';
 import type { ITimelineTrack, IClip, TrackType } from '@/types/timeline';
-import type { TimelineCanvas } from './timeline.js';
+import type { TimelineCanvas } from './timeline';
 import { generateUUID } from '@/utils/id';
 import { clipToJSON, jsonToClip } from '@designcombo/video';
 import { toast } from 'sonner';

@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { type Tab, tabs, useMediaPanelStore } from './store.js';
+import { type Tab, tabs, useMediaPanelStore } from './store';
 import {
   Tooltip,
   TooltipContent,

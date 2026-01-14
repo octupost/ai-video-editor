@@ -1,14 +1,14 @@
 import { TProject } from '@/types/project';
 import { MediaFile } from '@/types/media';
-import { IndexedDBAdapter } from './indexeddb-adapter.js';
-import { OPFSAdapter } from './opfs-adapter.js';
+import { IndexedDBAdapter } from './indexeddb-adapter';
+import { OPFSAdapter } from './opfs-adapter';
 import {
   MediaFileData,
   StorageConfig,
   SerializedProject,
   SerializedScene,
   TimelineData,
-} from './types.js';
+} from './types';
 import { TimelineTrack } from '@/types/timeline';
 import { SavedSoundsData, SavedSound, SoundEffect } from '@/types/sounds';
 

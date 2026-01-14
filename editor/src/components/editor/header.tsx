@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useStudioStore } from '@/stores/studio-store';
 import { Log, type IClip } from '@designcombo/video';
-import { ExportModal } from './export-modal.js';
+import { ExportModal } from './export-modal';
 import { saveTimeline } from '@/lib/supabase/timeline-service';
 import { useProjectId } from '@/contexts/project-context';
 

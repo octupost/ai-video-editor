@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { TextProperties } from './text-properties.js';
-import { ImageProperties } from './image-properties.js';
-import { VideoProperties } from './video-properties.js';
-import { AudioProperties } from './audio-properties.js';
-import { CaptionProperties } from './caption-properties.js';
+import { TextProperties } from './text-properties';
+import { ImageProperties } from './image-properties';
+import { VideoProperties } from './video-properties';
+import { AudioProperties } from './audio-properties';
+import { CaptionProperties } from './caption-properties';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { IClip } from '@designcombo/video';
 

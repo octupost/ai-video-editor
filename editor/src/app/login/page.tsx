@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { login, signup } from './actions.js';
+import { login, signup } from './actions';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 

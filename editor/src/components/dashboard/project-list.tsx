@@ -2,7 +2,7 @@
 
 import { Plus, FolderPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ProjectCard } from './project-card.js';
+import { ProjectCard } from './project-card';
 import type { DBProject } from '@/types/project';
 
 interface ProjectListProps {

@@ -1,7 +1,7 @@
-import { BaseTimelineClip, BaseClipProps } from './base.js';
-import { TRACK_COLORS } from '../utils.js';
+import { BaseTimelineClip, BaseClipProps } from './base';
+import { TRACK_COLORS } from '../utils';
 import { Control } from 'fabric';
-import { createResizeControls } from '../controls.js';
+import { createResizeControls } from '../controls';
 import { editorFont } from '@/components/editor/constants';
 
 export interface TextClipProps extends BaseClipProps {}

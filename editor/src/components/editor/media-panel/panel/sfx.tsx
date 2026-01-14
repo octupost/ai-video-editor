@@ -6,8 +6,8 @@ import { useAssetStore } from '@/stores/asset-store';
 import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { IconWaveSine } from '@tabler/icons-react';
 import { useState } from 'react';
-import { AudioItem } from './audio-item.js';
-import { SfxChatPanel } from '../sfx-chat-panel.js';
+import { AudioItem } from './audio-item';
+import { SfxChatPanel } from '../sfx-chat-panel';
 import { addMediaToCanvas } from '@/lib/editor-utils';
 
 export default function PanelSFX() {

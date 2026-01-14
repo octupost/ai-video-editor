@@ -5,9 +5,9 @@ import { Log } from '@designcombo/video';
 import { useAssetStore } from '@/stores/asset-store';
 import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { IconMusic } from '@tabler/icons-react';
-import { AudioItem } from './audio-item.js';
+import { AudioItem } from './audio-item';
 import { useState } from 'react';
-import { MusicChatPanel } from '../music-chat-panel.js';
+import { MusicChatPanel } from '../music-chat-panel';
 import { addMediaToCanvas } from '@/lib/editor-utils';
 
 export default function PanelMusic() {

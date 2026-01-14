@@ -1,5 +1,5 @@
 import { Canvas, Rect, type FabricObject, ActiveSelection } from 'fabric';
-import { Track } from './track.js';
+import { Track } from './track';
 import {
   TextClip,
   VideoClip,
@@ -8,9 +8,9 @@ import {
   EffectClip,
   type BaseTimelineClip,
   TransitionClip,
-} from './clips.js';
-import { TransitionButton } from './objects/transition-button.js';
-import { TIMELINE_CONSTANTS, getTrackHeight } from './utils.js';
+} from './clips';
+import { TransitionButton } from './objects/transition-button';
+import { TIMELINE_CONSTANTS, getTrackHeight } from './utils';
 import {
   type ITimelineTrack,
   type IClip,
@@ -18,12 +18,12 @@ import {
   type TrackType,
 } from '@/types/timeline';
 import { useTimelineStore } from '@/stores/timeline-store';
-import EventEmitter from './event-emitter.js';
+import EventEmitter from './event-emitter';
 import { generateUUID } from '@/utils/id';
-import { clearAuxiliaryObjects } from './guidelines/utils.js';
-import * as SelectionHandlers from './handlers/selection.js';
-import * as DragHandlers from './handlers/drag-handler.js';
-import * as ModifyHandlers from './handlers/modify-handler.js';
+import { clearAuxiliaryObjects } from './guidelines/utils';
+import * as SelectionHandlers from './handlers/selection';
+import * as DragHandlers from './handlers/drag-handler';
+import * as ModifyHandlers from './handlers/modify-handler';
 
 export interface TimelineCanvasEvents {
   scroll: { deltaX: number; deltaY: number };

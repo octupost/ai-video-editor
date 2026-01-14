@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ProjectList } from './project-list.js';
-import { CreateProjectModal } from './create-project-modal.js';
+import { ProjectList } from './project-list';
+import { CreateProjectModal } from './create-project-modal';
 import type { DBProject } from '@/types/project';
 
 export function DashboardContent() {
