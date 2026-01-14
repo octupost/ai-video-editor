@@ -128,7 +128,9 @@ export default function PanelMusic() {
                 item={{
                   id: item.id,
                   url: item.src,
-                  text: item.name,
+                  name: item.name,
+                  type: 'music',
+                  createdAt: Date.now(),
                 }}
                 onAdd={handleAddAudio}
                 playingId={playingId}

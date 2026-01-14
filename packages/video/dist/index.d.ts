@@ -1,7 +1,7 @@
 export { fastConcatMP4, fixFMP4Duration, mixinMP4AndAudio } from './mp4-utils';
 export { createChromakey } from './utils/chromakey';
 export { renderTxt2ImgBitmap } from './utils/dom';
-export { AudioClip, CaptionClip, ImageClip, VideoClip, TextClip, EffectClip, TransitionClip, } from './clips';
+export { AudioClip, CaptionClip, ImageClip, VideoClip, TextClip, EffectClip, TransitionClip, PlaceholderClip, } from './clips';
 export type { ITextClipOpts } from './clips';
 export type { IClip, IMP4ClipOpts } from './clips';
 export { VideoClip as MP4Clip } from './clips';

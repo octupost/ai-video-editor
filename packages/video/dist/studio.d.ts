@@ -61,6 +61,11 @@ export interface StudioEvents {
     'clip:updated': {
         clip: IClip;
     };
+    'clip:replaced': {
+        oldClip: IClip;
+        newClip: IClip;
+        trackId: string;
+    };
     'studio:restored': {
         clips: IClip[];
         tracks: StudioTrack[];

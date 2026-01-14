@@ -93,5 +93,24 @@ export declare abstract class BaseClip extends BaseSprite implements IClip {
      * Override in subclasses to customize handle visibility (e.g., TextClip)
      */
     getVisibleHandles(): Array<'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb' | 'rot'>;
+    /**
+     * Scale clip to fit within the scene dimensions while maintaining aspect ratio
+     * @param sceneWidth Scene width
+     * @param sceneHeight Scene height
+     */
+    scaleToFit(sceneWidth: number, sceneHeight: number): Promise<void>;
+    /**
+     * Scale clip to fill the scene dimensions while maintaining aspect ratio
+     * May crop parts of the clip.
+     * @param sceneWidth Scene width
+     * @param sceneHeight Scene height
+     */
+    scaleToFill(sceneWidth: number, sceneHeight: number): Promise<void>;
+    /**
+     * Center the clip within the scene dimensions
+     * @param sceneWidth Scene width
+     * @param sceneHeight Scene height
+     */
+    centerInScene(sceneWidth: number, sceneHeight: number): void;
     destroy(): void;
 }

@@ -13,7 +13,6 @@ import PanelCaptions from './panel/captions';
 import PanelMusic from './panel/music';
 import PanelVoiceovers from './panel/voiceovers';
 import PanelSFX from './panel/sfx';
-import PanelElements from './panel/elements';
 import { PropertiesPanel } from '../properties-panel';
 import type { IClip } from '@designcombo/video';
 import { useEffect, useState } from 'react';
@@ -32,7 +31,6 @@ const viewMap: Record<Tab, React.ReactNode> = {
   captions: <PanelCaptions />,
   transitions: <PanelTransition />,
   effects: <PanelEffect />,
-  elements: <PanelElements />,
 };
 
 export function MediaPanel() {

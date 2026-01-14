@@ -111,26 +111,5 @@ export declare class ImageClip extends BaseClip implements IClip {
      * @returns Promise that resolves to an ImageClip instance
      */
     static fromObject(json: ClipJSON): Promise<ImageClip>;
-    /**
-     * Scale clip to fit within the scene dimensions while maintaining aspect ratio
-     * Similar to fabric.js scaleToFit
-     * @param sceneWidth Scene width
-     * @param sceneHeight Scene height
-     */
-    scaleToFit(sceneWidth: number, sceneHeight: number): Promise<void>;
-    /**
-     * Scale clip to fill the scene dimensions while maintaining aspect ratio
-     * May crop parts of the clip. Similar to fabric.js scaleToFill
-     * @param sceneWidth Scene width
-     * @param sceneHeight Scene height
-     */
-    scaleToFill(sceneWidth: number, sceneHeight: number): Promise<void>;
-    /**
-     * Center the clip within the scene dimensions
-     * Similar to fabric.js center
-     * @param sceneWidth Scene width
-     * @param sceneHeight Scene height
-     */
-    centerInScene(sceneWidth: number, sceneHeight: number): void;
 }
 export {};

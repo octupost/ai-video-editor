@@ -128,7 +128,9 @@ export default function PanelSFX() {
                 item={{
                   id: item.id,
                   url: item.src,
-                  text: item.name,
+                  name: item.name,
+                  type: 'sfx',
+                  createdAt: Date.now(),
                 }}
                 onAdd={handleAddAudio}
                 playingId={playingId}

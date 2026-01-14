@@ -158,12 +158,15 @@ export interface TransitionClipJSON extends BaseClipJSON {
     fromClipId: string | null;
     toClipId: string | null;
 }
+export interface PlaceholderClipJSON extends BaseClipJSON {
+    type: 'Placeholder';
+}
 export interface TransitionJSON {
     key: string;
     duration: number;
     clips: string[];
 }
-export type ClipJSON = VideoClipJSON | AudioClipJSON | ImageClipJSON | TextClipJSON | CaptionClipJSON | EffectClipJSON | TransitionClipJSON;
+export type ClipJSON = VideoClipJSON | AudioClipJSON | ImageClipJSON | TextClipJSON | CaptionClipJSON | EffectClipJSON | TransitionClipJSON | PlaceholderClipJSON;
 export interface StudioTrackJSON {
     id: string;
     name: string;
