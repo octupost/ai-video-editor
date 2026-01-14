@@ -8,5 +8,10 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.5",
     "typescript": "^5.9.2"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx,json}": [
+      "biome check --write --no-errors-on-unmatched"
+    ]
   }
 }
