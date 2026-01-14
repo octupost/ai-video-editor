@@ -11,6 +11,7 @@ import {
   type IconProps,
   IconPhoto,
   IconVideo,
+  IconMessageCircle,
 } from '@tabler/icons-react';
 import { create } from 'zustand';
 
@@ -25,7 +26,8 @@ export type Tab =
   // | 'elements'
   | 'voiceovers'
   | 'sfx'
-  | 'transitions';
+  | 'transitions'
+  | 'assistant';
 
 export const tabs: {
   [key in Tab]: { icon: React.FC<IconProps>; label: string };
@@ -73,6 +75,10 @@ export const tabs: {
   effects: {
     icon: IconSparkles,
     label: 'Effects',
+  },
+  assistant: {
+    icon: IconMessageCircle,
+    label: 'Assistant',
   },
 };
 

@@ -10,7 +10,6 @@ import {
   ResizableHandle,
 } from '@/components/ui/resizable';
 import { usePanelStore } from '@/stores/panel-store';
-import { Assistant } from '@/components/assistant';
 import Header from '@/components/editor/header';
 import { Loading } from '@/components/editor/loading';
 import { ProjectProvider } from '@/contexts/project-context';
@@ -29,8 +28,6 @@ function EditorContent({ onReady }: { onReady: () => void }) {
     setToolsPanel,
     setMainContent,
     setTimeline,
-    propertiesPanel,
-    setPropertiesPanel,
   } = usePanelStore();
 
   // Auto-save every 30 seconds + save on unmount
@@ -46,7 +43,7 @@ function EditorContent({ onReady }: { onReady: () => void }) {
         <ResizablePanel
           defaultSize={toolsPanel}
           minSize={15}
-          maxSize={40}
+          maxSize={50}
           onResize={setToolsPanel}
           className="min-w-96 rounded-sm"
         >
@@ -57,7 +54,7 @@ function EditorContent({ onReady }: { onReady: () => void }) {
 
         {/* Middle Column: Preview + Timeline */}
         <ResizablePanel
-          defaultSize={100 - toolsPanel - propertiesPanel}
+          defaultSize={100 - toolsPanel}
           minSize={40}
           className="min-w-0 min-h-0"
         >
@@ -89,19 +86,6 @@ function EditorContent({ onReady }: { onReady: () => void }) {
               <Timeline />
             </ResizablePanel>
           </ResizablePanelGroup>
-        </ResizablePanel>
-
-        <ResizableHandle />
-
-        {/* Right Column: Properties Panel */}
-        <ResizablePanel
-          defaultSize={propertiesPanel}
-          minSize={15}
-          maxSize={40}
-          onResize={setPropertiesPanel}
-          className="min-w-0"
-        >
-          <Assistant />
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

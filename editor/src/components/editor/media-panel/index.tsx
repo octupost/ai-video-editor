@@ -14,6 +14,7 @@ import PanelMusic from './panel/music';
 import PanelVoiceovers from './panel/voiceovers';
 import PanelSFX from './panel/sfx';
 import { PropertiesPanel } from '../properties-panel';
+import { Assistant } from '@/components/assistant';
 import type { IClip } from '@designcombo/video';
 import { useEffect, useState } from 'react';
 import { useStudioStore } from '@/stores/studio-store';
@@ -31,6 +32,7 @@ const viewMap: Record<Tab, React.ReactNode> = {
   captions: <PanelCaptions />,
   transitions: <PanelTransition />,
   effects: <PanelEffect />,
+  assistant: <Assistant />,
 };
 
 export function MediaPanel() {
@@ -74,7 +76,9 @@ export function MediaPanel() {
     <div className="h-full flex bg-background">
       <TabBar />
       <div className="flex-1 overflow-hidden" id="panel-content">
-        {selectedClips.length > 0 ? (
+        {activeTab === 'assistant' ? (
+          <div className="h-full overflow-hidden">{viewMap[activeTab]}</div>
+        ) : selectedClips.length > 0 ? (
           <PropertiesPanel selectedClips={selectedClips} />
         ) : (
           <div className="h-full overflow-y-auto">{viewMap[activeTab]}</div>
