@@ -1,0 +1,79 @@
+'use client';
+
+import { useStudioStore } from '@/stores/studio-store';
+import { Log } from '@designcombo/video';
+import { useAssetStore } from '@/stores/asset-store';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
+import { IconWaveSine } from '@tabler/icons-react';
+import { useState } from 'react';
+import { AudioItem } from './audio-item.js';
+import { SfxChatPanel } from '../sfx-chat-panel.js';
+import { addMediaToCanvas } from '@/lib/editor-utils';
+
+export default function PanelSFX() {
+  const { studio } = useStudioStore();
+  const { sfx, deleteAsset } = useAssetStore();
+  const { confirm } = useDeleteConfirmation();
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
+  const handleAddToCanvas = async (url: string) => {
+    if (!studio) return;
+
+    try {
+      await addMediaToCanvas(studio, { url, type: 'audio' });
+    } catch (error) {
+      Log.error('Failed to add audio:', error);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    const confirmed = await confirm({
+      title: 'Delete Sound Effect',
+      description: 'Are you sure you want to delete this sound effect? This action cannot be undone.',
+    });
+
+    if (confirmed) {
+      try {
+        await deleteAsset(id, 'sfx');
+      } catch (error) {
+        console.error('Failed to delete sfx:', error);
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full w-full">
+      <div className="flex-1 flex flex-col gap-4 p-4 overflow-y-auto">
+        {sfx.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[200px] gap-4">
+            <IconWaveSine
+              className="size-7 text-muted-foreground"
+              stroke={1.5}
+            />
+            <div className="text-center text-muted-foreground text-sm">
+              No SFX generated yet. Use the chat panel to generate sound
+              effects!
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {sfx.map((item) => (
+              <AudioItem
+                key={item.id}
+                item={item}
+                onAdd={handleAddToCanvas}
+                onDelete={() => handleDelete(item.id)}
+                playingId={playingId}
+                setPlayingId={setPlayingId}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="h-2 bg-background"></div>
+      <div className="h-48">
+        <SfxChatPanel />
+      </div>
+    </div>
+  );
+}
