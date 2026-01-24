@@ -1,7 +1,7 @@
 'use client';
 
 import { useStudioStore } from '@/stores/studio-store';
-import { Log, TextClip } from '@designcombo/video';
+import { Log, Text } from '@designcombo/video';
 import { useEffect, useState } from 'react';
 import { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import {
@@ -30,7 +30,7 @@ export const AddTextTool: ToolCallMessagePartComponent<AddTextToolArgs> = ({
 
     const addText = async () => {
       try {
-        const textClip = new TextClip(args.text, {
+        const textClip = new Text(args.text, {
           fontSize: 124,
           fontFamily: 'Arial',
           align: 'left',

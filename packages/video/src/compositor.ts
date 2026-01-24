@@ -12,7 +12,7 @@ import {
   DEFAULT_AUDIO_CONF,
   getDefaultAudioConf,
   type IClip,
-  EffectClip,
+  Effect,
 } from './clips';
 import { recodemux } from 'wrapbox';
 import { Log } from './utils/log';
@@ -26,10 +26,10 @@ import {
   jsonToClip,
   type ClipJSON,
   type ProjectJSON,
-  type TransitionJSON,
+  type GlobalTransitionJSON as TransitionJSON,
 } from './json-serialization';
-import { VideoClip } from './clips/video-clip';
-import { ImageClip } from './clips/image-clip';
+import { Video } from './clips/video-clip';
+import { Image } from './clips/image-clip';
 import { makeTransition } from './transition/transition';
 
 export interface ICompositorOpts {
@@ -69,10 +69,10 @@ async function waitEncoderQueue(getQSize: () => number) {
  * Video compositor that can add multiple {@link OffscreenSprite} instances,
  * @example
  * const spr1 = new OffscreenSprite(
- *   new VideoClip((await fetch('<mp4 url>')).body),
+ *   new Video((await fetch('<mp4 url>')).body),
  * );
  * const spr2 = new OffscreenSprite(
- *   await AudioClip.fromUrl('<audio url>'),
+ *   await Audio.fromUrl('<audio url>'),
  * );
  * const com = new Compositor({ width: 1280, height: 720, });
 
@@ -314,7 +314,7 @@ export class Compositor extends EventEmitter<{
 
     if (maxTime === Infinity || maxTime <= 0) {
       throw Error(
-        'Unable to determine the end time, please specify a main sprite, or limit the duration of ImageClip, AudioClip'
+        'Unable to determine the end time, please specify a main sprite, or limit the duration of Image, Audio'
       );
     }
     // Main video's (main) videoTrack duration value is 0
@@ -539,7 +539,7 @@ export class Compositor extends EventEmitter<{
               c.id !== clip.id &&
               c.zIndex === clip.zIndex &&
               c.display.from < clip.display.from &&
-              (c instanceof VideoClip || c instanceof ImageClip)
+              (c instanceof Video || c instanceof Image)
           )
           .sort((a, b) => b.display.to - a.display.to)[0];
 
@@ -677,7 +677,7 @@ function createSpritesRender(opts: {
             c.id !== clip.id &&
             c.zIndex === clip.zIndex && // SAME TRACK
             c.display.from < clip.display.from &&
-            (c instanceof VideoClip || c instanceof ImageClip)
+            (c instanceof Video || c instanceof Image)
         )
         .sort((a, b) => b.display.to - a.display.to)[0] || null
     );
@@ -710,6 +710,7 @@ function createSpritesRender(opts: {
 
   const renderClipToTransitionTexture = (
     clip: IClip,
+    // Example: new Image(imageBitmap), or Texture
     frame: ImageBitmap | Texture,
     target: RenderTexture
   ) => {
@@ -943,7 +944,7 @@ function createSpritesRender(opts: {
       if (hasVideoTrack && pixiApp != null && clipsNormalContainer != null) {
         // Transition logic: Only for video or image clips
         const isTransitionable =
-          sprite instanceof VideoClip || sprite instanceof ImageClip;
+          sprite instanceof Video || sprite instanceof Image;
         if (
           isTransitionable &&
           sprite.transition &&
@@ -1111,16 +1112,16 @@ function createSpritesRender(opts: {
         duration: number;
       } | null = null;
 
-      // Scan for EffectClip first (Adjustment Layer)
+      // Scan for Effect first (Adjustment Layer)
       for (const sprite of sprites) {
-        if (sprite instanceof EffectClip) {
+        if (sprite instanceof Effect) {
           if (
             timestamp >= sprite.display.from &&
             timestamp < sprite.display.from + sprite.duration
           ) {
             activeEffect = {
               id: sprite.id,
-              key: sprite.effect.key,
+              key: (sprite as Effect).effect.key,
               startTime: sprite.display.from,
               duration: sprite.duration,
             };
@@ -1129,7 +1130,7 @@ function createSpritesRender(opts: {
         }
       }
 
-      // Fallback: Scan clips for attached effects if no EffectClip found
+      // Fallback: Scan clips for attached effects if no Effect found
       if (!activeEffect) {
         for (const sprite of sprites) {
           if (sprite.effects && sprite.effects.length > 0) {
@@ -1166,10 +1167,10 @@ function createSpritesRender(opts: {
         const progress =
           duration > 0 ? Math.min(Math.max(elapsed / duration, 0), 1) : 0;
 
-        // Check if this is an Adjustment Layer Effect (from EffectClip)
-        // If the ID matches a sprite ID in our list that is an EffectClip, then it is.
+        // Check if this is an Adjustment Layer Effect (from Effect)
+        // If the ID matches a sprite ID in our list that is an Effect, then it is.
         const isAdjustmentLayer = sprites.some(
-          (s) => s.id === id && s instanceof EffectClip
+          (s) => s.id === id && s instanceof Effect
         );
 
         // Move affected clips to effect container
@@ -1179,7 +1180,7 @@ function createSpritesRender(opts: {
           if (isAdjustmentLayer) {
             // Apply to all clips except the effect clip itself
             // And maybe except other effect clips?
-            shouldApply = sprite.id !== id && !(sprite instanceof EffectClip);
+            shouldApply = sprite.id !== id && !(sprite instanceof Effect);
           } else {
             // Legacy: Only apply if clip explicitly has this effect attached
             shouldApply =

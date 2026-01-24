@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   IconShare,
   IconDownload,
@@ -20,12 +20,45 @@ import { LogoIcons } from '../shared/logos';
 import Link from 'next/link';
 import { saveTimeline } from '@/lib/supabase/timeline-service';
 import { useProjectId } from '@/contexts/project-context';
+import { Icons } from '../shared/icons';
+import { Keyboard } from 'lucide-react';
+import { ShortcutsModal } from './shortcuts-modal';
 
 export default function Header() {
   const { studio } = useStudioStore();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  // Your Supabase save state
   const [isSaving, setIsSaving] = useState(false);
   const projectId = useProjectId();
+  // Vendor shortcuts modal
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  // Vendor undo/redo state
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  useEffect(() => {
+    if (!studio) return;
+
+    setCanUndo(studio.history.canUndo());
+    setCanRedo(studio.history.canRedo());
+
+    const handleHistoryChange = ({
+      canUndo,
+      canRedo,
+    }: {
+      canUndo: boolean;
+      canRedo: boolean;
+    }) => {
+      setCanUndo(canUndo);
+      setCanRedo(canRedo);
+    };
+
+    studio.on('history:changed', handleHistoryChange);
+
+    return () => {
+      studio.off('history:changed', handleHistoryChange);
+    };
+  }, [studio]);
 
   const handleSave = async () => {
     if (!studio) return;
@@ -162,13 +195,14 @@ export default function Header() {
   };
 
   return (
-    <header className="relative flex h-14 w-full shrink-0 items-center justify-between border-b bg-background px-4">
+    <header className="relative flex h-[52px] w-full shrink-0 items-center justify-between px-4">
       {/* Left Section */}
       <div className="flex items-center gap-2">
         <div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-zinc-200">
           <LogoIcons.scenify width={20} />
         </div>
 
+        {/* File Menu - YOUR version with Save option */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm">
@@ -194,6 +228,27 @@ export default function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Undo/Redo - VENDOR feature */}
+        <div className="pointer-events-auto flex h-10 items-center px-1.5">
+          <Button
+            onClick={() => studio?.undo()}
+            disabled={!canUndo}
+            variant="ghost"
+            size="icon"
+          >
+            <Icons.undo className="size-5" />
+          </Button>
+          <Button
+            onClick={() => studio?.redo()}
+            disabled={!canRedo}
+            className="text-muted-foreground"
+            variant="ghost"
+            size="icon"
+          >
+            <Icons.redo className="size-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Center Section */}
@@ -203,6 +258,16 @@ export default function Header() {
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
+        <div className="flex items-center mr-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setIsShortcutsModalOpen(true)}
+          >
+            <Keyboard className="size-5" />
+          </Button>
+        </div>
         <Link href="https://discord.gg/SCfMrQx8kr" target="_blank">
           <Button className="h-7 rounded-lg" variant={'outline'}>
             <LogoIcons.discord className="w-6 h-6" />
@@ -213,6 +278,10 @@ export default function Header() {
         <ExportModal
           open={isExportModalOpen}
           onOpenChange={setIsExportModalOpen}
+        />
+        <ShortcutsModal
+          open={isShortcutsModalOpen}
+          onOpenChange={setIsShortcutsModalOpen}
         />
 
         <Button

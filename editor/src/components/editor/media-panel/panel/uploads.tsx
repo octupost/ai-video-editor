@@ -27,9 +27,7 @@ import { Log } from '@designcombo/video';
 import {
   Upload,
   Search,
-  Image as ImageIcon,
   Film,
-  ChevronDown,
   Trash2,
 } from 'lucide-react';
 import { uploadFile } from '@/lib/upload-utils';
@@ -54,44 +52,70 @@ interface VisualAsset {
   size?: number;
 }
 
-// OLD: localStorage key (replaced with Supabase)
-// const STORAGE_KEY = 'designcombo_uploads';
+// Asset card component
+function AssetCard({
+  asset,
+  onAdd,
+  onDelete,
+}: {
+  asset: VisualAsset;
+  onAdd: (asset: VisualAsset) => void;
+  onDelete: (id: string) => void;
+}) {
+  return (
+    <div
+      className="group relative aspect-square rounded-md overflow-hidden bg-secondary/50 cursor-pointer border border-transparent hover:border-primary/50 transition-all"
+      onClick={() => onAdd(asset)}
+    >
+      {asset.type === 'image' ? (
+        <img
+          src={asset.url}
+          alt={asset.name}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-black/20">
+          <video
+            src={asset.url}
+            className="w-full h-full object-cover pointer-events-none"
+          />
+          <Film className="absolute text-white/70 drop-shadow-md" size={24} />
+        </div>
+      )}
+
+      {/* Delete button */}
+      <button
+        type="button"
+        className="absolute top-1 right-1 p-1 rounded bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete(asset.id);
+        }}
+      >
+        <Trash2 size={12} className="text-white" />
+      </button>
+
+      {/* Name overlay */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <p className="text-[10px] text-white truncate font-medium">
+          {asset.name}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 /** @deprecated Use PanelUploads from './uploads-panel' instead */
 export default function PanelUploads() {
   const { studio } = useStudioStore();
   const projectId = useProjectId();
-  const [activeTab, setActiveTab] = useState<
-    'all' | 'images' | 'videos' | 'uploads'
-  >('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [uploads, setUploads] = useState<VisualAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  // OLD: Load uploads from local storage on mount (replaced with Supabase)
-  // useEffect(() => {
-  //   try {
-  //     const stored = localStorage.getItem(STORAGE_KEY);
-  //     if (stored) {
-  //       setUploads(JSON.parse(stored));
-  //     }
-  //   } catch (e) {
-  //     console.error('Failed to load uploads', e);
-  //   } finally {
-  //     setIsLoaded(true);
-  //   }
-  // }, []);
-
-  // OLD: Save uploads to local storage whenever they change (replaced with Supabase)
-  // useEffect(() => {
-  //   if (!isLoaded) return;
-  //   localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads));
-  // }, [uploads, isLoaded]);
-
-  // NEW: Load uploads from Supabase on mount
+  // Load uploads from Supabase on mount
   useEffect(() => {
     if (!projectId) return;
 
@@ -128,43 +152,49 @@ export default function PanelUploads() {
     fetchUploads();
   }, [projectId]);
 
+  // Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setIsUploading(true);
-    try {
-      const result = await uploadFile(file);
-      const type = file.type.startsWith('image/') ? 'image' : 'video';
 
-      // NEW: Save to Supabase
-      const saveResponse = await fetch('/api/assets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'upload',
+    try {
+      for (const file of Array.from(files)) {
+        const type: 'image' | 'video' = file.type.startsWith('video/') ? 'video' : 'image';
+
+        // Upload to R2
+        const result = await uploadFile(file);
+
+        // Save to Supabase
+        const saveResponse = await fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'upload',
+            url: result.url,
+            name: result.fileName,
+            size: file.size,
+            project_id: projectId,
+          }),
+        });
+
+        if (!saveResponse.ok) {
+          throw new Error('Failed to save upload to database');
+        }
+
+        const { asset } = await saveResponse.json();
+
+        const newAsset: VisualAsset = {
+          id: asset.id,
+          type,
           url: result.url,
           name: result.fileName,
           size: file.size,
-          project_id: projectId,
-        }),
-      });
+        };
 
-      if (!saveResponse.ok) {
-        throw new Error('Failed to save upload to database');
+        setUploads((prev) => [newAsset, ...prev]);
       }
-
-      const { asset } = await saveResponse.json();
-
-      const newAsset: VisualAsset = {
-        id: asset.id,
-        type,
-        url: result.url,
-        name: result.fileName,
-        size: file.size,
-      };
-
-      setUploads((prev) => [newAsset, ...prev]);
     } catch (error) {
       console.error('Upload failed:', error);
     } finally {
@@ -185,7 +215,7 @@ export default function PanelUploads() {
     }
   };
 
-  // NEW: Delete from Supabase
+  // Delete from Supabase
   const removeUpload = async (id: string) => {
     try {
       const response = await fetch(`/api/assets?id=${id}`, {
@@ -209,86 +239,90 @@ export default function PanelUploads() {
     return matchesSearch;
   });
 
+  if (!isLoaded) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <span className="text-sm text-muted-foreground">Loading...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
-      <div className="text-text-primary px-4 flex h-12 flex-none items-center text-sm font-medium">
-        Uploads
-      </div>
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/*,video/*"
+        multiple
+        onChange={handleFileUpload}
+      />
+      {/* Search input */}
+      {uploads.length > 0 ? (
+        <div>
+          <div className="flex-1 p-4 flex gap-2">
+            <InputGroup>
+              <InputGroupAddon className="bg-secondary/30 pointer-events-none text-muted-foreground w-8 justify-center">
+                <Search size={14} />
+              </InputGroupAddon>
 
-      <div className="flex items-center w-full px-4">
-        <Button
-          className="w-full"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          size={'sm'}
-        >
-          <Upload size={14} />
-          <span className="text-xs font-medium">
-            {isUploading ? 'Uploading...' : 'Upload'}
-          </span>
-        </Button>
-        <input
-          type="file"
-          ref={fileInputRef}
-          className="hidden"
-          accept="image/*,video/*"
-          onChange={handleFileUpload}
-        />
-      </div>
+              <InputGroupInput
+                placeholder="Search uploads..."
+                className="bg-secondary/30 border-0 h-full text-xs box-border pl-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </InputGroup>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              variant={'outline'}
+            >
+              <Upload size={14} />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="flex-1 p-4 flex gap-2">
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              variant={'outline'}
+              className="w-full"
+            >
+              <Upload size={14} /> Upload
+            </Button>
+          </div>
+        </div>
+      )}
 
-      <ScrollArea className="flex-1 p-4">
+      {/* Assets grid */}
+      <ScrollArea className="flex-1 px-4">
         {filteredAssets.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
             <Upload size={32} className="opacity-50" />
-            <span className="text-sm">No uploads found</span>
+            <span className="text-sm">
+              {uploads.length === 0 ? 'No uploads yet' : 'No matches found'}
+            </span>
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
-            {filteredAssets.map((asset) => (
-              <div
-                key={asset.id}
-                className="group relative aspect-square rounded-md overflow-hidden bg-secondary/50 cursor-pointer border border-transparent hover:border-primary/50 transition-all"
-                onClick={() => handleAddToCanvas(asset)}
-              >
-                {asset.type === 'image' ? (
-                  <img
-                    src={asset.url}
-                    alt={asset.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-black/20">
-                    <video
-                      src={asset.url}
-                      className="w-full h-full object-cover pointer-events-none"
-                    />
-                    <Film
-                      className="absolute text-white/70 drop-shadow-md"
-                      size={24}
-                    />
-                  </div>
-                )}
-
-                {/* Delete button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeUpload(asset.id);
-                  }}
-                  className="absolute top-1 right-1 p-1 rounded bg-black/50 opacity-0 group-hover:opacity-100 hover:bg-red-500/80 transition-all"
-                >
-                  <Trash2 size={14} className="text-white" />
-                </button>
-
-                {/* Overlay info */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-[10px] text-white truncate font-medium">
-                    {asset.name}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
+              {filteredAssets.map((asset) => (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  onAdd={handleAddToCanvas}
+                  onDelete={removeUpload}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground text-center mt-3 mb-2">
+              {uploads.length} upload{uploads.length !== 1 ? 's' : ''}
+              {searchQuery && ` (showing ${filteredAssets.length})`}
+            </p>
+          </>
         )}
       </ScrollArea>
       <div className="h-2 bg-background"></div>

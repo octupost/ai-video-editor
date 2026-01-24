@@ -1,13 +1,24 @@
 'use client';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Video, Music, TypeIcon, SparklesIcon, Image } from 'lucide-react';
+import {
+  Video,
+  Music,
+  TypeIcon,
+  SparklesIcon,
+  Image,
+  Ellipsis,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react';
 import { useTimelineStore } from '@/stores/timeline-store';
 import { usePlaybackStore } from '@/stores/playback-store';
+import { useStudioStore } from '@/stores/studio-store';
 
 import { useTimelineZoom } from '@/hooks/use-timeline-zoom';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import {
   TimelinePlayhead,
   useTimelinePlayheadRuler,
@@ -18,17 +29,23 @@ import {
   getTrackHeight,
   TIMELINE_CONSTANTS,
   snapTimeToFrame,
-} from '@/constants/timeline-constants';
+} from '@/components/editor/timeline/timeline-constants';
 import { TimelineToolbar } from './timeline-toolbar';
 import { TimelineCanvas } from './timeline';
 import { TimelineStudioSync } from './timeline-studio-sync';
-export function Timeline() {
-  // Timeline shows all tracks (video, audio, effects) and their elements.
-  // You can drag media here to add it to your project.
-  // elements can be trimmed, deleted, and moved.
+import { useEditorHotkeys } from '@/hooks/use-editor-hotkeys';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
 
+export function Timeline() {
   const { tracks, clips, getTotalDuration } = useTimelineStore();
   const { duration, seek, setDuration } = usePlaybackStore();
+  const { studio } = useStudioStore();
 
   const timelineRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
@@ -61,49 +78,8 @@ export function Timeline() {
   const tracksScrollRef = useRef<HTMLDivElement>(null);
   const trackLabelsRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
-  const trackLabelsScrollRef = useRef<HTMLDivElement>(null);
   const timelineCanvasRef = useRef<TimelineCanvas | null>(null);
   const isUpdatingRef = useRef(false);
-  const lastRulerSync = useRef(0);
-  const lastVerticalSync = useRef(0);
-
-  const handleMoveElementToNewTrack = useCallback(
-    (elementId: string, targetIndex: number) => {
-      // Find the element and its current track
-      // With normalized store, we probably need a way to look up clip -> track, or iterate.
-      // Since clipId is unique, we find which track has it.
-      let currentTrackId: string | null = null;
-      let elementType: any = null;
-
-      for (const track of tracks) {
-        if (track.clipIds.includes(elementId)) {
-          currentTrackId = track.id;
-          elementType = track.type;
-          break;
-        }
-      }
-
-      if (!currentTrackId) {
-        console.error('Element not found for move:', elementId);
-        return;
-      }
-    },
-    [tracks]
-  );
-
-  const handleMoveElementToTrack = useCallback(
-    (elementId: string, targetTrackId: string) => {
-      let currentTrackId: string | null = null;
-
-      for (const track of tracks) {
-        if (track.clipIds.includes(elementId)) {
-          currentTrackId = track.id;
-          break;
-        }
-      }
-    },
-    [tracks]
-  );
 
   // Timeline playhead ruler handlers
   const { handleRulerMouseDown } = useTimelinePlayheadRuler({
@@ -261,73 +237,38 @@ export function Timeline() {
   }, [tracks, clips, setDuration, getTotalDuration]);
 
   // --- Scroll synchronization effect ---
-  useEffect(() => {
-    const rulerViewport = rulerScrollRef.current;
-    const trackLabelsViewport = trackLabelsScrollRef.current;
-
-    if (!rulerViewport) return;
-
-    const updateCanvasScroll = () => {
-      const scrollX = rulerViewport.scrollLeft;
-      const scrollY = trackLabelsViewport?.scrollTop || 0;
-      timelineCanvasRef.current?.setScroll(scrollX, scrollY);
-    };
-
-    // Horizontal scroll synchronization (Ruler -> Canvas)
-    const handleRulerScroll = () => {
-      const now = Date.now();
-      if (isUpdatingRef.current || now - lastRulerSync.current < 16) return;
-      lastRulerSync.current = now;
-      isUpdatingRef.current = true;
-      updateCanvasScroll();
-      isUpdatingRef.current = false;
-    };
-
-    rulerViewport.addEventListener('scroll', handleRulerScroll);
-
-    // Vertical scroll synchronization (Labels -> Canvas)
-    if (trackLabelsViewport) {
-      const handleTrackLabelsScroll = () => {
-        const now = Date.now();
-        if (isUpdatingRef.current || now - lastVerticalSync.current < 16)
-          return;
-        lastVerticalSync.current = now;
-        isUpdatingRef.current = true;
-        updateCanvasScroll();
-        isUpdatingRef.current = false;
-      };
-
-      trackLabelsViewport.addEventListener('scroll', handleTrackLabelsScroll);
-
-      return () => {
-        rulerViewport.removeEventListener('scroll', handleRulerScroll);
-        trackLabelsViewport.removeEventListener(
-          'scroll',
-          handleTrackLabelsScroll
-        );
-      };
-    }
-
-    return () => {
-      rulerViewport.removeEventListener('scroll', handleRulerScroll);
-    };
-  }, []);
+  // Horizontal scroll synchronization (Ruler -> Canvas) is now handled via canvas.initScrollbars
+  // but we still need to keep the UI in sync when the canvas scrolls.
 
   useEffect(() => {
     const canvas = new TimelineCanvas('timeline-canvas');
     timelineCanvasRef.current = canvas;
 
     // Set up UI event listeners (scroll/zoom)
-    canvas.on('scroll', ({ deltaX, deltaY }) => {
-      if (rulerScrollRef.current) {
+    canvas.on('scroll', ({ deltaX, deltaY, scrollX, scrollY }) => {
+      if (isUpdatingRef.current) return;
+      isUpdatingRef.current = true;
+
+      if (typeof scrollX === 'number' && rulerScrollRef.current) {
+        rulerScrollRef.current.scrollLeft = scrollX;
+      } else if (deltaX !== 0 && rulerScrollRef.current) {
         rulerScrollRef.current.scrollLeft += deltaX;
       }
-      if (trackLabelsScrollRef.current && deltaY !== 0) {
-        trackLabelsScrollRef.current.scrollTop += deltaY;
+
+      if (typeof scrollY === 'number' && trackLabelsRef.current) {
+        trackLabelsRef.current.scrollTop = scrollY;
+      } else if (deltaY !== 0 && trackLabelsRef.current) {
+        trackLabelsRef.current.scrollTop += deltaY;
       }
+
+      isUpdatingRef.current = false;
     });
 
-    canvas.on('zoom', ({ delta }) => {
+    canvas.on('zoom', ({ delta, zoomLevel: newZoomLevel }) => {
+      if (typeof newZoomLevel === 'number') {
+        setZoomLevel(newZoomLevel);
+        return;
+      }
       handleWheel({
         ctrlKey: true,
         deltaY: delta,
@@ -336,26 +277,37 @@ export function Timeline() {
       } as any);
     });
 
-    canvas.on('viewport:changed', ({ scrollX, scrollY }) => {
-      if (isUpdatingRef.current) return;
-      isUpdatingRef.current = true;
-      if (rulerScrollRef.current) {
-        if (Math.abs(rulerScrollRef.current.scrollLeft - scrollX) > 1) {
-          rulerScrollRef.current.scrollLeft = scrollX;
-        }
-      }
-      if (trackLabelsScrollRef.current) {
-        if (Math.abs(trackLabelsScrollRef.current.scrollTop - scrollY) > 1) {
-          trackLabelsScrollRef.current.scrollTop = scrollY;
-        }
-      }
-      isUpdatingRef.current = false;
+    canvas.initScrollbars({
+      offsetX: 0,
+      offsetY: 0,
+      extraMarginX: 50,
+      extraMarginY: 15,
+      scrollbarWidth: 8,
+      scrollbarColor: 'rgba(255, 255, 255, 0.3)',
     });
 
     canvas.setTracks(tracks);
 
     return () => {
       canvas.dispose();
+    };
+  }, []);
+
+  // Listen for clip replacement (e.g. Placeholder -> Video)
+  useEffect(() => {
+    const studio = useStudioStore.getState().studio;
+    if (!studio) return;
+
+    const onReplaced = ({ newClip }: { newClip: any }) => {
+      // Reload the clip in the timeline canvas to fetch thumbnails
+      // We use newClip.id as it's the active clip now
+      timelineCanvasRef.current?.reloadClip(newClip.id);
+    };
+
+    studio.on('clip:replaced', onReplaced);
+
+    return () => {
+      studio.off('clip:replaced', onReplaced);
     };
   }, []);
 
@@ -367,18 +319,23 @@ export function Timeline() {
   }, [zoomLevel, tracks, clips]);
 
   const handleDelete = useCallback(() => {
-    timelineCanvasRef.current?.deleteSelectedClips();
-  }, []);
+    studio?.deleteSelected();
+  }, [studio]);
 
   const handleDuplicate = useCallback(() => {
-    timelineCanvasRef.current?.duplicateSelectedClips();
-  }, []);
+    studio?.duplicateSelected();
+  }, [studio]);
 
   const handleSplit = useCallback(() => {
     // Current time is in seconds in PlaybackStore. Canvas expects microseconds.
     const splitTime = usePlaybackStore.getState().currentTime * 1_000_000;
-    timelineCanvasRef.current?.splitSelectedClip(splitTime);
-  }, []);
+    studio?.splitSelected(splitTime);
+  }, [studio]);
+
+  useEditorHotkeys({
+    timelineCanvas: timelineCanvasRef.current,
+    setZoomLevel,
+  });
 
   return (
     <div
@@ -399,7 +356,7 @@ export function Timeline() {
 
       {/* Timeline Container */}
       <div
-        className="flex-1 flex flex-col overflow-hidden relative"
+        className="flex-1 flex flex-col overflow-hidden relative bg-[#161412]"
         ref={timelineRef}
       >
         <TimelinePlayhead
@@ -417,9 +374,12 @@ export function Timeline() {
         />
 
         {/* Timeline Header with Ruler */}
-        <div className="flex bg-[#0E0E0E] sticky top-0 z-10">
+        <div
+          style={{ opacity: duration === 0 ? 0 : 1 }}
+          className="flex sticky top-0"
+        >
           {/* Track Labels Header */}
-          <div className="w-10 shrink-0 bg-panel border-r flex items-center justify-between h-6">
+          <div className="w-16 shrink-0 bg-panel border-r flex items-center justify-between h-6">
             {/* Empty space */}
             <span className="text-sm font-medium text-muted-foreground opacity-0">
               .
@@ -445,12 +405,8 @@ export function Timeline() {
               onScroll={(e) => {
                 if (isUpdatingRef.current) return;
                 isUpdatingRef.current = true;
-                const tracksViewport = tracksScrollRef.current;
-                if (tracksViewport) {
-                  tracksViewport.scrollLeft = (
-                    e.currentTarget as HTMLDivElement
-                  ).scrollLeft;
-                }
+                const scrollX = (e.currentTarget as HTMLDivElement).scrollLeft;
+                timelineCanvasRef.current?.setScroll(scrollX, undefined);
                 isUpdatingRef.current = false;
               }}
             >
@@ -473,62 +429,93 @@ export function Timeline() {
         </div>
 
         {/* Tracks Area */}
-        <div className="flex-1 flex overflow-hidden bg-[#0E0E0E]">
+        <div className="flex-1 flex overflow-hidden">
           {/* Track Labels */}
           {tracks.length > 0 && (
             <div
               ref={trackLabelsRef}
-              className="w-10 shrink-0 overflow-y-auto"
+              className="w-16 shrink-0 overflow-y-hidden z-100"
               data-track-labels
             >
-              <div
-                className="w-full h-full overflow-hidden"
-                ref={trackLabelsScrollRef}
-              >
-                <div className="flex flex-col">
-                  {tracks.map((track, index) => (
-                    <div key={track.id}>
-                      {/* Top separator for first track */}
-                      {index === 0 && (
-                        <div
-                          className="w-full"
-                          style={{
-                            height: '4px',
-                            marginBottom: '0px',
-                            background: 'transparent',
-                          }}
-                        />
-                      )}
-
+              <div className="flex flex-col">
+                {tracks.map((track, index) => (
+                  <div key={track.id}>
+                    {/* Top separator for first track */}
+                    {index === 0 && (
                       <div
-                        className="flex items-center px-3 group bg-zinc-800"
+                        className="w-full"
                         style={{
-                          height: getTrackHeight(track.type as any),
-                          borderLeft: `3px solid ${TRACK_ACCENT_COLORS[track.type] || '#38396F'}`,
-                        }}
-                      >
-                        <div className="flex items-center justify-center flex-1 min-w-0">
-                          <TrackIcon track={track} />
-                        </div>
-                      </div>
-
-                      {/* Separator after each track */}
-                      <div
-                        className="w-full relative"
-                        style={{
-                          height: '4px',
+                          height: `${TIMELINE_CONSTANTS.TRACK_PADDING_TOP}px`,
+                          marginBottom: '0px',
                           background: 'transparent',
                         }}
-                      ></div>
+                      />
+                    )}
+
+                    <div
+                      className={cn(
+                        'flex items-center px-3 group bg-stone-800'
+                      )}
+                      style={{ height: getTrackHeight(track.type as any) }}
+                    >
+                      <div className="flex items-center justify-center flex-1 min-w-0 gap-1">
+                        <TrackIcon track={track} />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="size-4 p-0 hover:bg-stone-700 h-6 w-4"
+                            >
+                              <Ellipsis className="size-3 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" side="right">
+                            <DropdownMenuItem
+                              disabled={index === 0}
+                              onClick={() => {
+                                const { moveTrack } =
+                                  useTimelineStore.getState();
+                                moveTrack(track.id, index - 1);
+                              }}
+                            >
+                              <ArrowUp className="size-4 mr-2" />
+                              Move track up
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={index === tracks.length - 1}
+                              onClick={() => {
+                                const { moveTrack } =
+                                  useTimelineStore.getState();
+                                moveTrack(track.id, index + 1);
+                              }}
+                            >
+                              <ArrowDown className="size-4 mr-2" />
+                              Move track down
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
-                  ))}
-                </div>
+
+                    {/* Separator after each track */}
+                    <div
+                      className="w-full relative"
+                      style={{
+                        height: `${TIMELINE_CONSTANTS.TRACK_SPACING}px`,
+                        background: 'transparent',
+                      }}
+                    ></div>
+                  </div>
+                ))}
+                {/* Spacer to match canvas extraMarginY */}
+                <div style={{ height: '15px', flexShrink: 0 }} />
               </div>
             </div>
           )}
 
           {/* Timeline Tracks Content */}
-          <div className="flex-1 relative overflow-hidden bg-red-800">
+          <div className="flex-1 relative overflow-hidden">
             <div id="timeline-canvas" className="w-full h-full" />
           </div>
         </div>
@@ -536,17 +523,6 @@ export function Timeline() {
     </div>
   );
 }
-
-// Track accent colors matching clip colors
-const TRACK_ACCENT_COLORS: Record<string, string> = {
-  Audio: '#1e3a8a',
-  Image: '#164e63',
-  Video: '#38396F',
-  Text: '#166534',
-  Caption: '#166534',
-  Effect: '#511D34',
-  Transition: '#EC4899',
-};
 
 function TrackIcon({ track }: { track: TimelineTrack }) {
   // Use smaller icons for 32px height tracks (Text, Caption)

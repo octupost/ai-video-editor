@@ -1,6 +1,6 @@
 import { CanvasSize } from '@/types/editor';
 import { MediaType } from '@/types/media';
-import { Studio, ImageClip, VideoClip, AudioClip } from '@designcombo/video';
+import { Studio, Image, Video, Audio } from '@designcombo/video';
 
 // ============================================
 // Media Utilities
@@ -23,17 +23,17 @@ export async function addMediaToCanvas(
   sceneSize = { width: 1080, height: 1920 }
 ): Promise<void> {
   if (asset.type === 'image') {
-    const clip = await ImageClip.fromUrl(asset.url + '?v=' + Date.now());
+    const clip = await Image.fromUrl(asset.url + '?v=' + Date.now());
     clip.display = { from: 0, to: 5 * 1e6 };
     clip.duration = 5 * 1e6;
     await clip.scaleToFit(sceneSize.width, sceneSize.height);
     clip.centerInScene(sceneSize.width, sceneSize.height);
     await studio.addClip(clip);
   } else if (asset.type === 'video') {
-    const clip = await VideoClip.fromUrl(asset.url);
+    const clip = await Video.fromUrl(asset.url);
     await studio.addClip(clip);
   } else if (asset.type === 'audio') {
-    const clip = await AudioClip.fromUrl(asset.url);
+    const clip = await Audio.fromUrl(asset.url);
     await studio.addClip(clip, asset.url);
   }
 }

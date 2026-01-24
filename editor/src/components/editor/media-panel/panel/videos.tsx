@@ -3,15 +3,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
-import { VideoClip, Log, PlaceholderClip } from '@designcombo/video';
+import { Video, Log, Placeholder } from '@designcombo/video';
 import { Search, Film, Loader2 } from 'lucide-react';
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
 } from '@/components/ui/input-group';
-import { VisualsChatPanel } from '../visuals-chat-panel';
-import { debounce } from 'lodash';
+import { cloneDeep, debounce } from 'lodash';
 
 interface PexelsVideo {
   id: number;
@@ -78,7 +77,6 @@ export default function PanelVideos() {
 
   const addItemToCanvas = async (asset: PexelsVideo) => {
     if (!studio) return;
-    console.log({ asset });
     try {
       // Find the best quality mp4 link
       const videoFile =
@@ -87,9 +85,8 @@ export default function PanelVideos() {
       if (!videoFile) throw new Error('No video file found');
 
       const src = videoFile.link;
-      console.log({ asset });
       // 1. Create and add placeholder immediately
-      const placeholder = new PlaceholderClip(
+      const placeholder = new Placeholder(
         src,
         {
           width: asset.width,
@@ -106,11 +103,9 @@ export default function PanelVideos() {
       await studio.addClip(placeholder);
 
       // 2. Load the real clip in the background
-      console.log('REPLACING LOADING');
-      VideoClip.fromUrl(src)
+      Video.fromUrl(src)
         .then(async (videoClip) => {
           // 3. Replace all placeholders with this source once loaded
-          console.log('REPLACING LOADED');
           await studio.timeline.replaceClipsBySource(src, async (oldClip) => {
             const clone = await videoClip.clone();
             // Copy state from placeholder (user might have moved/resized/split it)
@@ -119,8 +114,17 @@ export default function PanelVideos() {
             clone.top = oldClip.top;
             clone.width = oldClip.width;
             clone.height = oldClip.height;
+            const realDuration = videoClip.meta.duration;
+            const newTrim = { ...oldClip.trim };
+            newTrim.to = Math.max(newTrim.to, realDuration);
+            newTrim.from = Math.min(newTrim.from, newTrim.to);
+            console.warn(
+              'This needs to be reviewed. assets from pexels may not have the right duration'
+            );
             clone.display = { ...oldClip.display };
-            clone.trim = { ...oldClip.trim };
+            clone.trim = newTrim;
+            clone.duration = (newTrim.to - newTrim.from) / clone.playbackRate;
+            clone.display.to = clone.display.from + clone.duration;
             clone.zIndex = oldClip.zIndex;
             return clone;
           });
@@ -136,13 +140,9 @@ export default function PanelVideos() {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="text-text-primary px-4 flex h-12 flex-none items-center text-sm font-medium">
-        Videos
-      </div>
-
-      <div className="flex items-center px-4">
-        <div className="flex-1 pb-4">
-          <InputGroup className="h-8">
+      <div>
+        <div className="flex-1 p-4">
+          <InputGroup>
             <InputGroupAddon className="bg-secondary/30 pointer-events-none text-muted-foreground w-8 justify-center">
               <Search size={14} />
             </InputGroupAddon>

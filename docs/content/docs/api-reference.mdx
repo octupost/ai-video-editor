@@ -1,0 +1,95 @@
+---
+title: API Reference
+description: Complete stable API reference for the Video SDK.
+---
+
+## Studio
+
+The interactive workspace for your video editing.
+
+### Constructor
+
+```ts
+import { Studio } from "@designcombo/video";
+
+const studio = new Studio({
+  width: 1920,
+  height: 1080,
+  fps: 30,
+  bgColor: "#000000",
+  canvas: document.getElementById("canvas") as HTMLCanvasElement,
+  interactivity: true,
+  spacing: 20,
+});
+
+await studio.ready;
+```
+
+### Properties
+
+- `studio.clips`: `IClip[]` - Array of all clips.
+- `studio.tracks`: `StudioTrack[]` - Array of timeline tracks.
+- `studio.currentTime`: `number` - Current time in microseconds.
+- `studio.maxDuration`: `number` - Total duration in microseconds.
+- `studio.isPlaying`: `boolean` - Playback state.
+
+### Methods
+
+- `studio.addClip(clip: IClip, trackId?: string)`: Add a clip to the studio.
+- `studio.removeClip(clipId: string)`: Remove a clip by ID.
+- `studio.addTrack(track: StudioTrack, index?: number)`: Create a new track.
+- `studio.moveTrack(trackId: string, newIndex: number)`: Reorder a track.
+- `studio.setTrackOrder(trackIds: string[])`: Set absolute track order.
+- `studio.removeTrack(trackId: string)`: Remove a track and its clips.
+- `studio.play()`: Start playback.
+- `studio.pause()`: Pause playback.
+- `studio.seek(time: number)`: Seek to time (in microseconds).
+- `studio.frameNext()`: Move to the next frame.
+- `studio.framePrev()`: Move to the previous frame.
+- `studio.selection.move(dx: number, dy: number)`: Move selected clips.
+- `studio.destroy()`: Clean up resources.
+
+## Clips
+
+Base properties for all clips (`Video`, `Image`, `Text`, `Audio`, `Caption`).
+
+### Base Properties
+
+- `clip.id`: `string`
+- `clip.left`, `clip.top`: `number` - Position.
+- `clip.width`, `clip.height`: `number` - Size.
+- `clip.angle`: `number` - Rotation in degrees.
+- `clip.opacity`: `number` (0.0 - 1.0)
+- `clip.volume`: `number` (0.0 - 1.0)
+- `clip.display`: `{ from: number; to: number }` - Range in microseconds.
+- `clip.trim`: `{ from: number; to: number }` - Source trim in microseconds.
+- `clip.playbackRate`: `number`
+
+### Common Methods
+
+- `clip.set(props: Partial<IClipProps>)`: Update properties.
+- `clip.clone()`: Create a copy.
+- `clip.split(time: number)`: Split at specific time.
+- `clip.setAnimation(keyFrame: object, opts: object)`: Add keyframe animation.
+
+## Compositor
+
+High-performance video compositor for exporting.
+
+```ts
+import { Compositor } from "@designcombo/video";
+
+// Check support
+const supported = await Compositor.isSupported();
+
+const compositor = new Compositor({
+  width: 1920,
+  height: 1080,
+  fps: 30,
+});
+```
+
+### Methods
+
+- `compositor.addClip(clip: IClip)`: Add a clip for composing.
+- `compositor.output()`: Returns a `ReadableStream` of the rendered video.

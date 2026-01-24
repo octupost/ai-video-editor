@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useStudioStore } from '@/stores/studio-store';
-import { TextClip, Log } from '@designcombo/video';
+import { Text, Log } from '@designcombo/video';
 
 const TEXT_PRESETS = [
   {
@@ -103,7 +103,7 @@ export default function PanelText() {
     if (!studio) return;
 
     try {
-      const textClip = new TextClip(preset ? preset.description : 'Add Text', {
+      const textClip = new Text(preset ? preset.description : 'Add Text pro', {
         fontSize: preset?.style.fontSize || 124,
         fontFamily: preset?.style.fontFamily || 'Arial',
         align: 'center',
@@ -116,11 +116,10 @@ export default function PanelText() {
         wordWrapWidth: 800,
         fontUrl: (preset?.style as any)?.fontUrl,
       });
-
+      await textClip.ready;
       textClip.display.from = 0;
       textClip.duration = 5e6;
       textClip.display.to = 5e6;
-
       await studio.addClip(textClip);
     } catch (error) {
       Log.error('Failed to add text:', error);
@@ -129,16 +128,12 @@ export default function PanelText() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="text-text-primary flex h-12 flex-none items-center px-4 text-sm font-medium">
-        Text
-      </div>
-      <div className="px-4 py-2">
+      <div className="p-4">
         <Button onClick={() => handleAddText()} className="w-full h-9">
           Add Text
         </Button>
       </div>
-
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto px-4">
         <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-3 pb-4">
           {TEXT_PRESETS.map((preset, index) => (
             <button
