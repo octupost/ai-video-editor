@@ -12,7 +12,10 @@ interface StudioTrack {
 /**
  * Find which track a clip belongs to
  */
-function findTrackForClip(tracks: StudioTrack[], clipId: string): string | null {
+function findTrackForClip(
+  tracks: StudioTrack[],
+  clipId: string
+): string | null {
   for (const track of tracks) {
     if (track.clipIds.includes(clipId)) {
       return track.id;
@@ -50,7 +53,9 @@ export async function saveTimeline(
       position: i,
       data: track, // Full track object in JSONB
     }));
-    const { error: trackError } = await supabase.from('tracks').insert(trackRows);
+    const { error: trackError } = await supabase
+      .from('tracks')
+      .insert(trackRows);
     if (trackError) throw trackError;
   }
 
@@ -87,7 +92,9 @@ interface TrackWithClips {
  * Load timeline from Supabase
  * Returns tracks with nested clips data
  */
-export async function loadTimeline(projectId: string): Promise<TrackWithClips[] | null> {
+export async function loadTimeline(
+  projectId: string
+): Promise<TrackWithClips[] | null> {
   const supabase = createClient();
 
   const { data: tracks, error } = await supabase
@@ -112,17 +119,40 @@ export function reconstructProjectJSON(tracks: TrackWithClips[]) {
   // Collect all clips from all tracks
   const allClips: Record<string, unknown>[] = [];
 
+  // Reconstruct track structure with clipIds
+  const trackData: Array<{
+    id: string;
+    name: string;
+    type: string;
+    clipIds: string[];
+  }> = [];
+
   for (const track of tracks) {
+    // Build clipIds array for this track from its clips
+    const clipIds: string[] = [];
+
     if (track.clips) {
       // Sort clips by position within track
-      const sortedClips = [...track.clips].sort((a, b) => a.position - b.position);
+      const sortedClips = [...track.clips].sort(
+        (a, b) => a.position - b.position
+      );
       for (const clip of sortedClips) {
         allClips.push(clip.data);
+        clipIds.push(clip.id);
       }
     }
+
+    // Add track with its clipIds
+    trackData.push({
+      id: track.data.id,
+      name: track.data.name,
+      type: track.data.type,
+      clipIds,
+    });
   }
 
   return {
     clips: allClips,
+    tracks: trackData,
   };
 }

@@ -525,20 +525,26 @@ export function Timeline() {
 }
 
 function TrackIcon({ track }: { track: TimelineTrack }) {
-  // Use smaller icons for 32px height tracks (Text, Caption)
-  const isSmallTrack = track.type === 'Text' || track.type === 'Caption';
-  const iconClass = isSmallTrack
-    ? 'w-3 h-3 shrink-0 text-muted-foreground'
-    : 'w-4 h-4 shrink-0 text-muted-foreground';
-
   return (
     <>
-      {track.type === 'Image' && <Image className={iconClass} />}
-      {(track.type === 'Video' || track.type === 'Placeholder') && <Video className={iconClass} />}
-      {track.type === 'Text' && <TypeIcon className={iconClass} />}
-      {track.type === 'Caption' && <TypeIcon className={iconClass} />}
-      {track.type === 'Audio' && <Music className={iconClass} />}
-      {track.type === 'Effect' && <SparklesIcon className={iconClass} />}
+      {track.type === 'Image' && (
+        <Image className="w-4 h-4 shrink-0 text-muted-foreground" />
+      )}
+      {(track.type === 'Video' || track.type === 'Placeholder') && (
+        <Video className="w-4 h-4 shrink-0 text-muted-foreground" />
+      )}
+      {track.type === 'Text' && (
+        <TypeIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
+      )}
+      {track.type === 'Caption' && (
+        <TypeIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
+      )}
+      {track.type === 'Audio' && (
+        <Music className="w-4 h-4 shrink-0 text-muted-foreground" />
+      )}
+      {track.type === 'Effect' && (
+        <SparklesIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
+      )}
     </>
   );
 }
