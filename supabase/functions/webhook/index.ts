@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createLogger, type Logger } from '../_shared/logger.ts';
 
 const FAL_API_KEY = Deno.env.get('FAL_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -9,12 +10,11 @@ interface FalWebhookPayload {
   status: 'OK' | 'ERROR';
   request_id?: string;
   error?: string;
-  // Images can be at various locations depending on fal.ai endpoint type
-  images?: Array<{ url: string; filename?: string; content_type?: string }>;
+  images?: Array<{ url: string }>;
   // deno-lint-ignore no-explicit-any
   outputs?: any;
   payload?: {
-    images?: Array<{ url: string; filename?: string; content_type?: string }>;
+    images?: Array<{ url: string }>;
     // deno-lint-ignore no-explicit-any
     outputs?: any;
     prompt?: string;
@@ -57,10 +57,30 @@ function getImages(
   return undefined;
 }
 
+// Helper to get images from a specific ComfyUI node ID
+function getImagesFromNode(
+  payload: FalWebhookPayload,
+  nodeId: string
+): Array<{ url: string }> | undefined {
+  const outputs = payload.payload?.outputs || payload.outputs;
+  if (outputs && typeof outputs === 'object' && !Array.isArray(outputs)) {
+    const nodeOutput = outputs[nodeId];
+    if (
+      nodeOutput?.images &&
+      Array.isArray(nodeOutput.images) &&
+      nodeOutput.images[0]?.url
+    ) {
+      return nodeOutput.images;
+    }
+  }
+  return undefined;
+}
+
 async function handleGenGridImage(
   supabase: ReturnType<typeof createClient>,
   falPayload: FalWebhookPayload,
-  params: URLSearchParams
+  params: URLSearchParams,
+  log: Logger
 ): Promise<Response> {
   const grid_image_id = params.get('grid_image_id')!;
   const width = parseInt(params.get('width') || '1920');
@@ -68,21 +88,51 @@ async function handleGenGridImage(
   const rows = parseInt(params.get('rows') || '2');
   const cols = parseInt(params.get('cols') || '2');
 
-  console.log(
-    'GenGridImage webhook received for grid_image_id:',
-    grid_image_id
-  );
+  log.info('Processing GenGridImage', {
+    grid_image_id,
+    dimensions: `${width}x${height}`,
+    grid: `${rows}x${cols}`,
+    fal_status: falPayload.status,
+  });
 
+  log.startTiming('extract_images');
   const images = getImages(falPayload);
+  const extractTime = log.endTiming('extract_images');
+
+  // Determine where images were found
+  const imageSource = images
+    ? falPayload.payload?.images
+      ? 'payload.images'
+      : falPayload.images
+        ? 'root.images'
+        : 'outputs'
+    : 'none';
+
+  log.info('Image extraction', {
+    source: imageSource,
+    count: images?.length || 0,
+    time_ms: extractTime,
+  });
 
   // Check if generation failed
   if (falPayload.status === 'ERROR' || !images?.[0]?.url) {
-    console.error('Grid image generation failed:', falPayload.error);
+    log.error('Grid image generation failed', {
+      fal_error: falPayload.error,
+      has_images: !!images,
+    });
+
+    log.startTiming('db_update_failed');
     await supabase
       .from('grid_images')
       .update({ status: 'failed', error_message: 'generation_error' })
       .eq('id', grid_image_id);
+    log.db('UPDATE', 'grid_images', {
+      id: grid_image_id,
+      status: 'failed',
+      time_ms: log.endTiming('db_update_failed'),
+    });
 
+    log.summary('error', { grid_image_id, reason: 'generation_failed' });
     return new Response(
       JSON.stringify({ success: false, error: 'Generation failed' }),
       {
@@ -95,9 +145,13 @@ async function handleGenGridImage(
   const gridImageUrl = images[0].url;
   const prompt = falPayload.payload?.prompt;
 
-  console.log('Grid image generated successfully:', gridImageUrl);
+  log.success('Grid image generated', {
+    url: gridImageUrl,
+    has_prompt: !!prompt,
+  });
 
   // Step 1: Update grid_images with success and URL
+  log.startTiming('db_update_success');
   await supabase
     .from('grid_images')
     .update({
@@ -106,6 +160,11 @@ async function handleGenGridImage(
       prompt: prompt || null,
     })
     .eq('id', grid_image_id);
+  log.db('UPDATE', 'grid_images', {
+    id: grid_image_id,
+    status: 'success',
+    time_ms: log.endTiming('db_update_success'),
+  });
 
   // Step 2: Send split request to ComfyUI
   const splitWebhookParams = new URLSearchParams({
@@ -118,7 +177,9 @@ async function handleGenGridImage(
   falUrl.searchParams.set('fal_webhook', splitWebhookUrl);
 
   try {
-    console.log('Sending split request to:', falUrl.toString());
+    log.api('ComfyUI', 'splitgridimage', { rows, cols, width, height });
+    log.startTiming('split_request');
+
     const splitResponse = await fetch(falUrl.toString(), {
       method: 'POST',
       headers: {
@@ -136,15 +197,33 @@ async function handleGenGridImage(
 
     if (!splitResponse.ok) {
       const errorText = await splitResponse.text();
-      console.error('Split request failed:', errorText);
+      log.error('Split request failed', {
+        status: splitResponse.status,
+        error: errorText,
+        time_ms: log.endTiming('split_request'),
+      });
       throw new Error(`Split request failed: ${splitResponse.status}`);
     }
 
     const splitResult = await splitResponse.json();
-    console.log('Split request sent successfully:', splitResult.request_id);
+    log.success('Split request sent', {
+      request_id: splitResult.request_id,
+      time_ms: log.endTiming('split_request'),
+    });
+
+    // Save split_request_id to grid_images for tracking
+    await supabase
+      .from('grid_images')
+      .update({ split_request_id: splitResult.request_id })
+      .eq('id', grid_image_id);
   } catch (splitError) {
-    console.error('Failed to send split request:', splitError);
+    log.error('Failed to send split request', {
+      error:
+        splitError instanceof Error ? splitError.message : String(splitError),
+    });
+
     // Mark all first_frames as failed
+    log.startTiming('mark_frames_failed');
     const { data: scenes } = await supabase
       .from('scenes')
       .select('id')
@@ -157,9 +236,14 @@ async function handleGenGridImage(
           .update({ status: 'failed', error_message: 'internal_error' })
           .eq('scene_id', scene.id);
       }
+      log.warn('Marked first_frames as failed', {
+        scenes_affected: scenes.length,
+        time_ms: log.endTiming('mark_frames_failed'),
+      });
     }
   }
 
+  log.summary('success', { grid_image_id, next_step: 'SplitGridImage' });
   return new Response(JSON.stringify({ success: true, step: 'GenGridImage' }), {
     headers: { 'Content-Type': 'application/json' },
   });
@@ -168,16 +252,18 @@ async function handleGenGridImage(
 async function handleSplitGridImage(
   supabase: ReturnType<typeof createClient>,
   falPayload: FalWebhookPayload,
-  params: URLSearchParams
+  params: URLSearchParams,
+  log: Logger
 ): Promise<Response> {
   const grid_image_id = params.get('grid_image_id')!;
 
-  console.log(
-    'SplitGridImage webhook received for grid_image_id:',
-    grid_image_id
-  );
+  log.info('Processing SplitGridImage', {
+    grid_image_id,
+    fal_status: falPayload.status,
+  });
 
   // Fetch scenes in order
+  log.startTiming('fetch_scenes');
   const { data: scenes, error: scenesError } = await supabase
     .from('scenes')
     .select(`
@@ -188,8 +274,15 @@ async function handleSplitGridImage(
     .eq('grid_image_id', grid_image_id)
     .order('order', { ascending: true });
 
+  log.db('SELECT', 'scenes', {
+    grid_image_id,
+    count: scenes?.length || 0,
+    time_ms: log.endTiming('fetch_scenes'),
+  });
+
   if (scenesError || !scenes) {
-    console.error('Failed to fetch scenes:', scenesError);
+    log.error('Failed to fetch scenes', { error: scenesError?.message });
+    log.summary('error', { grid_image_id, reason: 'scenes_fetch_failed' });
     return new Response(
       JSON.stringify({ success: false, error: 'Failed to fetch scenes' }),
       {
@@ -199,23 +292,39 @@ async function handleSplitGridImage(
     );
   }
 
-  const images = getImages(falPayload);
+  // Get images from specific ComfyUI nodes
+  // Node 30 = url (split images), Node 11 = out_padded_url (padded images)
+  log.startTiming('extract_node_images');
+  const urlImages = getImagesFromNode(falPayload, '30');
+  const outPaddedImages = getImagesFromNode(falPayload, '11');
 
-  // Check if split failed
-  if (falPayload.status === 'ERROR' || !images) {
-    console.error(
-      'Grid split failed:',
-      falPayload.error,
-      'payload:',
-      JSON.stringify(falPayload)
-    );
+  log.info('Node images extracted', {
+    node_30_count: urlImages?.length || 0,
+    node_11_count: outPaddedImages?.length || 0,
+    time_ms: log.endTiming('extract_node_images'),
+  });
+
+  // Check if split failed (need at least one set of images)
+  if (falPayload.status === 'ERROR' || (!urlImages && !outPaddedImages)) {
+    log.error('Grid split failed', {
+      fal_error: falPayload.error,
+      has_node_30: !!urlImages,
+      has_node_11: !!outPaddedImages,
+    });
+
+    log.startTiming('mark_all_failed');
     for (const scene of scenes) {
       await supabase
         .from('first_frames')
         .update({ status: 'failed', error_message: 'split_error' })
         .eq('scene_id', scene.id);
     }
+    log.warn('Marked all first_frames as failed', {
+      count: scenes.length,
+      time_ms: log.endTiming('mark_all_failed'),
+    });
 
+    log.summary('error', { grid_image_id, reason: 'split_failed' });
     return new Response(
       JSON.stringify({ success: false, error: 'Split failed' }),
       {
@@ -225,33 +334,60 @@ async function handleSplitGridImage(
     );
   }
 
-  console.log(
-    `Updating ${scenes.length} first_frames with ${images.length} images`
-  );
-
   // Update first_frames for each scene
+  log.info('Updating first_frames', {
+    scenes_count: scenes.length,
+    url_images: urlImages?.length || 0,
+    padded_images: outPaddedImages?.length || 0,
+  });
+
+  log.startTiming('update_first_frames');
+  let successCount = 0;
+  let failCount = 0;
+
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
     const firstFrame = scene.first_frames?.[0];
 
     if (!firstFrame) {
-      console.error(`No first_frame found for scene ${scene.id}`);
+      log.warn('No first_frame for scene', {
+        scene_id: scene.id,
+        order: scene.order,
+      });
+      failCount++;
       continue;
     }
 
-    const imageUrl = images[i]?.url || null;
+    const imageUrl = urlImages?.[i]?.url || null;
+    const outPaddedUrl = outPaddedImages?.[i]?.url || null;
+    const status = imageUrl || outPaddedUrl ? 'success' : 'failed';
 
     await supabase
       .from('first_frames')
       .update({
         url: imageUrl,
-        status: imageUrl ? 'success' : 'failed',
-        error_message: imageUrl ? null : 'split_error',
+        out_padded_url: outPaddedUrl,
+        status,
+        error_message: status === 'failed' ? 'split_error' : null,
       })
       .eq('id', firstFrame.id);
+
+    if (status === 'success') successCount++;
+    else failCount++;
   }
 
-  console.log('SplitGridImage completed successfully');
+  log.success('first_frames updated', {
+    success: successCount,
+    failed: failCount,
+    time_ms: log.endTiming('update_first_frames'),
+  });
+
+  log.summary('success', {
+    grid_image_id,
+    scenes_updated: scenes.length,
+    success_count: successCount,
+    fail_count: failCount,
+  });
 
   return new Response(
     JSON.stringify({
@@ -278,20 +414,25 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  const log = createLogger();
+
   try {
     // Get step and other params from URL query parameters
     const url = new URL(req.url);
     const params = url.searchParams;
     const step = params.get('step');
+    const gridImageId = params.get('grid_image_id');
 
-    console.log(
-      'Webhook received - step:',
+    log.setContext({ step: step || 'Unknown' });
+
+    log.info('Webhook received', {
       step,
-      'params:',
-      Object.fromEntries(params)
-    );
+      grid_image_id: gridImageId,
+      params: Object.fromEntries(params),
+    });
 
     if (!step) {
+      log.error('Missing step parameter');
       return new Response(
         JSON.stringify({ success: false, error: 'Missing step parameter' }),
         {
@@ -302,24 +443,36 @@ Deno.serve(async (req: Request) => {
     }
 
     // Parse the fal.ai payload from body
+    log.startTiming('parse_payload');
     const falPayload = await req.json();
+    log.info('Payload parsed', {
+      fal_status: falPayload.status,
+      has_images: !!falPayload.images || !!falPayload.payload?.images,
+      request_id: falPayload.request_id,
+      time_ms: log.endTiming('parse_payload'),
+    });
 
     // Initialize Supabase client with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Store raw payload for debugging
+    log.startTiming('debug_log_insert');
     await supabase.from('debug_logs').insert({
       step: step,
       payload: falPayload,
+    });
+    log.info('Debug payload stored', {
+      time_ms: log.endTiming('debug_log_insert'),
     });
 
     // Route to appropriate handler
     switch (step) {
       case 'GenGridImage':
-        return await handleGenGridImage(supabase, falPayload, params);
+        return await handleGenGridImage(supabase, falPayload, params, log);
       case 'SplitGridImage':
-        return await handleSplitGridImage(supabase, falPayload, params);
+        return await handleSplitGridImage(supabase, falPayload, params, log);
       default:
+        log.error('Unknown step', { step });
         return new Response(
           JSON.stringify({ success: false, error: `Unknown step: ${step}` }),
           {
@@ -329,7 +482,10 @@ Deno.serve(async (req: Request) => {
         );
     }
   } catch (error) {
-    console.error('Webhook error:', error);
+    log.error('Unhandled exception', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
     return new Response(
       JSON.stringify({ success: false, error: 'Internal server error' }),
       {

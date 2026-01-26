@@ -1,5 +1,6 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createLogger } from '../_shared/logger.ts';
 
 const FAL_API_KEY = Deno.env.get('FAL_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -36,7 +37,13 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  const log = createLogger();
+  log.setContext({ step: 'StartWorkflow' });
+
   try {
+    log.info('Request received', { method: req.method });
+
+    log.startTiming('parse_input');
     const input: WorkflowInput = await req.json();
     const {
       project_id,
@@ -48,7 +55,15 @@ Deno.serve(async (req: Request) => {
       height,
     } = input;
 
+    log.info('Input parsed', {
+      project_id,
+      scenes: number_of_scenes,
+      dimensions: `${width}x${height}`,
+      time_ms: log.endTiming('parse_input'),
+    });
+
     // Validate input
+    log.startTiming('validation');
     if (
       !project_id ||
       !grid_image_prompt ||
@@ -56,6 +71,13 @@ Deno.serve(async (req: Request) => {
       !voiceover_list ||
       !visual_prompt_list
     ) {
+      log.error('Validation failed: missing required fields', {
+        has_project_id: !!project_id,
+        has_prompt: !!grid_image_prompt,
+        has_scenes: !!number_of_scenes,
+        has_voiceovers: !!voiceover_list,
+        has_visuals: !!visual_prompt_list,
+      });
       return new Response(
         JSON.stringify({ success: false, error: 'Missing required fields' }),
         {
@@ -72,6 +94,11 @@ Deno.serve(async (req: Request) => {
       voiceover_list.length !== number_of_scenes ||
       visual_prompt_list.length !== number_of_scenes
     ) {
+      log.error('Validation failed: list length mismatch', {
+        number_of_scenes,
+        voiceover_count: voiceover_list.length,
+        visual_count: visual_prompt_list.length,
+      });
       return new Response(
         JSON.stringify({
           success: false,
@@ -88,6 +115,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    log.success('Validation passed', {
+      project_id,
+      scenes: number_of_scenes,
+      time_ms: log.endTiming('validation'),
+    });
+
     // Initialize Supabase client with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -95,7 +128,16 @@ Deno.serve(async (req: Request) => {
     const { rows, cols, cellWidth, cellHeight } =
       calculateGridDimensions(number_of_scenes);
 
+    log.info('Grid dimensions calculated', {
+      scenes: number_of_scenes,
+      grid: `${rows}x${cols}`,
+      cell_size: `${cellWidth}x${cellHeight}`,
+    });
+
     // Step 2: Insert grid_images record
+    log.startTiming('insert_grid_image');
+    log.db('INSERT', 'grid_images', { project_id, rows, cols });
+
     const { data: gridImage, error: gridInsertError } = await supabase
       .from('grid_images')
       .insert({
@@ -111,7 +153,11 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (gridInsertError || !gridImage) {
-      console.error('Failed to insert grid_images:', gridInsertError);
+      log.error('Failed to insert grid_images', {
+        error: gridInsertError?.message,
+        time_ms: log.endTiming('insert_grid_image'),
+      });
+      log.summary('error', { reason: 'grid_image_insert_failed' });
       return new Response(
         JSON.stringify({
           success: false,
@@ -128,6 +174,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const grid_image_id = gridImage.id;
+    log.success('grid_images created', {
+      id: grid_image_id,
+      time_ms: log.endTiming('insert_grid_image'),
+    });
 
     // Step 3: Build webhook URL with encoded data as query params
     // fal.ai requires webhook URL as query parameter, and we encode our data in the URL
@@ -147,6 +197,12 @@ Deno.serve(async (req: Request) => {
 
     let requestId: string | null = null;
     try {
+      log.api('fal.ai', 'z-image/turbo', {
+        prompt_length: grid_image_prompt.length,
+        aspect_ratio: '1:1',
+      });
+      log.startTiming('fal_request');
+
       const falResponse = await fetch(falUrl.toString(), {
         method: 'POST',
         headers: {
@@ -164,21 +220,32 @@ Deno.serve(async (req: Request) => {
 
       if (!falResponse.ok) {
         const errorText = await falResponse.text();
-        console.error('fal.ai error response:', errorText);
+        log.error('fal.ai request failed', {
+          status: falResponse.status,
+          error: errorText,
+          time_ms: log.endTiming('fal_request'),
+        });
         throw new Error(`fal.ai request failed: ${falResponse.status}`);
       }
 
       const falResult = await falResponse.json();
       requestId = falResult.request_id;
-      console.log('fal.ai request submitted:', requestId);
+      log.success('fal.ai request accepted', {
+        request_id: requestId,
+        time_ms: log.endTiming('fal_request'),
+      });
     } catch (falError) {
-      console.error('fal.ai request error:', falError);
+      log.error('fal.ai request error', {
+        error: falError instanceof Error ? falError.message : String(falError),
+      });
+
       // Update grid_images with error
       await supabase
         .from('grid_images')
         .update({ status: 'failed', error_message: 'request_error' })
         .eq('id', grid_image_id);
 
+      log.summary('error', { grid_image_id, reason: 'fal_request_failed' });
       return new Response(
         JSON.stringify({
           success: false,
@@ -196,12 +263,21 @@ Deno.serve(async (req: Request) => {
     }
 
     // Step 4: Update grid_images with processing status and request_id
+    log.startTiming('update_processing');
     await supabase
       .from('grid_images')
       .update({ status: 'processing', request_id: requestId })
       .eq('id', grid_image_id);
+    log.db('UPDATE', 'grid_images', {
+      id: grid_image_id,
+      status: 'processing',
+      time_ms: log.endTiming('update_processing'),
+    });
 
     // Step 5: Create scene records with first_frames and voiceovers
+    log.info('Creating scenes', { count: number_of_scenes });
+    log.startTiming('create_scenes');
+
     const createdScenes: string[] = [];
     for (let i = 0; i < number_of_scenes; i++) {
       // Insert scene
@@ -216,7 +292,10 @@ Deno.serve(async (req: Request) => {
         .single();
 
       if (sceneError || !scene) {
-        console.error(`Failed to insert scene ${i}:`, sceneError);
+        log.warn('Failed to insert scene', {
+          index: i,
+          error: sceneError?.message,
+        });
         continue;
       }
 
@@ -237,6 +316,17 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    log.success('Scenes created', {
+      count: createdScenes.length,
+      time_ms: log.endTiming('create_scenes'),
+    });
+
+    log.summary('success', {
+      grid_image_id,
+      request_id: requestId,
+      scenes_created: createdScenes.length,
+    });
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -252,7 +342,11 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error('Unexpected error:', error);
+    log.error('Unexpected error', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    log.summary('error', { reason: 'unexpected_exception' });
     return new Response(
       JSON.stringify({ success: false, error: 'Internal server error' }),
       {
