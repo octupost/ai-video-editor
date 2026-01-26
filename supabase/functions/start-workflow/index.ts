@@ -9,19 +9,12 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 interface WorkflowInput {
   project_id: string;
   grid_image_prompt: string;
-  number_of_scenes: number;
+  rows: number;
+  cols: number;
   voiceover_list: string[];
   visual_prompt_list: string[];
   width: number;
   height: number;
-}
-
-function calculateGridDimensions(numberOfScenes: number) {
-  const cols = Math.ceil(Math.sqrt(numberOfScenes));
-  const rows = Math.ceil(numberOfScenes / cols);
-  const cellWidth = Math.floor(4096 / cols);
-  const cellHeight = Math.floor(4096 / rows);
-  return { rows, cols, cellWidth, cellHeight };
 }
 
 Deno.serve(async (req: Request) => {
@@ -48,16 +41,20 @@ Deno.serve(async (req: Request) => {
     const {
       project_id,
       grid_image_prompt,
-      number_of_scenes,
+      rows,
+      cols,
       voiceover_list,
       visual_prompt_list,
       width,
       height,
     } = input;
 
+    const numberOfScenes = rows * cols;
+
     log.info('Input parsed', {
       project_id,
-      scenes: number_of_scenes,
+      grid: `${rows}x${cols}`,
+      scenes: numberOfScenes,
       dimensions: `${width}x${height}`,
       time_ms: log.endTiming('parse_input'),
     });
@@ -67,14 +64,16 @@ Deno.serve(async (req: Request) => {
     if (
       !project_id ||
       !grid_image_prompt ||
-      !number_of_scenes ||
+      !rows ||
+      !cols ||
       !voiceover_list ||
       !visual_prompt_list
     ) {
       log.error('Validation failed: missing required fields', {
         has_project_id: !!project_id,
         has_prompt: !!grid_image_prompt,
-        has_scenes: !!number_of_scenes,
+        has_rows: !!rows,
+        has_cols: !!cols,
         has_voiceovers: !!voiceover_list,
         has_visuals: !!visual_prompt_list,
       });
@@ -91,19 +90,18 @@ Deno.serve(async (req: Request) => {
     }
 
     if (
-      voiceover_list.length !== number_of_scenes ||
-      visual_prompt_list.length !== number_of_scenes
+      voiceover_list.length !== numberOfScenes ||
+      visual_prompt_list.length !== numberOfScenes
     ) {
       log.error('Validation failed: list length mismatch', {
-        number_of_scenes,
+        expected: numberOfScenes,
         voiceover_count: voiceover_list.length,
         visual_count: visual_prompt_list.length,
       });
       return new Response(
         JSON.stringify({
           success: false,
-          error:
-            'voiceover_list and visual_prompt_list must match number_of_scenes',
+          error: 'voiceover_list and visual_prompt_list must match rows * cols',
         }),
         {
           status: 400,
@@ -117,20 +115,21 @@ Deno.serve(async (req: Request) => {
 
     log.success('Validation passed', {
       project_id,
-      scenes: number_of_scenes,
+      grid: `${rows}x${cols}`,
+      scenes: numberOfScenes,
       time_ms: log.endTiming('validation'),
     });
 
     // Initialize Supabase client with service role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Step 1: Calculate grid dimensions
-    const { rows, cols, cellWidth, cellHeight } =
-      calculateGridDimensions(number_of_scenes);
+    // Step 1: Calculate cell dimensions from rows/cols
+    const cellWidth = Math.floor(4096 / cols);
+    const cellHeight = Math.floor(4096 / rows);
 
-    log.info('Grid dimensions calculated', {
-      scenes: number_of_scenes,
+    log.info('Grid dimensions', {
       grid: `${rows}x${cols}`,
+      scenes: numberOfScenes,
       cell_size: `${cellWidth}x${cellHeight}`,
     });
 
@@ -275,11 +274,11 @@ Deno.serve(async (req: Request) => {
     });
 
     // Step 5: Create scene records with first_frames and voiceovers
-    log.info('Creating scenes', { count: number_of_scenes });
+    log.info('Creating scenes', { count: numberOfScenes });
     log.startTiming('create_scenes');
 
     const createdScenes: string[] = [];
-    for (let i = 0; i < number_of_scenes; i++) {
+    for (let i = 0; i < numberOfScenes; i++) {
       // Insert scene
       const { data: scene, error: sceneError } = await supabase
         .from('scenes')
