@@ -36,6 +36,14 @@ export interface FirstFrame {
   status: 'pending' | 'processing' | 'success' | 'failed';
   error_message: string | null;
   created_at: string;
+  final_url: string | null;
+  enhance_status: 'pending' | 'processing' | 'success' | 'failed' | null;
+  enhance_error_message: string | null;
+  video_url: string | null;
+  video_status: 'pending' | 'processing' | 'success' | 'failed' | null;
+  video_request_id: string | null;
+  video_error_message: string | null;
+  video_resolution: '480p' | '720p' | '1080p' | null;
 }
 
 export interface Voiceover {
@@ -44,6 +52,7 @@ export interface Voiceover {
   text: string | null;
   status: 'pending' | 'processing' | 'success' | 'failed';
   created_at: string;
+  audio_url?: string | null;
 }
 
 export interface Scene {
@@ -359,18 +368,25 @@ export function subscribeToSceneUpdates(
     channels.push(ffChannel);
   }
 
-  // Voiceover updates
+  // Voiceover updates (listen for both INSERT and UPDATE to catch all changes)
   if (callbacks.onVoiceoverUpdate) {
     const voChannel = supabase
       .channel(`voiceovers_${gridImageId}`)
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'voiceovers',
         },
-        (payload) => callbacks.onVoiceoverUpdate?.(payload.new as Voiceover)
+        (payload) => {
+          if (
+            payload.eventType === 'INSERT' ||
+            payload.eventType === 'UPDATE'
+          ) {
+            callbacks.onVoiceoverUpdate?.(payload.new as Voiceover);
+          }
+        }
       )
       .subscribe();
     channels.push(voChannel);

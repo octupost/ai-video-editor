@@ -42,7 +42,7 @@ When the user asks to write a voiceover or script:
 6. If user provides custom feedback → call editVoiceover with the current script and their feedback, then repeat from step 4
 
 For video editing tasks, use the appropriate timeline tools to help users edit their videos.`,
-    messages: convertToModelMessages(messages),
+    messages: await convertToModelMessages(messages),
     tools: {
       askQuestion: tool({
         description:
@@ -106,9 +106,7 @@ For video editing tasks, use the appropriate timeline tools to help users edit t
         description:
           'Generate voiceover text for a video. Call askQuestion first to get duration and tone preferences.',
         inputSchema: z.object({
-          topic: z
-            .string()
-            .describe('The topic or subject of the voiceover'),
+          topic: z.string().describe('The topic or subject of the voiceover'),
           duration: z
             .number()
             .optional()
@@ -116,7 +114,9 @@ For video editing tasks, use the appropriate timeline tools to help users edit t
           tone: z
             .string()
             .optional()
-            .describe('The tone of the voiceover (e.g. professional, casual, dramatic, upbeat)'),
+            .describe(
+              'The tone of the voiceover (e.g. professional, casual, dramatic, upbeat)'
+            ),
         }),
         execute: async ({ topic, duration, tone }) => {
           // Return the parameters - the AI will generate the actual voiceover text
@@ -138,7 +138,9 @@ For video editing tasks, use the appropriate timeline tools to help users edit t
             .describe('The current voiceover script to edit'),
           feedback: z
             .string()
-            .describe('What the user wants changed (e.g. "make it shorter", "add a CTA", "more dramatic")'),
+            .describe(
+              'What the user wants changed (e.g. "make it shorter", "add a CTA", "more dramatic")'
+            ),
         }),
         execute: async ({ originalScript, feedback }) => {
           return {

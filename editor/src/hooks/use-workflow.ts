@@ -120,15 +120,31 @@ export function useWorkflow(
       onVoiceoverUpdate: (updatedVoiceover) => {
         setStoryboard((prev) => {
           if (!prev || !('grid_images' in prev)) return prev;
-          // Update the voiceover in the appropriate scene
+          // Update or add the voiceover in the appropriate scene
           const updatedGridImages = prev.grid_images.map((gi) => ({
             ...gi,
-            scenes: gi.scenes.map((scene) => ({
-              ...scene,
-              voiceovers: scene.voiceovers.map((vo) =>
-                vo.id === updatedVoiceover.id ? updatedVoiceover : vo
-              ),
-            })),
+            scenes: gi.scenes.map((scene) => {
+              // Check if this voiceover belongs to this scene
+              const existingIndex = scene.voiceovers.findIndex(
+                (vo) => vo.id === updatedVoiceover.id
+              );
+              if (existingIndex >= 0) {
+                // Update existing voiceover
+                return {
+                  ...scene,
+                  voiceovers: scene.voiceovers.map((vo) =>
+                    vo.id === updatedVoiceover.id ? updatedVoiceover : vo
+                  ),
+                };
+              } else if (scene.id === updatedVoiceover.scene_id) {
+                // Add new voiceover to this scene
+                return {
+                  ...scene,
+                  voiceovers: [...scene.voiceovers, updatedVoiceover],
+                };
+              }
+              return scene;
+            }),
           }));
           return { ...prev, grid_images: updatedGridImages };
         });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,6 +8,7 @@ import {
   IconLoader2,
   IconLayoutGrid,
   IconChevronDown,
+  IconChevronUp,
   IconCheck,
 } from '@tabler/icons-react';
 import {
@@ -63,6 +64,14 @@ export default function PanelStoryboard() {
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [workflowStarted, setWorkflowStarted] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isInputCollapsed, setIsInputCollapsed] = useState(false);
+
+  // Auto-collapse input panel when workflow starts
+  useEffect(() => {
+    if (workflowStarted) {
+      setIsInputCollapsed(true);
+    }
+  }, [workflowStarted]);
 
   const startWorkflow = async (storyboardData: StoryboardResponse) => {
     const selectedRatio = ASPECT_RATIOS.find((r) => r.value === aspectRatio);
@@ -212,68 +221,107 @@ export default function PanelStoryboard() {
       </ScrollArea>
 
       {/* Input Section - Fixed at Bottom */}
-      <div className="flex-none p-4 flex flex-col gap-3 border-t border-border/50">
-        {/* Voiceover Text Input */}
-        <Textarea
-          placeholder="Enter your voiceover script..."
-          className="resize-none text-sm min-h-[80px]"
-          value={voiceoverText}
-          onChange={(e) => setVoiceoverText(e.target.value)}
-        />
-
-        {/* Controls Row: Dropdowns + Generate Button */}
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" className="gap-1">
-                {STYLE_OPTIONS.find((s) => s.value === style)?.label}
-                <IconChevronDown className="size-3 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {STYLE_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => setStyle(option.value)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" className="gap-1">
-                {aspectRatio}
-                <IconChevronDown className="size-3 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {ASPECT_RATIOS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => setAspectRatio(option.value)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Button
-            className="h-8 rounded-full text-sm flex-1"
-            size="sm"
-            onClick={handleGenerate}
-            disabled={loading || !voiceoverText.trim()}
+      <div className="flex-none border-t border-border/50">
+        {isInputCollapsed ? (
+          /* Collapsed View */
+          <div
+            className="p-3 flex items-center justify-between cursor-pointer hover:bg-secondary/20 transition-colors"
+            onClick={() => setIsInputCollapsed(false)}
           >
-            {loading ? (
-              <IconLoader2 className="size-4 animate-spin" />
-            ) : (
-              'Generate'
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
+                {STYLE_OPTIONS.find((s) => s.value === style)?.label}
+              </span>
+              <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
+                {aspectRatio}
+              </span>
+            </div>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
+              New Storyboard
+              <IconChevronUp className="size-3" />
+            </Button>
+          </div>
+        ) : (
+          /* Expanded View */
+          <div className="p-4 flex flex-col gap-3">
+            {/* Collapse button when expanded and workflow has started */}
+            {workflowStarted && (
+              <div className="flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-xs text-muted-foreground"
+                  onClick={() => setIsInputCollapsed(true)}
+                >
+                  Collapse
+                  <IconChevronDown className="size-3 ml-1" />
+                </Button>
+              </div>
             )}
-          </Button>
-        </div>
+
+            {/* Voiceover Text Input */}
+            <Textarea
+              placeholder="Enter your voiceover script..."
+              className="resize-none text-sm min-h-[80px]"
+              value={voiceoverText}
+              onChange={(e) => setVoiceoverText(e.target.value)}
+            />
+
+            {/* Controls Row: Dropdowns + Generate Button */}
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm" className="gap-1">
+                    {STYLE_OPTIONS.find((s) => s.value === style)?.label}
+                    <IconChevronDown className="size-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {STYLE_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => setStyle(option.value)}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" size="sm" className="gap-1">
+                    {aspectRatio}
+                    <IconChevronDown className="size-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {ASPECT_RATIOS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => setAspectRatio(option.value)}
+                    >
+                      {option.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Button
+                className="h-8 rounded-full text-sm flex-1"
+                size="sm"
+                onClick={handleGenerate}
+                disabled={loading || !voiceoverText.trim()}
+              >
+                {loading ? (
+                  <IconLoader2 className="size-4 animate-spin" />
+                ) : (
+                  'Generate'
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
