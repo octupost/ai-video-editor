@@ -13,6 +13,7 @@ import PanelCaptions from './panel/captions';
 import PanelMusic from './panel/music';
 import PanelVoiceovers from './panel/voiceovers';
 import PanelSFX from './panel/sfx';
+import PanelStoryboard from './panel/storyboard';
 import { PropertiesPanel } from '../properties-panel';
 import { Assistant } from '@/components/assistant';
 import type { IClip } from '@designcombo/video';
@@ -33,6 +34,7 @@ const viewMap: Record<Tab, React.ReactNode> = {
   transitions: <PanelTransition />,
   effects: <PanelEffect />,
   assistant: <Assistant />,
+  storyboard: <PanelStoryboard />,
 };
 
 export function MediaPanel() {
@@ -91,7 +93,7 @@ export function MediaPanel() {
         {selectedClips.length > 0 && showProperties ? (
           <PropertiesPanel selectedClips={selectedClips} />
         ) : (
-          <>{viewMap[activeTab]}</>
+          viewMap[activeTab]
         )}
       </div>
     </div>

@@ -1,12 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  getLatestGridImageWithScenes,
-  getLatestGridImage,
-  subscribeToGridImageStatus,
-  subscribeToFirstFrameUpdates,
+  getLatestStoryboardWithScenes,
+  getLatestStoryboard,
+  subscribeToSceneUpdates,
   type GridImage,
   type GridImageWithScenes,
-  type FirstFrame,
+  type Storyboard,
+  type StoryboardWithGridImage,
 } from '@/lib/supabase/workflow-service';
 
 interface UseWorkflowOptions {
@@ -17,7 +17,9 @@ interface UseWorkflowOptions {
 }
 
 interface UseWorkflowResult {
-  /** The latest grid image data */
+  /** The latest storyboard data */
+  storyboard: StoryboardWithGridImage | Storyboard | null;
+  /** The latest grid image data (derived from storyboard for backward compatibility) */
   gridImage: GridImageWithScenes | GridImage | null;
   /** Whether data is being loaded */
   loading: boolean;
@@ -40,15 +42,24 @@ export function useWorkflow(
 ): UseWorkflowResult {
   const { realtime = false, includeScenes = true } = options;
 
-  const [gridImage, setGridImage] = useState<
-    GridImageWithScenes | GridImage | null
+  const [storyboard, setStoryboard] = useState<
+    StoryboardWithGridImage | Storyboard | null
   >(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Derive gridImage from storyboard for backward compatibility
+  const gridImage = useMemo((): GridImageWithScenes | GridImage | null => {
+    if (!storyboard) return null;
+    if ('grid_images' in storyboard && storyboard.grid_images?.[0]) {
+      return storyboard.grid_images[0];
+    }
+    return null;
+  }, [storyboard]);
+
   const fetchData = useCallback(async () => {
     if (!projectId) {
-      setGridImage(null);
+      setStoryboard(null);
       setLoading(false);
       return;
     }
@@ -58,9 +69,9 @@ export function useWorkflow(
 
     try {
       const data = includeScenes
-        ? await getLatestGridImageWithScenes(projectId)
-        : await getLatestGridImage(projectId);
-      setGridImage(data);
+        ? await getLatestStoryboardWithScenes(projectId)
+        : await getLatestStoryboard(projectId);
+      setStoryboard(data);
     } catch (err) {
       setError(
         err instanceof Error ? err : new Error('Failed to fetch workflow')
@@ -75,45 +86,56 @@ export function useWorkflow(
     fetchData();
   }, [fetchData]);
 
-  // Real-time subscription
+  // Real-time subscription for grid_images, first_frames, and voiceovers
   useEffect(() => {
     if (!realtime || !gridImage?.id) return;
 
-    const unsubscribeGrid = subscribeToGridImageStatus(
-      gridImage.id,
-      (updated) => {
-        setGridImage((prev) => {
-          if (!prev) return updated;
-          // Merge with existing scenes if we have them
-          if ('scenes' in prev) {
-            return { ...updated, scenes: prev.scenes };
-          }
-          return updated;
+    const unsubscribe = subscribeToSceneUpdates(gridImage.id, {
+      onGridImageUpdate: (updated) => {
+        setStoryboard((prev) => {
+          if (!prev || !('grid_images' in prev)) return prev;
+          // Update the grid_image in the storyboard
+          const updatedGridImages = prev.grid_images.map((gi) =>
+            gi.id === updated.id ? { ...updated, scenes: gi.scenes } : gi
+          );
+          return { ...prev, grid_images: updatedGridImages };
         });
-      }
-    );
-
-    const unsubscribeFrames = subscribeToFirstFrameUpdates(
-      gridImage.id,
-      (updatedFrame) => {
-        setGridImage((prev) => {
-          if (!prev || !('scenes' in prev)) return prev;
+      },
+      onFirstFrameUpdate: (updatedFrame) => {
+        setStoryboard((prev) => {
+          if (!prev || !('grid_images' in prev)) return prev;
           // Update the first_frame in the appropriate scene
-          const updatedScenes = prev.scenes.map((scene) => ({
-            ...scene,
-            first_frames: scene.first_frames.map((ff) =>
-              ff.id === updatedFrame.id ? updatedFrame : ff
-            ),
+          const updatedGridImages = prev.grid_images.map((gi) => ({
+            ...gi,
+            scenes: gi.scenes.map((scene) => ({
+              ...scene,
+              first_frames: scene.first_frames.map((ff) =>
+                ff.id === updatedFrame.id ? updatedFrame : ff
+              ),
+            })),
           }));
-          return { ...prev, scenes: updatedScenes };
+          return { ...prev, grid_images: updatedGridImages };
         });
-      }
-    );
+      },
+      onVoiceoverUpdate: (updatedVoiceover) => {
+        setStoryboard((prev) => {
+          if (!prev || !('grid_images' in prev)) return prev;
+          // Update the voiceover in the appropriate scene
+          const updatedGridImages = prev.grid_images.map((gi) => ({
+            ...gi,
+            scenes: gi.scenes.map((scene) => ({
+              ...scene,
+              voiceovers: scene.voiceovers.map((vo) =>
+                vo.id === updatedVoiceover.id ? updatedVoiceover : vo
+              ),
+            })),
+          }));
+          return { ...prev, grid_images: updatedGridImages };
+        });
+      },
+    });
 
-    return () => {
-      unsubscribeGrid();
-      unsubscribeFrames();
-    };
+    return unsubscribe;
   }, [realtime, gridImage?.id]);
 
   // Compute derived state
@@ -138,6 +160,7 @@ export function useWorkflow(
   })();
 
   return {
+    storyboard,
     gridImage,
     loading,
     error,

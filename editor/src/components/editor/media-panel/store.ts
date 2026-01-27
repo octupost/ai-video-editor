@@ -1,7 +1,6 @@
 import {
   IconFolder,
   IconLetterT,
-  IconCircleSquare,
   IconSubtitles,
   IconMusic,
   IconMicrophone,
@@ -12,6 +11,7 @@ import {
   IconPhoto,
   IconVideo,
   IconMessageCircle,
+  IconLayoutGrid,
 } from '@tabler/icons-react';
 import { create } from 'zustand';
 
@@ -27,11 +27,16 @@ export type Tab =
   | 'voiceovers'
   | 'sfx'
   | 'transitions'
-  | 'assistant';
+  | 'assistant'
+  | 'storyboard';
 
 export const tabs: {
   [key in Tab]: { icon: React.FC<IconProps>; label: string };
 } = {
+  storyboard: {
+    icon: IconLayoutGrid,
+    label: 'Storyboard',
+  },
   uploads: {
     icon: IconFolder,
     label: 'Uploads',
@@ -93,7 +98,7 @@ interface MediaPanelStore {
 }
 
 export const useMediaPanelStore = create<MediaPanelStore>((set) => ({
-  activeTab: 'uploads',
+  activeTab: 'storyboard',
   setActiveTab: (tab) => set({ activeTab: tab, showProperties: false }),
   highlightMediaId: null,
   requestRevealMedia: (mediaId) =>
