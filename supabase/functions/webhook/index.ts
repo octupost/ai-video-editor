@@ -1,20 +1,32 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { createLogger, type Logger } from '../_shared/logger.ts';
+import * as musicMetadata from 'npm:music-metadata@10';
 
 const FAL_API_KEY = Deno.env.get('FAL_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+interface FalAudioOutput {
+  url: string;
+  content_type?: string;
+  file_name?: string;
+  file_size?: number;
+}
 
 interface FalWebhookPayload {
   status: 'OK' | 'ERROR';
   request_id?: string;
   error?: string;
   images?: Array<{ url: string }>;
+  audio?: FalAudioOutput;
+  video?: Array<{ url: string }> | { url: string };
   // deno-lint-ignore no-explicit-any
   outputs?: any;
   payload?: {
     images?: Array<{ url: string }>;
+    audio?: FalAudioOutput;
+    video?: Array<{ url: string }> | { url: string };
     // deno-lint-ignore no-explicit-any
     outputs?: any;
     prompt?: string;
@@ -401,6 +413,388 @@ async function handleSplitGridImage(
   );
 }
 
+// Helper to get videos from various possible locations
+function getVideos(
+  payload: FalWebhookPayload
+): Array<{ url: string }> | undefined {
+  // Check all possible locations where fal.ai might put videos
+  const candidates = [
+    payload.payload?.video,
+    payload.video,
+    payload.payload?.outputs?.video,
+    payload.outputs?.video,
+  ];
+
+  for (const candidate of candidates) {
+    // Handle both array and single object formats
+    if (Array.isArray(candidate) && candidate.length > 0 && candidate[0]?.url) {
+      return candidate;
+    }
+    if (candidate && !Array.isArray(candidate) && candidate.url) {
+      return [candidate];
+    }
+  }
+
+  // Check ComfyUI node outputs
+  const outputs = payload.payload?.outputs || payload.outputs;
+  if (outputs && typeof outputs === 'object' && !Array.isArray(outputs)) {
+    for (const nodeId of Object.keys(outputs)) {
+      const nodeOutput = outputs[nodeId];
+      if (nodeOutput?.video) {
+        if (Array.isArray(nodeOutput.video) && nodeOutput.video[0]?.url) {
+          return nodeOutput.video;
+        }
+        if (nodeOutput.video.url) {
+          return [nodeOutput.video];
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
+// Helper to get audio from various possible locations
+function getAudio(payload: FalWebhookPayload): FalAudioOutput | undefined {
+  // Check all possible locations where fal.ai might put audio
+  const candidates = [payload.payload?.audio, payload.audio];
+
+  for (const candidate of candidates) {
+    if (candidate?.url) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
+async function handleEnhanceImage(
+  supabase: ReturnType<typeof createClient>,
+  falPayload: FalWebhookPayload,
+  params: URLSearchParams,
+  log: Logger
+): Promise<Response> {
+  const first_frame_id = params.get('first_frame_id')!;
+
+  log.info('Processing EnhanceImage', {
+    first_frame_id,
+    fal_status: falPayload.status,
+  });
+
+  log.startTiming('extract_images');
+  const images = getImages(falPayload);
+  const extractTime = log.endTiming('extract_images');
+
+  log.info('Image extraction', {
+    count: images?.length || 0,
+    has_url: !!images?.[0]?.url,
+    time_ms: extractTime,
+  });
+
+  // Check if enhancement failed
+  if (falPayload.status === 'ERROR' || !images?.[0]?.url) {
+    log.error('Image enhancement failed', {
+      fal_error: falPayload.error,
+      has_images: !!images,
+    });
+
+    log.startTiming('db_update_failed');
+    await supabase
+      .from('first_frames')
+      .update({
+        enhance_status: 'failed',
+        enhance_error_message: 'generation_error',
+      })
+      .eq('id', first_frame_id);
+    log.db('UPDATE', 'first_frames', {
+      id: first_frame_id,
+      enhance_status: 'failed',
+      time_ms: log.endTiming('db_update_failed'),
+    });
+
+    log.summary('error', { first_frame_id, reason: 'enhancement_failed' });
+    return new Response(
+      JSON.stringify({ success: false, error: 'Enhancement failed' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const finalUrl = images[0].url;
+
+  log.success('Image enhanced', {
+    final_url: finalUrl,
+  });
+
+  // Update first_frame with success and final_url
+  log.startTiming('db_update_success');
+  await supabase
+    .from('first_frames')
+    .update({
+      enhance_status: 'success',
+      final_url: finalUrl,
+    })
+    .eq('id', first_frame_id);
+  log.db('UPDATE', 'first_frames', {
+    id: first_frame_id,
+    enhance_status: 'success',
+    time_ms: log.endTiming('db_update_success'),
+  });
+
+  log.summary('success', { first_frame_id, final_url: finalUrl });
+  return new Response(
+    JSON.stringify({
+      success: true,
+      step: 'EnhanceImage',
+      first_frame_id,
+      final_url: finalUrl,
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
+}
+
+async function handleGenerateTTS(
+  supabase: ReturnType<typeof createClient>,
+  falPayload: FalWebhookPayload,
+  params: URLSearchParams,
+  log: Logger
+): Promise<Response> {
+  const voiceover_id = params.get('voiceover_id')!;
+
+  log.info('Processing GenerateTTS', {
+    voiceover_id,
+    fal_status: falPayload.status,
+  });
+
+  log.startTiming('extract_audio');
+  const audio = getAudio(falPayload);
+  const extractTime = log.endTiming('extract_audio');
+
+  // Determine where audio was found
+  const audioSource = audio
+    ? falPayload.payload?.audio
+      ? 'payload.audio'
+      : falPayload.audio
+        ? 'root.audio'
+        : 'none'
+    : 'none';
+
+  log.info('Audio extraction', {
+    source: audioSource,
+    has_url: !!audio?.url,
+    time_ms: extractTime,
+  });
+
+  // Check if generation failed
+  if (falPayload.status === 'ERROR' || !audio?.url) {
+    log.error('TTS generation failed', {
+      fal_error: falPayload.error,
+      has_audio: !!audio,
+    });
+
+    log.startTiming('db_update_failed');
+    await supabase
+      .from('voiceovers')
+      .update({ status: 'failed', error_message: 'generation_error' })
+      .eq('id', voiceover_id);
+    log.db('UPDATE', 'voiceovers', {
+      id: voiceover_id,
+      status: 'failed',
+      time_ms: log.endTiming('db_update_failed'),
+    });
+
+    log.summary('error', { voiceover_id, reason: 'generation_failed' });
+    return new Response(
+      JSON.stringify({ success: false, error: 'TTS generation failed' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const audioUrl = audio.url;
+
+  log.success('TTS audio generated', {
+    url: audioUrl,
+    content_type: audio.content_type,
+    file_size: audio.file_size,
+  });
+
+  // Fetch and decode audio to get duration
+  let duration: number | null = null;
+  try {
+    log.startTiming('calculate_duration');
+    const audioResponse = await fetch(audioUrl);
+    const arrayBuffer = await audioResponse.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const metadata = await musicMetadata.parseBuffer(uint8Array);
+    duration = metadata.format.duration ?? null;
+    log.info('Audio duration calculated', {
+      duration,
+      format: metadata.format.codec,
+      time_ms: log.endTiming('calculate_duration'),
+    });
+  } catch (err) {
+    log.error('Failed to calculate audio duration', {
+      error: err instanceof Error ? err.message : String(err),
+      time_ms: log.endTiming('calculate_duration'),
+    });
+
+    // Mark as failed - duration is required
+    await supabase
+      .from('voiceovers')
+      .update({
+        status: 'failed',
+        error_message: 'duration_error',
+      })
+      .eq('id', voiceover_id);
+
+    log.summary('error', {
+      voiceover_id,
+      reason: 'duration_calculation_failed',
+    });
+    return new Response(
+      JSON.stringify({ success: false, error: 'Duration calculation failed' }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Update voiceover with success, audio URL, and duration
+  log.startTiming('db_update_success');
+  await supabase
+    .from('voiceovers')
+    .update({
+      status: 'success',
+      audio_url: audioUrl,
+      duration: duration,
+    })
+    .eq('id', voiceover_id);
+  log.db('UPDATE', 'voiceovers', {
+    id: voiceover_id,
+    status: 'success',
+    duration,
+    time_ms: log.endTiming('db_update_success'),
+  });
+
+  log.summary('success', { voiceover_id, audio_url: audioUrl, duration });
+  return new Response(
+    JSON.stringify({
+      success: true,
+      step: 'GenerateTTS',
+      voiceover_id,
+      duration,
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
+}
+
+async function handleGenerateVideo(
+  supabase: ReturnType<typeof createClient>,
+  falPayload: FalWebhookPayload,
+  params: URLSearchParams,
+  log: Logger
+): Promise<Response> {
+  const first_frame_id = params.get('first_frame_id')!;
+
+  log.info('Processing GenerateVideo', {
+    first_frame_id,
+    fal_status: falPayload.status,
+  });
+
+  log.startTiming('extract_videos');
+  const videos = getVideos(falPayload);
+  const extractTime = log.endTiming('extract_videos');
+
+  // Determine where video was found
+  const videoSource = videos
+    ? falPayload.payload?.video
+      ? 'payload.video'
+      : falPayload.video
+        ? 'root.video'
+        : 'outputs'
+    : 'none';
+
+  log.info('Video extraction', {
+    source: videoSource,
+    count: videos?.length || 0,
+    has_url: !!videos?.[0]?.url,
+    time_ms: extractTime,
+  });
+
+  // Check if generation failed
+  if (falPayload.status === 'ERROR' || !videos?.[0]?.url) {
+    log.error('Video generation failed', {
+      fal_error: falPayload.error,
+      has_videos: !!videos,
+    });
+
+    log.startTiming('db_update_failed');
+    await supabase
+      .from('first_frames')
+      .update({
+        video_status: 'failed',
+        video_error_message: 'generation_error',
+      })
+      .eq('id', first_frame_id);
+    log.db('UPDATE', 'first_frames', {
+      id: first_frame_id,
+      video_status: 'failed',
+      time_ms: log.endTiming('db_update_failed'),
+    });
+
+    log.summary('error', { first_frame_id, reason: 'generation_failed' });
+    return new Response(
+      JSON.stringify({ success: false, error: 'Video generation failed' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  // Get first video URL only
+  const videoUrl = videos[0].url;
+
+  log.success('Video generated', {
+    video_url: videoUrl,
+  });
+
+  // Update first_frame with success and video_url
+  log.startTiming('db_update_success');
+  await supabase
+    .from('first_frames')
+    .update({
+      video_status: 'success',
+      video_url: videoUrl,
+    })
+    .eq('id', first_frame_id);
+  log.db('UPDATE', 'first_frames', {
+    id: first_frame_id,
+    video_status: 'success',
+    time_ms: log.endTiming('db_update_success'),
+  });
+
+  log.summary('success', { first_frame_id, video_url: videoUrl });
+  return new Response(
+    JSON.stringify({
+      success: true,
+      step: 'GenerateVideo',
+      first_frame_id,
+      video_url: videoUrl,
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -471,6 +865,12 @@ Deno.serve(async (req: Request) => {
         return await handleGenGridImage(supabase, falPayload, params, log);
       case 'SplitGridImage':
         return await handleSplitGridImage(supabase, falPayload, params, log);
+      case 'GenerateTTS':
+        return await handleGenerateTTS(supabase, falPayload, params, log);
+      case 'EnhanceImage':
+        return await handleEnhanceImage(supabase, falPayload, params, log);
+      case 'GenerateVideo':
+        return await handleGenerateVideo(supabase, falPayload, params, log);
       default:
         log.error('Unknown step', { step });
         return new Response(

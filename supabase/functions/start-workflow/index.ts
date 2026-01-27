@@ -100,9 +100,10 @@ async function sendFalRequest(
   prompt: string,
   log: ReturnType<typeof createLogger>
 ): Promise<FalRequestResult> {
-  log.api('fal.ai', 'z-image/turbo', {
+  log.api('fal.ai', 'nano-banana-pro', {
     prompt_length: prompt.length,
     aspect_ratio: '1:1',
+    resolution: '4K',
   });
   log.startTiming('fal_request');
 
@@ -117,7 +118,7 @@ async function sendFalRequest(
       num_images: 1,
       aspect_ratio: '1:1',
       output_format: 'png',
-      safety_tolerance: '6',
+      resolution: '4K',
     }),
   });
 
@@ -280,7 +281,7 @@ Deno.serve(async (req: Request) => {
       cols: cols.toString(),
     });
     const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
-    const falUrl = new URL('https://queue.fal.run/fal-ai/z-image/turbo');
+    const falUrl = new URL('https://queue.fal.run/fal-ai/nano-banana-pro');
     falUrl.searchParams.set('fal_webhook', webhookUrl);
 
     const falResult = await sendFalRequest(falUrl, grid_image_prompt, log);

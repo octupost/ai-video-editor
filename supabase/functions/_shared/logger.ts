@@ -17,6 +17,9 @@ const STEP_EMOJIS: Record<string, string> = {
   GenGridImage: '🖼️',
   SplitGridImage: '✂️',
   StartWorkflow: '🚀',
+  GenerateTTS: '🎙️',
+  EnhanceImage: '✨',
+  GenerateVideo: '🎬',
 };
 
 export class Logger {
