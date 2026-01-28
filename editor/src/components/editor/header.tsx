@@ -1,38 +1,28 @@
-import { useState, useEffect } from 'react';
-import {
-  IconShare,
-  IconDownload,
-  IconPlus,
-  IconUpload,
-  IconDeviceFloppy,
-} from '@tabler/icons-react';
+import { useState } from 'react';
+import { IconShare } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
+import { useStudioStore } from '@/stores/studio-store';
+import { usePanelStore } from '@/stores/panel-store';
+import { Log, type IClip } from '@designcombo/video';
+import { ExportModal } from './export-modal';
+import { LogoIcons } from '../shared/logos';
+import Link from 'next/link';
+import { Icons } from '../shared/icons';
+import { Keyboard, FilePlus, Download, Upload } from 'lucide-react';
+import { ShortcutsModal } from './shortcuts-modal';
+import { useEffect } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useStudioStore } from '@/stores/studio-store';
-import { Log, type IClip } from '@designcombo/video';
-import { ExportModal } from './export-modal';
-import { LogoIcons } from '../shared/logos';
-import Link from 'next/link';
-import { saveTimeline } from '@/lib/supabase/timeline-service';
-import { useProjectId } from '@/contexts/project-context';
-import { Icons } from '../shared/icons';
-import { Keyboard } from 'lucide-react';
-import { ShortcutsModal } from './shortcuts-modal';
 
 export default function Header() {
   const { studio } = useStudioStore();
+  const { toggleCopilot, isCopilotVisible } = usePanelStore();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  // Your Supabase save state
-  const [isSaving, setIsSaving] = useState(false);
-  const projectId = useProjectId();
-  // Vendor shortcuts modal
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
-  // Vendor undo/redo state
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
@@ -60,42 +50,20 @@ export default function Header() {
     };
   }, [studio]);
 
-  const handleSave = async () => {
-    if (!studio) return;
-    setIsSaving(true);
-    try {
-      await saveTimeline(projectId, studio.tracks, studio.clips);
-      alert('Saved to cloud!');
-    } catch (error) {
-      Log.error('Save error:', error);
-      alert('Save failed: ' + (error as Error).message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleNew = async () => {
+  const handleNew = () => {
     if (!studio) return;
     const confirmed = window.confirm(
-      'Are you sure you want to start a new project? Current project will be saved first.'
+      'Are you sure you want to start a new project? Unsaved changes will be lost.'
     );
     if (confirmed) {
-      try {
-        await saveTimeline(projectId, studio.tracks, studio.clips);
-        studio.clear();
-      } catch (error) {
-        Log.error('Save before new error:', error);
-      }
+      studio.clear();
     }
   };
 
-  const handleExportJSON = async () => {
+  const handleExportJSON = () => {
     if (!studio) return;
 
     try {
-      // Save first
-      await saveTimeline(projectId, studio.tracks, studio.clips);
-
       // Get all clips from studio
       const clips = (studio as any).clips as IClip[];
       if (clips.length === 0) {
@@ -125,7 +93,7 @@ export default function Header() {
       }, 100);
     } catch (error) {
       Log.error('Export to JSON error:', error);
-      alert('Failed to export to JSON: ' + (error as Error).message);
+      alert(`Failed to export to JSON: ${(error as Error).message}`);
     }
   };
 
@@ -174,7 +142,7 @@ export default function Header() {
         await studio.loadFromJSON(validJson);
       } catch (error) {
         Log.error('Load from JSON error:', error);
-        alert('Failed to load from JSON: ' + (error as Error).message);
+        alert(`Failed to load from JSON: ${(error as Error).message}`);
       } finally {
         document.body.removeChild(input);
       }
@@ -184,53 +152,34 @@ export default function Header() {
     input.click();
   };
 
-  const handleDownload = async () => {
-    if (!studio) return;
-    try {
-      await saveTimeline(projectId, studio.tracks, studio.clips);
-    } catch (error) {
-      Log.error('Save before download error:', error);
-    }
-    setIsExportModalOpen(true);
-  };
-
   return (
-    <header className="relative flex h-[52px] w-full shrink-0 items-center justify-between px-4">
+    <header className="relative flex h-[52px] w-full shrink-0 items-center justify-between px-4 bg-card z-10">
       {/* Left Section */}
       <div className="flex items-center gap-2">
-        <div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-zinc-200">
+        <div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md ">
           <LogoIcons.scenify width={20} />
         </div>
-
-        {/* File Menu - YOUR version with Save option */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
-              File
-            </Button>
+            <Button variant="ghost">File</Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuItem onClick={handleNew}>
-              <IconPlus className="mr-2 size-4" />
-              New
+            <DropdownMenuItem onClick={handleExportJSON}>
+              <Download className="mr-2 h-4 w-4" />
+              <span>Export (to JSON)</span>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleImportJSON}>
-              <IconUpload className="mr-2 size-4" />
-              Import
+              <Upload className="mr-2 h-4 w-4" />
+              <span>Import from JSON</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExportJSON}>
-              <IconDownload className="mr-2 size-4" />
-              Export
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSave} disabled={isSaving}>
-              <IconDeviceFloppy className="mr-2 size-4" />
-              {isSaving ? 'Saving...' : 'Save'}
+            <DropdownMenuItem onClick={handleNew}>
+              <FilePlus className="mr-2 h-4 w-4" />
+              <span>Clear or New project</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Undo/Redo - VENDOR feature */}
-        <div className="pointer-events-auto flex h-10 items-center px-1.5">
+        <div className=" pointer-events-auto flex h-10 items-center px-1.5">
           <Button
             onClick={() => studio?.undo()}
             disabled={!canUndo}
@@ -267,6 +216,17 @@ export default function Header() {
           >
             <Keyboard className="size-5" />
           </Button>
+
+          <Button
+            size={'sm'}
+            variant="outline"
+            onClick={toggleCopilot}
+            className="h-7"
+            title="Toggle Chat Copilot"
+          >
+            <Icons.ai className="size-5" />
+            <span className="hidden md:block">AI Chat</span>
+          </Button>
         </div>
         <Link href="https://discord.gg/SCfMrQx8kr" target="_blank">
           <Button className="h-7 rounded-lg" variant={'outline'}>
@@ -293,19 +253,9 @@ export default function Header() {
           <span className="hidden md:block">Share</span>
         </Button>
         <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
-          <IconDeviceFloppy className="size-4" />
-          {isSaving ? 'Saving...' : 'Save'}
-        </Button>
-        <Button
           size="sm"
           className="gap-2 rounded-full"
-          onClick={handleDownload}
+          onClick={() => setIsExportModalOpen(true)}
         >
           Download
         </Button>
