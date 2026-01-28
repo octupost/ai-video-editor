@@ -2,15 +2,60 @@ import { useState } from 'react';
 import { IconShare } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { useStudioStore } from '@/stores/studio-store';
+import { usePanelStore } from '@/stores/panel-store';
 import { Log, type IClip } from '@designcombo/video';
 import { ExportModal } from './export-modal';
 import { LogoIcons } from '../shared/logos';
 import Link from 'next/link';
-import { RedoIcon, UndoIcon } from 'lucide-react';
+import { Icons } from '../shared/icons';
+import {
+  Keyboard,
+  FileJson,
+  FilePlus,
+  Download,
+  Upload,
+  MessageSquare,
+} from 'lucide-react';
+import { ShortcutsModal } from './shortcuts-modal';
+import { useEffect } from 'react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function Header() {
   const { studio } = useStudioStore();
+  const { toggleCopilot, isCopilotVisible } = usePanelStore();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  useEffect(() => {
+    if (!studio) return;
+
+    setCanUndo(studio.history.canUndo());
+    setCanRedo(studio.history.canRedo());
+
+    const handleHistoryChange = ({
+      canUndo,
+      canRedo,
+    }: {
+      canUndo: boolean;
+      canRedo: boolean;
+    }) => {
+      setCanUndo(canUndo);
+      setCanRedo(canRedo);
+    };
+
+    studio.on('history:changed', handleHistoryChange);
+
+    return () => {
+      studio.off('history:changed', handleHistoryChange);
+    };
+  }, [studio]);
 
   const handleNew = () => {
     if (!studio) return;
@@ -115,29 +160,49 @@ export default function Header() {
   };
 
   return (
-    <header className="relative flex h-14 w-full shrink-0 items-center justify-between border-b bg-background px-4">
+    <header className="relative flex h-[52px] w-full shrink-0 items-center justify-between px-4 bg-card z-10">
       {/* Left Section */}
       <div className="flex items-center gap-2">
-        <div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md text-zinc-200">
+        <div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md ">
           <LogoIcons.scenify width={20} />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost">File</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-48">
+            <DropdownMenuItem onClick={handleExportJSON}>
+              <Download className="mr-2 h-4 w-4" />
+              <span>Export (to JSON)</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleImportJSON}>
+              <Upload className="mr-2 h-4 w-4" />
+              <span>Import from JSON</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleNew}>
+              <FilePlus className="mr-2 h-4 w-4" />
+              <span>Clear or New project</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className=" pointer-events-auto flex h-10 items-center px-1.5">
           <Button
-            onClick={handleExportJSON}
-            className="text-muted-foreground"
+            onClick={() => studio?.undo()}
+            disabled={!canUndo}
             variant="ghost"
             size="icon"
           >
-            export
+            <Icons.undo className="size-5" />
           </Button>
           <Button
-            onClick={handleImportJSON}
+            onClick={() => studio?.redo()}
+            disabled={!canRedo}
             className="text-muted-foreground"
             variant="ghost"
             size="icon"
           >
-            import
+            <Icons.redo className="size-5" />
           </Button>
         </div>
       </div>
@@ -149,6 +214,27 @@ export default function Header() {
 
       {/* Right Section */}
       <div className="flex items-center gap-2">
+        <div className="flex items-center mr-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            onClick={() => setIsShortcutsModalOpen(true)}
+          >
+            <Keyboard className="size-5" />
+          </Button>
+
+          <Button
+            size={'sm'}
+            variant="outline"
+            onClick={toggleCopilot}
+            className="h-7"
+            title="Toggle Chat Copilot"
+          >
+            <Icons.ai className="size-5" />
+            <span className="hidden md:block">AI Chat</span>
+          </Button>
+        </div>
         <Link href="https://discord.gg/SCfMrQx8kr" target="_blank">
           <Button className="h-7 rounded-lg" variant={'outline'}>
             <LogoIcons.discord className="w-6 h-6" />
@@ -159,6 +245,10 @@ export default function Header() {
         <ExportModal
           open={isExportModalOpen}
           onOpenChange={setIsExportModalOpen}
+        />
+        <ShortcutsModal
+          open={isShortcutsModalOpen}
+          onOpenChange={setIsShortcutsModalOpen}
         />
 
         <Button

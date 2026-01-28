@@ -1,0 +1,50 @@
+---
+title: Effects
+description: Apply visual filters and modifications to clips.
+---
+
+Effects allow you to apply visual filters and modifications to clips.
+
+## Applying Effects
+
+Effects are added by pushing to the `effects` array on a clip.
+
+```ts
+import { Video } from "@designcombo/video";
+
+const clip = await Video.fromUrl("video.mp4");
+
+// Add a sepia effect
+clip.effects.push({
+  id: "my-effect",
+  key: "sepia",
+  startTime: 0,
+  duration: 5e6, // 5 seconds in microseconds
+});
+```
+
+## Supported Effect Keys
+
+The compositor supports various effect keys, including:
+
+- `brightness`
+- `contrast`
+- `saturation`
+- `blur`
+- `hue-rotate`
+- `invert`
+- `grayscale`
+- `sepia`
+- `pixelate`
+
+## Managing Effects
+
+Since `effects` is a standard array, you can use standard array methods:
+
+```ts
+// Remove an effect
+clip.effects = clip.effects.filter(e => e.id !== "my-effect");
+
+// Clear all effects
+clip.effects = [];
+```

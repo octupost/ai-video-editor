@@ -1,5 +1,4 @@
 import { Rect, RectProps } from 'fabric';
-import { getTrackHeight } from './utils';
 import { TrackType } from '@/types/timeline';
 
 export interface TrackProps extends Partial<RectProps> {
@@ -16,11 +15,10 @@ export class Track extends Rect {
     this.trackType = options.trackType;
     this.trackId = options.trackId;
 
-    // Set default styles for track background
     this.set({
-      fill: '#1A1A1A', // Subtle background
+      fill: '#202020',
       strokeWidth: 0,
-      selectable: false, // Tracks shouldn't be draggable themselves, effectively 'background'
+      selectable: false,
       hoverCursor: 'default',
     });
   }

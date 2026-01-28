@@ -1,0 +1,126 @@
+---
+title: Basic Usage
+description: Fundamentals of using the DesignCombo Video SDK.
+---
+
+## Creating a Studio
+
+```ts
+import { Studio } from "@designcombo/video";
+
+const studio = new Studio({
+  width: 1920,
+  height: 1080,
+  fps: 30,
+  bgColor: "#ffffff",
+  canvas: document.getElementById("canvas") as HTMLCanvasElement,
+});
+
+await studio.ready;
+```
+
+## Adding Clips
+
+### Adding Image Clips
+```ts
+import { Image } from "@designcombo/video";
+
+// Load image clip asynchronously
+const imageClip = await Image.fromUrl("photo.jpg");
+
+imageClip.left = 100;
+imageClip.top = 100;
+imageClip.width = 800;
+imageClip.height = 600;
+
+// Set timeline position (in microseconds)
+// 0 to 5 seconds
+imageClip.display = {
+  from: 0,
+  to: 5e6,
+};
+
+studio.addClip(imageClip);
+```
+
+### Adding Video Clips
+
+```ts
+import { Video } from "@designcombo/video";
+
+// Load video clip asynchronously
+const videoClip = await Video.fromUrl("clip.mp4");
+
+videoClip.left = 0;
+videoClip.top = 0;
+videoClip.width = 1920;
+videoClip.height = 1080;
+
+// Set timeline position (microseconds)
+// 5 to 15 seconds
+videoClip.display = {
+  from: 5e6,
+  to: 15e6,
+};
+
+studio.addClip(videoClip);
+```
+
+### Adding Text Clips
+
+```ts
+import { Text } from "@designcombo/video";
+
+const textClip = new Text("Hello World", {
+  fontSize: 48,
+  fontFamily: "Ubuntu",
+  fill: "#ffffff",
+});
+
+textClip.left = 960;
+textClip.top = 540;
+
+// Set timeline position (microseconds)
+textClip.display = {
+  from: 0,
+  to: 10e6,
+};
+
+studio.addClip(textClip);
+```
+
+## Loading Multiple Clips in Parallel
+
+```ts
+import { Image, Video } from "@designcombo/video";
+
+// Efficient parallel loading
+const [imageClip1, imageClip2, videoClip] = await Promise.all([
+  Image.fromUrl("photo1.jpg"),
+  Image.fromUrl("photo2.jpg"),
+  Video.fromUrl("clip1.mp4"),
+]);
+
+// Set timeline positions (microseconds)
+imageClip1.display = { from: 0, to: 5e6 };
+imageClip2.display = { from: 5e6, to: 10e6 };
+videoClip.display = { from: 10e6, to: 20e6 };
+
+studio.addClip(imageClip1);
+studio.addClip(imageClip2);
+studio.addClip(videoClip);
+```
+
+## Handling Loading States
+
+```ts
+import { Video, Log } from "@designcombo/video";
+
+try {
+  const videoClip = await Video.fromUrl("clip.mp4");
+  studio.addClip(videoClip);
+  console.log("Video clip loaded successfully");
+} catch (error) {
+  Log.error("Failed to load video clip:", error);
+}
+```

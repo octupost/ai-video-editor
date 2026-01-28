@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MediaPanel } from '@/components/editor/media-panel';
-import { PreviewPanel } from '@/components/editor/preview-panel';
+import { CanvasPanel } from '@/components/editor/canvas-panel';
 import { Timeline } from '@/components/editor/timeline';
 import {
   ResizablePanelGroup,
@@ -12,53 +12,76 @@ import { usePanelStore } from '@/stores/panel-store';
 import Header from '@/components/editor/header';
 import { Loading } from '@/components/editor/loading';
 import FloatingControl from '@/components/editor/floating-controls/floating-control';
+import { Compositor } from '@designcombo/video';
+import { WebCodecsUnsupportedModal } from '@/components/editor/webcodecs-unsupported-modal';
 
 export default function Editor() {
   const {
     toolsPanel,
+    copilotPanel,
     mainContent,
     timeline,
     setToolsPanel,
+    setCopilotPanel,
     setMainContent,
     setTimeline,
-    propertiesPanel,
-    setPropertiesPanel,
+    isCopilotVisible,
   } = usePanelStore();
 
   const [isReady, setIsReady] = useState(false);
+  const [isWebCodecsSupported, setIsWebCodecsSupported] = useState(true);
+
+  // Check WebCodecs support on mount
+  useEffect(() => {
+    const checkSupport = async () => {
+      const isSupported = await Compositor.isSupported();
+      setIsWebCodecsSupported(isSupported);
+    };
+    checkSupport();
+  }, []);
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-background overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-background overflow-hidden space-y-1.5">
       {!isReady && (
         <div className="absolute inset-0 z-50">
           <Loading />
         </div>
       )}
       <Header />
-      <div className="flex-1 min-h-0 min-w-0">
-        <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+      <div className="flex-1 min-h-0 min-w-0 px-2 pb-2">
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="h-full w-full gap-0"
+        >
           {/* Left Column: Media Panel */}
           <ResizablePanel
             defaultSize={toolsPanel}
             minSize={15}
             maxSize={40}
             onResize={setToolsPanel}
-            className="max-w-96 rounded-sm relative overflow-visible!"
+            className="max-w-7xl relative overflow-visible! bg-card min-w-0"
           >
             <MediaPanel />
             <FloatingControl />
           </ResizablePanel>
 
-          <ResizableHandle />
+          <ResizableHandle className="bg-transparent w-1.5" />
 
           {/* Middle Column: Preview + Timeline */}
           <ResizablePanel
-            defaultSize={100 - toolsPanel - propertiesPanel}
+            defaultSize={
+              isCopilotVisible
+                ? 100 - copilotPanel - toolsPanel
+                : 100 - toolsPanel
+            }
             minSize={40}
             className="min-w-0 min-h-0"
           >
-            <ResizablePanelGroup direction="vertical" className="h-full w-full">
-              {/* Preview Panel */}
+            <ResizablePanelGroup
+              direction="vertical"
+              className="h-full w-full gap-0"
+            >
+              {/* Canvas Panel */}
               <ResizablePanel
                 defaultSize={mainContent}
                 minSize={30}
@@ -66,10 +89,10 @@ export default function Editor() {
                 onResize={setMainContent}
                 className="min-h-0"
               >
-                <PreviewPanel onReady={() => setIsReady(true)} />
+                <CanvasPanel onReady={() => setIsReady(true)} />
               </ResizablePanel>
 
-              <ResizableHandle />
+              <ResizableHandle className="bg-transparent !h-1.5" />
 
               {/* Timeline Panel */}
               <ResizablePanel
@@ -83,8 +106,26 @@ export default function Editor() {
               </ResizablePanel>
             </ResizablePanelGroup>
           </ResizablePanel>
+          {isCopilotVisible && (
+            <>
+              <ResizableHandle className="bg-transparent w-1.5" />
+              {/* Right Column: Chat Copilot */}
+              <ResizablePanel
+                defaultSize={copilotPanel}
+                minSize={15}
+                maxSize={40}
+                onResize={setCopilotPanel}
+                className="max-w-7xl relative overflow-visible! bg-card min-w-0"
+              >
+                {/* Chat copilot */}
+              </ResizablePanel>
+            </>
+          )}
         </ResizablePanelGroup>
       </div>
+
+      {/* WebCodecs Support Check Modal */}
+      <WebCodecsUnsupportedModal open={!isWebCodecsSupported} />
     </div>
   );
 }

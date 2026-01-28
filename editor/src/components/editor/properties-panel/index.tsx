@@ -6,6 +6,8 @@ import { AudioProperties } from './audio-properties';
 import { CaptionProperties } from './caption-properties';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { IClip } from '@designcombo/video';
+import { EffectProperties } from './effect-properties';
+import { TransitionProperties } from './transition-properties';
 
 export function PropertiesPanel({ selectedClips }: { selectedClips: IClip[] }) {
   const [, setTick] = useState(0);
@@ -28,7 +30,7 @@ export function PropertiesPanel({ selectedClips }: { selectedClips: IClip[] }) {
 
   if (selectedClips.length > 1) {
     return (
-      <div className="bg-panel h-full p-4 flex flex-col items-center justify-center gap-3">
+      <div className="bg-card h-full p-4 flex flex-col items-center justify-center gap-3">
         <div className="text-lg font-medium">Group</div>
       </div>
     );
@@ -48,6 +50,10 @@ export function PropertiesPanel({ selectedClips }: { selectedClips: IClip[] }) {
         return <VideoProperties clip={clip} />;
       case 'Audio':
         return <AudioProperties clip={clip} />;
+      case 'Effect':
+        return <EffectProperties clip={clip} />;
+      case 'Transition':
+        return <TransitionProperties clip={clip} />;
       default:
         return null;
     }

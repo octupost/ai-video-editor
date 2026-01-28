@@ -1,0 +1,60 @@
+---
+title: Introduction
+description: Overview of the DesignCombo Video Editor SDK.
+---
+
+Welcome to the DesignCombo documentation! DesignCombo is a framework-agnostic video editor SDK built on the WebCodecs API.
+
+## Quick Start
+
+```ts
+import { Studio, Video } from "@designcombo/video";
+
+const studio = new Studio({
+  width: 1920,
+  height: 1080,
+  fps: 30,
+});
+
+await studio.ready;
+
+const video = await Video.fromUrl("video.mp4");
+await studio.addClip(video);
+
+studio.play();
+```
+
+## Core Concepts
+
+### Studio
+
+The Studio is the main container for your video composition. It manages all clips, transitions, timeline, playback, and rendering.
+
+### Clips
+
+Clips are the building blocks - video, image, text, and audio elements positioned on the timeline.
+
+### Timeline
+
+Microsecond-based timeline where all clips are positioned.
+
+### Animations
+
+Property-based animations using keyframes and easing.
+
+### Transitions
+
+Visual effects applied between consecutive clips on the timeline.
+
+## Browser Support
+
+Built on **PixiJS (WebGL)** for rendering and **WebCodecs** for video export.
+
+| Browser | Version | WebGL | WebCodecs | Status         |
+| ------- | ------- | ----- | --------- | -------------- |
+| Chrome  | 94+     | ✅    | ✅        | Full support   |
+| Edge    | 94+     | ✅    | ✅        | Full support   |
+| Safari  | 16.4+   | ✅    | ✅        | Full support   |
+| Firefox | 100+    | ✅    | ⚠️        | Preview only\* |
+
+\*Firefox has limited WebCodecs support. Preview works via WebGL, but video export may be limited.

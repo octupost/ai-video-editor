@@ -1,12 +1,12 @@
 import {
-  AudioClip,
-  ImageClip,
-  VideoClip,
-  TextClip,
-  CaptionClip,
-  EffectClip,
-  TransitionClip,
-  PlaceholderClip,
+  Audio,
+  Image,
+  Video,
+  Text,
+  Caption,
+  Effect,
+  Transition,
+  Placeholder,
   type IClip,
   type ITransitionInfo,
 } from './clips';
@@ -65,21 +65,21 @@ interface BaseClipJSON {
 }
 
 // Video clip specific
-export interface VideoClipJSON extends BaseClipJSON {
+export interface VideoJSON extends BaseClipJSON {
   type: 'Video';
   audio?: boolean;
   volume?: number;
 }
 
 // Audio clip specific
-export interface AudioClipJSON extends BaseClipJSON {
+export interface AudioJSON extends BaseClipJSON {
   type: 'Audio';
   loop?: boolean;
   volume?: number;
 }
 
 // Image clip specific
-export interface ImageClipJSON extends BaseClipJSON {
+export interface ImageJSON extends BaseClipJSON {
   type: 'Image';
 }
 
@@ -87,20 +87,30 @@ export interface ImageClipJSON extends BaseClipJSON {
 export interface TextStyleJSON {
   fontSize?: number;
   fontFamily?: string;
-  fontWeight?: number;
+  fontWeight?: string | number;
   fontStyle?: string;
-  color?: string;
+  color?:
+    | string
+    | number
+    | {
+        type: 'gradient';
+        x0: number;
+        y0: number;
+        x1: number;
+        y1: number;
+        colors: Array<{ ratio: number; color: string | number }>;
+      };  
   align?: 'left' | 'center' | 'right';
   fontUrl?: string; // Font URL for custom fonts
   stroke?: {
-    color: string;
+    color: string | number;
     width: number;
     join?: 'miter' | 'round' | 'bevel';
     cap?: 'butt' | 'round' | 'square';
     miterLimit?: number;
   };
   shadow?: {
-    color: string;
+    color: string | number;
     alpha: number;
     blur: number;
     distance: number;
@@ -111,10 +121,11 @@ export interface TextStyleJSON {
   lineHeight?: number;
   letterSpacing?: number;
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'title';
+  verticalAlign?: 'top' | 'center' | 'bottom';
 }
 
 // Text clip specific
-export interface TextClipJSON extends BaseClipJSON {
+export interface TextJSON extends BaseClipJSON {
   type: 'Text';
   text: string;
   style?: TextStyleJSON;
@@ -151,7 +162,7 @@ export interface CaptionDataJSON {
 }
 
 // Caption clip specific
-export interface CaptionClipJSON extends BaseClipJSON {
+export interface CaptionJSON extends BaseClipJSON {
   type: 'Caption';
   text: string;
   style?: TextStyleJSON;
@@ -179,7 +190,7 @@ export interface CaptionClipJSON extends BaseClipJSON {
 }
 
 // Effect clip specific
-export interface EffectClipJSON extends BaseClipJSON {
+export interface EffectJSON extends BaseClipJSON {
   type: 'Effect';
   effect: {
     id: string;
@@ -189,7 +200,7 @@ export interface EffectClipJSON extends BaseClipJSON {
 }
 
 // Transition clip specific
-export interface TransitionClipJSON extends BaseClipJSON {
+export interface TransitionJSON extends BaseClipJSON {
   type: 'Transition';
   transitionEffect: {
     id: string;
@@ -201,12 +212,12 @@ export interface TransitionClipJSON extends BaseClipJSON {
 }
 
 // Placeholder clip specific
-export interface PlaceholderClipJSON extends BaseClipJSON {
+export interface PlaceholderJSON extends BaseClipJSON {
   type: 'Placeholder';
 }
 
-// Transition interface
-export interface TransitionJSON {
+// Global Transition interface (applied between clips)
+export interface GlobalTransitionJSON {
   key: string;
   duration: number;
   clips: string[];
@@ -215,14 +226,14 @@ export interface TransitionJSON {
 // Union type for all clip types
 
 export type ClipJSON =
-  | VideoClipJSON
-  | AudioClipJSON
-  | ImageClipJSON
-  | TextClipJSON
-  | CaptionClipJSON
-  | EffectClipJSON
-  | TransitionClipJSON
-  | PlaceholderClipJSON;
+  | VideoJSON
+  | AudioJSON
+  | ImageJSON
+  | TextJSON
+  | CaptionJSON
+  | EffectJSON
+  | TransitionJSON
+  | PlaceholderJSON;
 
 export interface StudioTrackJSON {
   id: string;
@@ -234,8 +245,8 @@ export interface StudioTrackJSON {
 export interface ProjectJSON {
   tracks?: StudioTrackJSON[];
   clips: ClipJSON[]; // Normalized: Source of truth for clips
-  transition?: TransitionJSON[];
-  transitions?: TransitionJSON[]; // Alias for transition for better compatibility
+  transition?: GlobalTransitionJSON[];
+  transitions?: GlobalTransitionJSON[]; // Alias for transition for better compatibility
   globalEffects?: Array<{
     id: string;
     key: string;
@@ -276,28 +287,29 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
   let ClipClass: any = null;
   switch (json.type) {
     case 'Video':
-      ClipClass = VideoClip;
+      ClipClass = Video;
       break;
     case 'Audio':
-      ClipClass = AudioClip;
+      ClipClass = Audio;
       break;
-    case 'Image':
-      ClipClass = ImageClip;
-      break;
+    case 'Image': {
+      clip = await Image.fromObject(json);
+      return clip; // Return immediately after reconstructing Image clip
+    }
     case 'Text':
-      ClipClass = TextClip;
+      ClipClass = Text;
       break;
     case 'Caption':
-      ClipClass = CaptionClip;
+      ClipClass = Caption;
       break;
     case 'Effect':
-      ClipClass = EffectClip;
+      ClipClass = Effect;
       break;
     case 'Transition':
-      ClipClass = TransitionClip;
+      ClipClass = Transition;
       break;
     case 'Placeholder':
-      ClipClass = PlaceholderClip;
+      ClipClass = Placeholder;
       break;
   }
 
@@ -320,54 +332,21 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
         json.audio !== undefined
           ? { audio: json.audio, volume: json.volume }
           : { volume: json.volume };
-      clip = new VideoClip(response.body!, options as any, json.src);
+      clip = new Video(response.body!, options as any, json.src);
       break;
     }
     case 'Audio': {
       if (!json.src || json.src.trim() === '') {
-        throw new Error('AudioClip requires a valid source URL');
+        throw new Error('Audio requires a valid source URL');
       }
       // Support both new flat structure and old options structure
-      const options: any = {};
+      const options: { loop?: boolean; volume?: number } = {};
       if (json.loop !== undefined) options.loop = json.loop;
       if (json.volume !== undefined) options.volume = json.volume;
-      clip = await AudioClip.fromUrl(json.src, options);
+      clip = await Audio.fromUrl(json.src, options);
       break;
     }
-    case 'Image': {
-      if (!json.src || json.src.trim() === '') {
-        throw new Error(
-          'ImageClip requires a valid source URL. Generated clips (like text-to-image) cannot be loaded from JSON without their source data.'
-        );
-      }
-
-      try {
-        const response = await fetch(json.src);
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch image from ${json.src}: ${response.status} ${response.statusText}. Make sure the file exists in the public directory.`
-          );
-        }
-        const blob = await response.blob();
-        if (!blob.type.startsWith('image/')) {
-          throw new Error(
-            `Invalid image format: ${blob.type}. Expected an image file.`
-          );
-        }
-        clip = new ImageClip(await createImageBitmap(blob), json.src);
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message.includes('could not be decoded')
-        ) {
-          throw new Error(
-            `Failed to decode image from ${json.src}. The image may be corrupted, in an unsupported format, or there may be CORS issues.`
-          );
-        }
-        throw error;
-      }
-      break;
-    }
+    // Image is handled via fromObject
     case 'Text': {
       // Read from new hybrid structure
       const text = json.text || '';
@@ -400,7 +379,7 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
         };
       }
 
-      clip = new TextClip(text, textClipOpts);
+      clip = new Text(text, textClipOpts as any);
       break;
     }
     case 'Caption': {
@@ -412,7 +391,7 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
       const captionClipOpts: any = {
         fontSize: style.fontSize,
         fontFamily: style.fontFamily,
-        fontWeight: style.fontWeight,
+        fontWeight: style.fontWeight as any,
         fontStyle: style.fontStyle,
         fill: style.color, // Map 'color' to 'fill'
         align: style.align,
@@ -531,12 +510,13 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
       if (json.mediaId) {
         captionClipOpts.mediaId = json.mediaId;
       }
-      clip = new CaptionClip(text, captionClipOpts);
+      captionClipOpts.initialLayoutApplied = true;
+      clip = new Caption(text, captionClipOpts);
       break;
     }
     case 'Effect': {
-      clip = new EffectClip((json as EffectClipJSON).effect.key as any);
-      (clip as EffectClip).effect = (json as EffectClipJSON).effect;
+      clip = new Effect((json as EffectJSON).effect.key as any);
+      (clip as Effect).effect = (json as EffectJSON).effect;
       break;
     }
     default:

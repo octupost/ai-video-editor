@@ -5,7 +5,7 @@ import { usePlaybackStore } from '@/stores/playback-store';
 import type { ITimelineTrack, IClip, TrackType } from '@/types/timeline';
 import type { TimelineCanvas } from './timeline';
 import { generateUUID } from '@/utils/id';
-import { clipToJSON, jsonToClip } from '@designcombo/video';
+import { clipToJSON, type IClip as StudioClip } from '@designcombo/video';
 
 interface TimelineStudioSyncProps {
   timelineCanvas?: TimelineCanvas | null;
@@ -60,10 +60,12 @@ export const TimelineStudioSync = ({
       // Let's handle clip:added by manually updating store state fully.
 
       useTimelineStore.setState((state) => {
+        const serializedClip = clipToJSON(clip as unknown as StudioClip);
         const updatedClips = {
           ...state.clips,
           [clip.id]: {
-            ...clip,
+            ...serializedClip,
+            id: (serializedClip.id || clip.id) as string,
             sourceDuration: (clip as any).meta?.duration || clip.duration,
           },
         };
@@ -106,15 +108,64 @@ export const TimelineStudioSync = ({
       });
     };
 
-    const handleTrackAdded = ({ track }: { track: any }) => {
+    const handleClipsRemoved = ({ clipIds }: { clipIds: string[] }) => {
+      // Sync duration on clips removed
+      if (studio) {
+        usePlaybackStore
+          .getState()
+          .setDuration(studio.getMaxDuration() / 1_000_000);
+      }
+
       useTimelineStore.setState((state) => {
-        if (state._tracks.find((t) => t.id === track.id)) return state;
+        const newClips = { ...state.clips };
+        clipIds.forEach((id) => delete newClips[id]);
+
+        // Remove from tracks
+        const updatedTracks = state._tracks.map((t) => ({
+          ...t,
+          clipIds: t.clipIds.filter((id) => !clipIds.includes(id)),
+        }));
+
         return {
           ...state,
-          _tracks: [...state._tracks, track],
-          tracks: [...state.tracks, track],
+          clips: newClips,
+          _tracks: updatedTracks,
+          tracks: updatedTracks,
         };
       });
+    };
+
+    const handleTrackAdded = ({
+      track,
+      index,
+    }: {
+      track: any;
+      index?: number;
+    }) => {
+      useTimelineStore.setState((state) => {
+        if (state._tracks.find((t) => t.id === track.id)) return state;
+        const updatedTracks = [...state._tracks];
+
+        if (typeof index === 'number') {
+          updatedTracks.splice(index, 0, track);
+        } else {
+          updatedTracks.unshift(track);
+        }
+
+        return {
+          ...state,
+          _tracks: updatedTracks,
+          tracks: updatedTracks,
+        };
+      });
+    };
+
+    const handleTrackOrderChanged = ({ tracks }: { tracks: any[] }) => {
+      useTimelineStore.setState((state) => ({
+        ...state,
+        _tracks: tracks,
+        tracks: tracks,
+      }));
     };
 
     const handleTrackRemoved = ({ trackId }: { trackId: string }) => {
@@ -134,13 +185,15 @@ export const TimelineStudioSync = ({
       useTimelineStore.setState((state) => {
         if (!state.clips[clip.id]) return state;
 
+        const serializedClip = clipToJSON(clip as unknown as StudioClip);
         const updatedClips = {
           ...state.clips,
           [clip.id]: {
             ...state.clips[clip.id],
-            ...clip,
-            display: { ...clip.display },
-            trim: clip.trim ? { ...clip.trim } : undefined,
+            ...serializedClip,
+            id: (serializedClip.id || clip.id) as string,
+            display: { ...serializedClip.display },
+            trim: serializedClip.trim ? { ...serializedClip.trim } : undefined,
           },
         };
 
@@ -186,8 +239,10 @@ export const TimelineStudioSync = ({
         // Update clips map
         clips.forEach((clip) => {
           if (!newClipsMap[clip.id]) {
+            const serializedClip = clipToJSON(clip as unknown as StudioClip);
             newClipsMap[clip.id] = {
-              ...clip,
+              ...serializedClip,
+              id: (serializedClip.id || clip.id) as string,
               sourceDuration: (clip as any).meta?.duration || clip.duration,
             };
             clipsToAdd.push(clip.id);
@@ -236,11 +291,12 @@ export const TimelineStudioSync = ({
       }
 
       // 2. Map clips to store format
-      const newClipsMap: Record<string, IClip> = {};
+      const newClipsMap: Record<string, any> = {};
       clips.forEach((c) => {
+        const serialized = clipToJSON(c as unknown as StudioClip);
         newClipsMap[c.id] = {
-          ...c,
-          // Ensure sourceDuration is set if possible, though clip.duration is often sufficient for valid clips
+          ...serialized,
+          id: (serialized.id || c.id) as string,
           sourceDuration: (c as any).meta?.duration || c.duration,
         };
       });
@@ -264,13 +320,15 @@ export const TimelineStudioSync = ({
       useTimelineStore.setState((state) => {
         if (!state.clips[newClip.id]) return state;
 
+        const serializedClip = clipToJSON(newClip as unknown as StudioClip);
         const updatedClips = {
           ...state.clips,
           [newClip.id]: {
             ...state.clips[newClip.id],
-            ...newClip,
-            display: { ...newClip.display },
-            trim: newClip.trim ? { ...newClip.trim } : undefined,
+            ...serializedClip,
+            id: (serializedClip.id || newClip.id) as string,
+            display: { ...serializedClip.display },
+            trim: serializedClip.trim ? { ...serializedClip.trim } : undefined,
             sourceDuration: (newClip as any).meta?.duration || newClip.duration,
           },
         };
@@ -285,9 +343,11 @@ export const TimelineStudioSync = ({
     studio.on('clip:added', handleClipAdded);
     studio.on('clips:added', handleClipsAdded);
     studio.on('clip:removed', handleClipRemoved);
+    studio.on('clips:removed', handleClipsRemoved);
     studio.on('clip:updated', handleClipUpdated);
     studio.on('clip:replaced', handleClipReplaced);
     studio.on('track:added', handleTrackAdded as any);
+    studio.on('track:order-changed', handleTrackOrderChanged as any);
     studio.on('track:removed', handleTrackRemoved);
     studio.on('studio:restored', handleStudioRestored as any);
 
@@ -309,9 +369,11 @@ export const TimelineStudioSync = ({
       studio.off('clip:added', handleClipAdded);
       studio.off('clips:added', handleClipsAdded);
       studio.off('clip:removed', handleClipRemoved);
+      studio.off('clips:removed', handleClipsRemoved);
       studio.off('clip:updated', handleClipUpdated);
       studio.off('clip:replaced', handleClipReplaced);
       studio.off('track:added', handleTrackAdded);
+      studio.off('track:order-changed', handleTrackOrderChanged as any);
       studio.off('track:removed', handleTrackRemoved);
       studio.off('studio:restored', handleStudioRestored as any);
 
@@ -538,10 +600,8 @@ export const TimelineStudioSync = ({
       // 2. Update Studio
       if (!studio) return;
 
-      // Use explicit ID removal instead of deleteSelected to avoid race conditions with selection state
-      for (const id of clipIds) {
-        await studio.removeClipById(id);
-      }
+      // Use batch removal method
+      await studio.removeClipsById(clipIds);
     };
 
     const handleSelectionDuplicated = async () => {
@@ -569,12 +629,18 @@ export const TimelineStudioSync = ({
       await studio.addTransition('GridFlip', 2_000_000, fromClipId, toClipId);
     };
 
+    const handleSelectionDelete = async () => {
+      if (!studio) return;
+      await studio.deleteSelected();
+    };
+
     timelineCanvas.on('clip:modified', handleClipModified);
     timelineCanvas.on('clips:modified', handleClipsModified);
     timelineCanvas.on('clip:movedToTrack', handleClipMovedToTrack);
     timelineCanvas.on('clip:movedToNewTrack', handleClipMovedToNewTrack);
     timelineCanvas.on('timeline:updated', handleTimelineUpdated);
     timelineCanvas.on('clips:removed', handleClipsRemoved);
+    timelineCanvas.on('selection:delete', handleSelectionDelete);
     timelineCanvas.on('selection:duplicated', handleSelectionDuplicated);
     timelineCanvas.on('selection:split', handleSelectionSplit);
     timelineCanvas.on('transition:add', handleTransitionAdd);
@@ -586,6 +652,7 @@ export const TimelineStudioSync = ({
       timelineCanvas.off('clip:movedToNewTrack', handleClipMovedToNewTrack);
       timelineCanvas.off('timeline:updated', handleTimelineUpdated);
       timelineCanvas.off('clips:removed', handleClipsRemoved);
+      timelineCanvas.off('selection:delete', handleSelectionDelete);
       timelineCanvas.off('selection:duplicated', handleSelectionDuplicated);
       timelineCanvas.off('selection:split', handleSelectionSplit);
       timelineCanvas.off('transition:add', handleTransitionAdd);
@@ -620,7 +687,14 @@ export const TimelineStudioSync = ({
     // As long as `studio.setTracks` doesn't emit `track:added` we are good.
 
     // Convert store tracks to studio tracks (Types are identical currently)
-    studio.setTracks(tracks);
+    // Only set if they actually differ to avoid infinite loops if engine emits
+    const studioTracks = studio.getTracks();
+    const storeTracksJson = JSON.stringify(tracks);
+    const studioTracksJson = JSON.stringify(studioTracks);
+
+    if (storeTracksJson !== studioTracksJson) {
+      studio.setTracks(tracks);
+    }
   }, [studio, tracks]); // Depend on `tracks`.
 
   // Sync Selection (Bidirectional)
