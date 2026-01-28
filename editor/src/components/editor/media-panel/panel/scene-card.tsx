@@ -14,6 +14,8 @@ import {
 } from '@tabler/icons-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge } from './status-badge';
+import { useStudioStore } from '@/stores/studio-store';
+import { addMediaToCanvas } from '@/lib/editor-utils';
 import type {
   Scene,
   FirstFrame,
@@ -34,19 +36,32 @@ interface SceneThumbnailProps {
   imageUrl: string | null;
   sceneOrder: number;
   firstFrame: FirstFrame | null;
+  onAddToCanvas?: () => void;
 }
 
 function SceneThumbnail({
   imageUrl,
   sceneOrder,
   firstFrame,
+  onAddToCanvas,
 }: SceneThumbnailProps) {
   const isEnhancing = firstFrame?.enhance_status === 'processing';
   const isGeneratingVideo = firstFrame?.video_status === 'processing';
-  const hasVideo = firstFrame?.video_status === 'success';
+  const hasVideo =
+    firstFrame?.video_status === 'success' && firstFrame?.video_url;
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (hasVideo && onAddToCanvas) {
+      e.stopPropagation();
+      onAddToCanvas();
+    }
+  };
 
   return (
-    <div className="relative aspect-video rounded overflow-hidden bg-background/50">
+    <div
+      className={`relative aspect-video rounded overflow-hidden bg-background/50 ${hasVideo ? 'cursor-pointer hover:ring-2 hover:ring-primary/50' : ''}`}
+      onClick={handleClick}
+    >
       {imageUrl ? (
         <Image
           src={imageUrl}
@@ -248,6 +263,7 @@ export function SceneCard({
   setPlayingVoiceoverId,
 }: SceneCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const { studio } = useStudioStore();
   const firstFrame = scene.first_frames?.[0] ?? null;
   const voiceover = scene.voiceovers?.[0] ?? null;
   const imageUrl =
@@ -257,6 +273,21 @@ export function SceneCard({
     null;
   const displayVoiceover = voiceover?.text;
   const displayVisualPrompt = firstFrame?.visual_prompt;
+
+  const handleAddToCanvas = async () => {
+    if (!studio || !firstFrame?.video_url) return;
+    try {
+      await addMediaToCanvas(studio, {
+        url: firstFrame.video_url,
+        type: 'video',
+      });
+    } catch (error) {
+      console.error('Failed to add scene video to canvas:', error);
+    }
+  };
+
+  const hasVideo =
+    firstFrame?.video_status === 'success' && firstFrame?.video_url;
 
   const voiceoverPreview = displayVoiceover
     ? displayVoiceover.slice(0, 35) +
@@ -321,6 +352,7 @@ export function SceneCard({
         imageUrl={imageUrl}
         sceneOrder={scene.order}
         firstFrame={firstFrame}
+        onAddToCanvas={hasVideo ? handleAddToCanvas : undefined}
       />
 
       {!expanded && (
