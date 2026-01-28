@@ -179,7 +179,8 @@ async function sendVideoRequest(
         prompt: context.visual_prompt,
         image_url: context.final_url,
         resolution: resolution,
-        duration: context.duration,
+        duration_int: context.duration,
+        duration_string: String(context.duration),
         aspect_ratio: context.aspect_ratio,
       }),
     });
