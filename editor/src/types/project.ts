@@ -1,4 +1,4 @@
-import { CanvasSize } from './editor';
+import type { CanvasSize } from './editor';
 
 export type BlurIntensity = 4 | 8 | 18;
 

@@ -1,0 +1,56 @@
+{
+  "name": "openvideo",
+  "version": "0.0.1",
+  "description": "Video rendering and processing library",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openvideodev/openvideo.git"
+  },
+  "keywords": [
+    "video",
+    "rendering",
+    "webcodecs",
+    "mp4"
+  ],
+  "author": "OpenVideoDev",
+  "license": "SEE LICENSE IN LICENSE",
+  "files": [
+    "dist"
+  ],
+  "main": "src/index.ts",
+  "module": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "vitest",
+    "test:browser": "vitest run --project unit-chromium",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "@types/dom-webcodecs": "^0.1.17",
+    "@types/rollup-plugin-peer-deps-external": "^2.2.6",
+    "@vitest/browser": "^4.0.18",
+    "@vitest/browser-playwright": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
+    "jsdom": "^27.4.0",
+    "playwright": "^1.49.0",
+    "playwright-core": "^1.58.1",
+    "rollup-plugin-peer-deps-external": "^2.2.4",
+    "typescript": "~5.9.2",
+    "vite": "^7.1.5",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@pixi/layout": "^3.2.0",
+    "gl-transitions": "^1.43.0",
+    "microdiff": "^1.4.0",
+    "opfs-tools": "^0.7.2",
+    "pixi.js": "^8.14.3",
+    "wave-resampler": "^1.0.0",
+    "wrapbox": "^0.0.2"
+  }
+}

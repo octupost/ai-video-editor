@@ -3,7 +3,7 @@
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
 import { useEffect, useState } from 'react';
-import { ToolCallMessagePartComponent } from '@assistant-ui/react';
+import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { CheckIcon, Trash2Icon } from 'lucide-react';
 
 export const DeleteSelectedTool: ToolCallMessagePartComponent<any, any> = ({

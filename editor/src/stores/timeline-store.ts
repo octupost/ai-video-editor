@@ -56,7 +56,7 @@ interface TimelineStore {
 export const useTimelineStore = create<TimelineStore>((set, get) => {
   // Initial Load - using the exported data from data.ts
   // const { tracks: initialTracks, clips: initialClips } = loadStudioData();
-  
+
   return {
     _tracks: [],
     clips: {},

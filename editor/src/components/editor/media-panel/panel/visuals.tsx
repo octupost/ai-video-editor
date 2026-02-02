@@ -5,7 +5,7 @@ import { IconPhoto } from '@tabler/icons-react';
 import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { Film, Trash2 } from 'lucide-react';
 import { useAssetStore } from '@/stores/asset-store';
-import { Asset } from '@/types/media';
+import type { Asset } from '@/types/media';
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
 import { VisualsChatPanel } from '../visuals-chat-panel';
@@ -32,7 +32,10 @@ export function PanelVisuals() {
     if (!studio) return;
 
     try {
-      await addMediaToCanvas(studio, { url: asset.url, type: asset.type as 'image' | 'video' });
+      await addMediaToCanvas(studio, {
+        url: asset.url,
+        type: asset.type as 'image' | 'video',
+      });
     } catch (error) {
       Log.error(`Failed to add ${asset.type}:`, error);
     }
@@ -41,7 +44,8 @@ export function PanelVisuals() {
   const handleDelete = async (asset: Asset) => {
     const confirmed = await confirm({
       title: 'Delete Visual',
-      description: 'Are you sure you want to delete this visual? This action cannot be undone.',
+      description:
+        'Are you sure you want to delete this visual? This action cannot be undone.',
     });
 
     if (confirmed) {

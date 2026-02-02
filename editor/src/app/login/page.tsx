@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,8 @@ import { Loader2 } from 'lucide-react';
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [isLoading, setIsLoading] = useState(false);
+  const emailId = useId();
+  const passwordId = useId();
 
   const handleSubmit = async (formData: FormData) => {
     setIsLoading(true);
@@ -82,13 +84,13 @@ export default function LoginPage() {
           <form action={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <label
-                htmlFor="email"
+                htmlFor={emailId}
                 className="text-sm font-medium text-foreground"
               >
                 Email
               </label>
               <Input
-                id="email"
+                id={emailId}
                 name="email"
                 type="email"
                 placeholder="you@example.com"
@@ -100,13 +102,13 @@ export default function LoginPage() {
 
             <div className="space-y-2">
               <label
-                htmlFor="password"
+                htmlFor={passwordId}
                 className="text-sm font-medium text-foreground"
               >
                 Password
               </label>
               <Input
-                id="password"
+                id={passwordId}
                 name="password"
                 type="password"
                 placeholder="••••••••"

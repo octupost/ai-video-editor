@@ -4,7 +4,7 @@ import { IconMicrophone } from '@tabler/icons-react';
 import { useAssetStore } from '@/stores/asset-store';
 import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { useStudioStore } from '@/stores/studio-store';
-import { Log } from '@designcombo/video';
+import { Log } from 'openvideo';
 import { AudioItem } from './audio-item';
 import { useState } from 'react';
 import { VoiceoverChatPanel } from '../voiceover-chat-panel';
@@ -28,7 +28,8 @@ export default function PanelVoiceovers() {
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
       title: 'Delete Voiceover',
-      description: 'Are you sure you want to delete this voiceover? This action cannot be undone.',
+      description:
+        'Are you sure you want to delete this voiceover? This action cannot be undone.',
     });
 
     if (confirmed) {

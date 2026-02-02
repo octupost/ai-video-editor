@@ -46,7 +46,8 @@ export function ProjectList({
             No projects yet
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Create your first project to start editing videos with AI assistance.
+            Create your first project to start editing videos with AI
+            assistance.
           </p>
         </div>
         <Button size="lg" onClick={onCreateProject} className="gap-2">

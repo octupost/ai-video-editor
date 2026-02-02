@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useEffect, useState, useMemo } from 'react';
 import {
   ColorPicker,
-  ColorPickerAlpha,
   ColorPickerEyeDropper,
   ColorPickerFormat,
   ColorPickerHue,
@@ -14,7 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { IClip } from '@designcombo/video';
+import type { IClip } from 'openvideo';
 import {
   Select,
   SelectContent,
@@ -48,7 +47,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import color from 'color';
 
-import { fontManager } from '@designcombo/video';
+import { fontManager } from 'openvideo';
 import { getGroupedFonts, getFontByPostScriptName } from '@/utils/font-utils';
 import { NumberInput } from '@/components/ui/number-input';
 

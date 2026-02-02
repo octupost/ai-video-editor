@@ -1,5 +1,4 @@
-import * as React from 'react';
-import { IClip } from '@designcombo/video';
+import type { IClip } from 'openvideo';
 import { IconVolume, IconGauge, IconMusic } from '@tabler/icons-react';
 import {
   InputGroup,
@@ -23,9 +22,9 @@ export function AudioProperties({ clip }: AudioPropertiesProps) {
     <div className="flex flex-col gap-5">
       {/* Volume Section */}
       <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
           Volume
-        </label>
+        </span>
         <div className="flex items-center gap-4">
           <IconVolume className="size-4 text-muted-foreground" />
           <Slider
@@ -40,7 +39,9 @@ export function AudioProperties({ clip }: AudioPropertiesProps) {
               type="number"
               value={Math.round((audioClip.volume ?? 1) * 100)}
               onChange={(e) =>
-                handleUpdate({ volume: (parseInt(e.target.value) || 0) / 100 })
+                handleUpdate({
+                  volume: (parseInt(e.target.value, 10) || 0) / 100,
+                })
               }
               className="text-sm p-0 text-center"
             />
@@ -53,9 +54,9 @@ export function AudioProperties({ clip }: AudioPropertiesProps) {
 
       {/* Pitch Section (UI Only) */}
       <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
           Pitch
-        </label>
+        </span>
         <div className="flex items-center gap-4">
           <IconMusic className="size-4 text-muted-foreground" />
           <Slider
@@ -83,9 +84,9 @@ export function AudioProperties({ clip }: AudioPropertiesProps) {
 
       {/* Speed Section (UI Only) */}
       <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
           Speed
-        </label>
+        </span>
         <div className="flex items-center gap-4">
           <IconGauge className="size-4 text-muted-foreground" />
           <Slider

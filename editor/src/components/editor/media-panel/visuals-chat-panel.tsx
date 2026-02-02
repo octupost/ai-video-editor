@@ -67,9 +67,7 @@ export const VisualsChatPanel = () => {
         createdAt: Date.now(),
       });
 
-      toast.success(
-        `${mediaType === 'image' ? 'Image' : 'Video'} generated!`
-      );
+      toast.success(`${mediaType === 'image' ? 'Image' : 'Video'} generated!`);
       setPrompt('');
     } catch (error) {
       console.error(error);

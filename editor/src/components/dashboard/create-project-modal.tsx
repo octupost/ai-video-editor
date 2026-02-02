@@ -89,9 +89,7 @@ export function CreateProjectModal({
               disabled={isLoading}
               autoFocus
             />
-            {error && (
-              <p className="text-sm text-destructive mt-2">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive mt-2">{error}</p>}
           </div>
 
           <DialogFooter>

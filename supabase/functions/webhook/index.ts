@@ -95,10 +95,10 @@ async function handleGenGridImage(
   log: Logger
 ): Promise<Response> {
   const grid_image_id = params.get('grid_image_id')!;
-  const width = parseInt(params.get('width') || '1920');
-  const height = parseInt(params.get('height') || '1080');
-  const rows = parseInt(params.get('rows') || '2');
-  const cols = parseInt(params.get('cols') || '2');
+  const width = parseInt(params.get('width') || '1920', 10);
+  const height = parseInt(params.get('height') || '1080', 10);
+  const rows = parseInt(params.get('rows') || '2', 10);
+  const cols = parseInt(params.get('cols') || '2', 10);
 
   log.info('Processing GenGridImage', {
     grid_image_id,

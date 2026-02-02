@@ -6,19 +6,7 @@ import {
   TooltipContent,
 } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
-import {
-  Pause,
-  Play,
-  SkipBack,
-  Magnet,
-  ZoomOut,
-  ZoomIn,
-  Copy,
-  Trash2,
-  ArrowLeftToLine,
-  ArrowRightToLine,
-  Scissors,
-} from 'lucide-react';
+import { Magnet, ZoomOut, ZoomIn, Copy, Trash2, Scissors } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { DEFAULT_FPS } from '@/stores/project-store';
 import { formatTimeCode } from '@/lib/time';

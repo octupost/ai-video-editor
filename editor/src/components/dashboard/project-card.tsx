@@ -96,8 +96,8 @@ export function ProjectCard({ project, onDelete, onClick }: ProjectCardProps) {
           <DialogHeader>
             <DialogTitle>Delete Project</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &quot;{project.name}&quot;? This will
-              permanently delete the project and all its assets.
+              Are you sure you want to delete &quot;{project.name}&quot;? This
+              will permanently delete the project and all its assets.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

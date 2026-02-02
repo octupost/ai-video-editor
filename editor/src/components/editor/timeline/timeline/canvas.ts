@@ -782,7 +782,7 @@ class Timeline extends EventEmitter<TimelineCanvasEvents> {
 
     // --- PASS 2: SEPARATORS ---
     // Reset currentY for separators or use trackRegions
-    let sepY = PADDING_TOP;
+    const sepY = PADDING_TOP;
     this.renderSeparatorLine(0, sepY - GAP / 2, this.canvas.width || 2000);
     this.#trackRegions.forEach((region, index) => {
       this.renderSeparatorLine(

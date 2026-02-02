@@ -1,11 +1,4 @@
-import {
-  IconSend,
-  IconPlus,
-  IconArrowUp,
-  IconSparkles2,
-  IconCropPortrait,
-  IconPhoto,
-} from '@tabler/icons-react';
+import { IconPlus, IconCropPortrait, IconPhoto } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 

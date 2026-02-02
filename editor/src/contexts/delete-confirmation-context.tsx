@@ -1,6 +1,13 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode, useRef } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  type ReactNode,
+  useRef,
+} from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,9 +27,14 @@ interface DeleteConfirmationContextType {
   confirm: (options?: DeleteConfirmationOptions) => Promise<boolean>;
 }
 
-const DeleteConfirmationContext = createContext<DeleteConfirmationContextType | null>(null);
+const DeleteConfirmationContext =
+  createContext<DeleteConfirmationContextType | null>(null);
 
-export function DeleteConfirmationProvider({ children }: { children: ReactNode }) {
+export function DeleteConfirmationProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState('Delete Item');
   const [description, setDescription] = useState(
@@ -31,18 +43,21 @@ export function DeleteConfirmationProvider({ children }: { children: ReactNode }
 
   const resolveRef = useRef<((value: boolean) => void) | null>(null);
 
-  const confirm = useCallback((options?: DeleteConfirmationOptions): Promise<boolean> => {
-    setTitle(options?.title || 'Delete Item');
-    setDescription(
-      options?.description ||
-        'Are you sure you want to delete this item? This action cannot be undone.'
-    );
-    setIsOpen(true);
+  const confirm = useCallback(
+    (options?: DeleteConfirmationOptions): Promise<boolean> => {
+      setTitle(options?.title || 'Delete Item');
+      setDescription(
+        options?.description ||
+          'Are you sure you want to delete this item? This action cannot be undone.'
+      );
+      setIsOpen(true);
 
-    return new Promise((resolve) => {
-      resolveRef.current = resolve;
-    });
-  }, []);
+      return new Promise((resolve) => {
+        resolveRef.current = resolve;
+      });
+    },
+    []
+  );
 
   const handleConfirm = useCallback(() => {
     setIsOpen(false);
@@ -82,7 +97,9 @@ export function DeleteConfirmationProvider({ children }: { children: ReactNode }
 export function useDeleteConfirmation() {
   const context = useContext(DeleteConfirmationContext);
   if (!context) {
-    throw new Error('useDeleteConfirmation must be used within a DeleteConfirmationProvider');
+    throw new Error(
+      'useDeleteConfirmation must be used within a DeleteConfirmationProvider'
+    );
   }
   return context;
 }

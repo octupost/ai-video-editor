@@ -1,8 +1,6 @@
-import * as React from 'react';
 import { useEffect, useState } from 'react';
 import {
   ColorPicker,
-  ColorPickerAlpha,
   ColorPickerEyeDropper,
   ColorPickerFormat,
   ColorPickerHue,
@@ -14,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { IClip } from '@designcombo/video';
+import type { IClip } from 'openvideo';
 import {
   IconMinus,
   IconBlur,
@@ -25,7 +23,6 @@ import {
   IconLineHeight,
   IconSquare,
 } from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
 import {
   InputGroup,
   InputGroupAddon,

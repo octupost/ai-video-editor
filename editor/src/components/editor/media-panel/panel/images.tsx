@@ -3,14 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
-import { Image, Log } from '@designcombo/video';
+import { Image, Log } from 'openvideo';
 import { Search, Image as ImageIcon, Loader2 } from 'lucide-react';
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
 } from '@/components/ui/input-group';
-import { VisualsChatPanel } from '../visuals-chat-panel';
 import { debounce } from 'lodash';
 
 interface PexelsImage {

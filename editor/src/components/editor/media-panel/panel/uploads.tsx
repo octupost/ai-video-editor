@@ -23,13 +23,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
-import { Log } from '@designcombo/video';
-import {
-  Upload,
-  Search,
-  Film,
-  Trash2,
-} from 'lucide-react';
+import { Log } from 'openvideo';
+import { Upload, Search, Film, Trash2 } from 'lucide-react';
 import { uploadFile } from '@/lib/upload-utils';
 import { useProjectId } from '@/contexts/project-context';
 import { addMediaToCanvas } from '@/lib/editor-utils';
@@ -121,25 +116,31 @@ export default function PanelUploads() {
 
     const fetchUploads = async () => {
       try {
-        const response = await fetch(`/api/assets?type=upload&project_id=${projectId}`);
+        const response = await fetch(
+          `/api/assets?type=upload&project_id=${projectId}`
+        );
         if (!response.ok) {
           throw new Error('Failed to fetch uploads');
         }
         const { assets } = await response.json();
 
         // Transform Supabase assets to VisualAsset format
-        const visualAssets: VisualAsset[] = assets.map((asset: {
-          id: string;
-          url: string;
-          name: string;
-          size?: number;
-        }) => ({
-          id: asset.id,
-          type: asset.name.match(/\.(mp4|webm|mov|avi)$/i) ? 'video' : 'image',
-          url: asset.url,
-          name: asset.name,
-          size: asset.size,
-        }));
+        const visualAssets: VisualAsset[] = assets.map(
+          (asset: {
+            id: string;
+            url: string;
+            name: string;
+            size?: number;
+          }) => ({
+            id: asset.id,
+            type: asset.name.match(/\.(mp4|webm|mov|avi)$/i)
+              ? 'video'
+              : 'image',
+            url: asset.url,
+            name: asset.name,
+            size: asset.size,
+          })
+        );
 
         setUploads(visualAssets);
       } catch (error) {
@@ -161,7 +162,9 @@ export default function PanelUploads() {
 
     try {
       for (const file of Array.from(files)) {
-        const type: 'image' | 'video' = file.type.startsWith('video/') ? 'video' : 'image';
+        const type: 'image' | 'video' = file.type.startsWith('video/')
+          ? 'video'
+          : 'image';
 
         // Upload to R2
         const result = await uploadFile(file);

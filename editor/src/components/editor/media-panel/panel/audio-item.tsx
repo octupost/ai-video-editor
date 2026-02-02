@@ -1,7 +1,12 @@
 import { Button } from '@/components/ui/button';
-import { IconPlayerPause, IconPlayerPlay, IconPlus, IconTrash } from '@tabler/icons-react';
+import {
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconPlus,
+  IconTrash,
+} from '@tabler/icons-react';
 import { useRef, useState, useEffect } from 'react';
-import { Asset } from '@/types/media';
+import type { Asset } from '@/types/media';
 
 interface AudioItemProps {
   item: Asset;

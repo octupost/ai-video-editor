@@ -1,13 +1,13 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { CircleOff, XIcon } from 'lucide-react';
 import useLayoutStore from '../store/use-layout-store';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ICaptionsControlProps } from '../interface/captions';
+import type { ICaptionsControlProps } from '../interface/captions';
 import { STYLE_CAPTION_PRESETS, NONE_PRESET } from '../constant/caption';
 
 import { useStudioStore } from '@/stores/studio-store';
-import { fontManager } from '@designcombo/video';
+import { fontManager } from 'openvideo';
 
 const CaptionPresetPicker = () => {
   const { setFloatingControl } = useLayoutStore();

@@ -4,8 +4,7 @@ import { useState } from 'react';
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { CheckIcon, LoaderIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 
 interface QuestionOption {
   label: string;
@@ -30,9 +29,9 @@ export const QuestionFlow: ToolCallMessagePartComponent<
   Record<string, string | number | null>
 > = ({ args, result, addResult }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string | number | null>>(
-    {}
-  );
+  const [answers, setAnswers] = useState<
+    Record<string, string | number | null>
+  >({});
   const [customValue, setCustomValue] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
 

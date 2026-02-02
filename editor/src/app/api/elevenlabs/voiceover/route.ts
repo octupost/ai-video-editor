@@ -1,5 +1,5 @@
 import { R2StorageService } from '@/lib/r2';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 const r2 = new R2StorageService({
@@ -12,10 +12,17 @@ const r2 = new R2StorageService({
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, voiceId = '21m00Tcm4TlvDq8ikWAM', project_id } = await req.json();
+    const {
+      text,
+      voiceId = '21m00Tcm4TlvDq8ikWAM',
+      project_id,
+    } = await req.json();
 
     if (!text || !project_id) {
-      return NextResponse.json({ error: 'Text and project_id are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Text and project_id are required' },
+        { status: 400 }
+      );
     }
 
     const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -60,13 +67,12 @@ export async function POST(req: NextRequest) {
 
     // Save to Supabase
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: asset, error: dbError } = await supabase

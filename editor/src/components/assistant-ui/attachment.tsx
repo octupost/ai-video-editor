@@ -1,6 +1,6 @@
 'use client';
 
-import { PropsWithChildren, useEffect, useState, type FC } from 'react';
+import { type PropsWithChildren, useEffect, useState, type FC } from 'react';
 import Image from 'next/image';
 import { XIcon, PlusIcon, FileText } from 'lucide-react';
 import {
@@ -145,9 +145,10 @@ const AttachmentUI: FC = () => {
         return 'Document';
       case 'file':
         return 'File';
-      default:
+      default: {
         const _exhaustiveCheck: never = type;
         throw new Error(`Unknown attachment type: ${_exhaustiveCheck}`);
+      }
     }
   });
 
@@ -157,19 +158,18 @@ const AttachmentUI: FC = () => {
         className={cn(
           'aui-attachment-root relative',
           isImage &&
-            'aui-attachment-root-composer only:[&>#attachment-tile]:size-24'
+            'aui-attachment-root-composer only:[&>.attachment-tile]:size-24'
         )}
       >
         <AttachmentPreviewDialog>
           <TooltipTrigger asChild>
             <div
               className={cn(
-                'aui-attachment-tile size-14 cursor-pointer overflow-hidden rounded-[14px] border bg-muted transition-opacity hover:opacity-75',
+                'attachment-tile aui-attachment-tile size-14 cursor-pointer overflow-hidden rounded-[14px] border bg-muted transition-opacity hover:opacity-75',
                 isComposer &&
                   'aui-attachment-tile-composer border-foreground/20'
               )}
               role="button"
-              id="attachment-tile"
               aria-label={`${typeLabel} attachment`}
             >
               <AttachmentThumb />

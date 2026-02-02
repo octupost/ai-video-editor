@@ -1,4 +1,4 @@
-import { ICaptionsControlProps } from '../interface/captions';
+import type { ICaptionsControlProps } from '../interface/captions';
 
 export const NONE_PRESET: ICaptionsControlProps = {
   appearedColor: '#ffffff',

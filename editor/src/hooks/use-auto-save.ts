@@ -34,7 +34,9 @@ export function useAutoSave() {
       clearInterval(intervalId);
       // Sync save on unmount (best effort)
       if (studio && studio.clips.length > 0) {
-        saveTimeline(projectId, studio.tracks, studio.clips).catch(console.error);
+        saveTimeline(projectId, studio.tracks, studio.clips).catch(
+          console.error
+        );
       }
     };
   }, [studio, projectId]);

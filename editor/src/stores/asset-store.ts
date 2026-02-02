@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Asset, AssetType } from '@/types/media';
+import type { Asset, AssetType } from '@/types/media';
 import { useTimelineStore } from '@/stores/timeline-store';
 import { useStudioStore } from '@/stores/studio-store';
 
@@ -20,7 +20,12 @@ const getBaseUrl = (url: string): string => {
 };
 
 // Helper to get the array key for a given asset type
-const getArrayKey = (type: AssetType): keyof Pick<AssetState, 'voiceovers' | 'sfx' | 'music' | 'images' | 'videos' | 'uploads'> => {
+const getArrayKey = (
+  type: AssetType
+): keyof Pick<
+  AssetState,
+  'voiceovers' | 'sfx' | 'music' | 'images' | 'videos' | 'uploads'
+> => {
   switch (type) {
     case 'voiceover':
       return 'voiceovers';
@@ -161,7 +166,7 @@ export const useAssetStore = create<AssetState>()((set, get) => ({
 
       // Sort each array by createdAt (newest first)
       const sortByDate = (a: Asset, b: Asset) => b.createdAt - a.createdAt;
-      
+
       set({
         voiceovers: voiceovers.sort(sortByDate),
         sfx: sfx.sort(sortByDate),
@@ -205,7 +210,9 @@ export const useAssetStore = create<AssetState>()((set, get) => ({
         const { clips } = useTimelineStore.getState();
         const assetBaseUrl = getBaseUrl(assetUrl);
         const clipIdsToRemove = Object.entries(clips)
-          .filter(([_, clip]) => clip.src && getBaseUrl(clip.src) === assetBaseUrl)
+          .filter(
+            ([_, clip]) => clip.src && getBaseUrl(clip.src) === assetBaseUrl
+          )
           .map(([clipId]) => clipId);
 
         if (clipIdsToRemove.length > 0) {

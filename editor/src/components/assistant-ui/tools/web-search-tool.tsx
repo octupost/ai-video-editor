@@ -122,7 +122,7 @@ function SearchResultCard({
             </span>
             <span>{domain}</span>
           </div>
-          
+
           {/* Title with link */}
           <a
             href={result.url}
@@ -252,7 +252,8 @@ export const WebSearchTool: ToolCallMessagePartComponent<WebSearchToolArgs> = ({
             ) : (
               <>
                 {searchQuery ? `"${searchQuery}"` : 'Search'}{' '}
-                {resultCount > 0 && `• ${resultCount} result${resultCount !== 1 ? 's' : ''}`}
+                {resultCount > 0 &&
+                  `• ${resultCount} result${resultCount !== 1 ? 's' : ''}`}
               </>
             )}
           </p>
@@ -269,9 +270,7 @@ export const WebSearchTool: ToolCallMessagePartComponent<WebSearchToolArgs> = ({
       </button>
 
       {/* Loading bar */}
-      {isLoading && (
-        <div className="h-1 w-full animate-pulse bg-blue-500/30" />
-      )}
+      {isLoading && <div className="h-1 w-full animate-pulse bg-blue-500/30" />}
 
       {/* Results */}
       {!isCollapsed && !isLoading && (

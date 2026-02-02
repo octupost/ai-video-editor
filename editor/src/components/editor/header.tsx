@@ -3,7 +3,7 @@ import { IconShare } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { useStudioStore } from '@/stores/studio-store';
 import { usePanelStore } from '@/stores/panel-store';
-import { Log, type IClip } from '@designcombo/video';
+import { Log, type IClip } from 'openvideo';
 import { ExportModal } from './export-modal';
 import { LogoIcons } from '../shared/logos';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ import {
 
 export default function Header() {
   const { studio } = useStudioStore();
-  const { toggleCopilot, isCopilotVisible } = usePanelStore();
+  const { toggleCopilot } = usePanelStore();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState(false);
   const [canUndo, setCanUndo] = useState(false);

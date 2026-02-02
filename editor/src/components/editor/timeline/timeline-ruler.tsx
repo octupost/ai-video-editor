@@ -76,7 +76,7 @@ export function TimelineRuler({
       // If interval is sub-second, show decimal
       if (mainInterval < 1) {
         // Avoid long floating point errors
-        return seconds.toFixed(1) + 's';
+        return `${seconds.toFixed(1)}s`;
       }
 
       const m = Math.floor(seconds / 60);

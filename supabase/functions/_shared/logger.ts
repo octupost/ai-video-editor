@@ -80,7 +80,7 @@ export class Logger {
             const val = typeof v === 'object' ? JSON.stringify(v) : String(v);
             // Truncate long values
             const truncated =
-              val.length > 100 ? val.substring(0, 100) + '...' : val;
+              val.length > 100 ? `${val.substring(0, 100)}...` : val;
             return `  ${k}=${truncated}`;
           })
           .join('\n')

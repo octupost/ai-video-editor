@@ -1,5 +1,5 @@
 import { R2StorageService } from '@/lib/r2';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 // Note: Reusing SFX logic for Music as a placeholder or if using SFX "instrumental" capabilities.
@@ -62,13 +62,12 @@ export async function POST(req: NextRequest) {
 
     // Save to Supabase
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { data: asset, error: dbError } = await supabase

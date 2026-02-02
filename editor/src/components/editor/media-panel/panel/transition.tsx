@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { GL_TRANSITION_OPTIONS } from '@designcombo/video';
+import { GL_TRANSITION_OPTIONS } from 'openvideo';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
 
 const PanelTransition = () => {
-  const { studio, selectedTransitionKey, setSelectedTransitionKey } = useStudioStore();
+  const { studio, selectedTransitionKey, setSelectedTransitionKey } =
+    useStudioStore();
   const TRANSITION_DURATION_DEFAULT = 2_000_000;
 
   const [hovered, setHovered] = useState<Record<string, boolean>>({});
@@ -30,15 +31,23 @@ const PanelTransition = () => {
                 onClick={() => {
                   setSelectedTransitionKey(effect.key);
                   if (studio) {
-                    studio.addTransition(effect.key, TRANSITION_DURATION_DEFAULT);
+                    studio.addTransition(
+                      effect.key,
+                      TRANSITION_DURATION_DEFAULT
+                    );
                   }
                 }}
               >
-                <div className={`relative w-full aspect-video rounded-md bg-input/30 border overflow-hidden ${
-                  isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''
-                }`}>
+                <div
+                  className={`relative w-full aspect-video rounded-md bg-input/30 border overflow-hidden ${
+                    isSelected
+                      ? 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                      : ''
+                  }`}
+                >
                   <img
                     src={effect.previewStatic}
+                    alt={effect.label}
                     loading="lazy"
                     className="
                       absolute inset-0 w-full h-full object-cover rounded-sm
@@ -50,6 +59,7 @@ const PanelTransition = () => {
                   {isHovered && (
                     <img
                       src={effect.previewDynamic}
+                      alt={effect.label}
                       className="
                         absolute inset-0 w-full h-full object-cover rounded-sm
                         transition-opacity duration-150

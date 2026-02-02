@@ -1,4 +1,4 @@
-import { fontManager } from '@designcombo/video';
+import { fontManager } from 'openvideo';
 
 /**
  * Fetches caption data from a URL
@@ -240,7 +240,7 @@ export const convertSchemaToExported = async (
       }
 
       // Add audio from textToSpeech (before incrementing cumulative time)
-      if (segment.textToSpeech && segment.textToSpeech.src) {
+      if (segment.textToSpeech?.src) {
         // Convert milliseconds to microseconds
         const durationMs = segment.textToSpeech.duration || segmentDurationMs;
         const durationUs = durationMs * 1000;
@@ -273,17 +273,12 @@ export const convertSchemaToExported = async (
       }
 
       // Add captions from speechToText
-      if (segment.speechToText && segment.speechToText.src) {
+      if (segment.speechToText?.src) {
         try {
           // Fetch caption data from URL
           const captionData = await fetchCaptionData(segment.speechToText.src);
 
-          if (
-            captionData &&
-            captionData.results &&
-            captionData.results.main &&
-            captionData.results.main.words
-          ) {
+          if (captionData?.results?.main?.words) {
             const words = captionData.results.main.words;
 
             // Group words by width

@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { useStudioStore } from '@/stores/studio-store';
 import { useAssetStore } from '@/stores/asset-store';
-import { Asset } from '@/types/media';
+import type { Asset } from '@/types/media';
 import { Log } from '@designcombo/video';
 import {
   Upload,
@@ -51,7 +51,7 @@ export function PanelUploads() {
     setIsUploading(true);
     try {
       const result = await uploadFile(file);
-      const mediaType = file.type.startsWith('video/') ? 'video' : 'image';
+      const _mediaType = file.type.startsWith('video/') ? 'video' : 'image';
 
       // Save to Supabase
       const saveResponse = await fetch('/api/assets', {
@@ -110,7 +110,8 @@ export function PanelUploads() {
   const handleDelete = async (id: string) => {
     const confirmed = await confirm({
       title: 'Delete Upload',
-      description: 'Are you sure you want to delete this upload? This action cannot be undone.',
+      description:
+        'Are you sure you want to delete this upload? This action cannot be undone.',
     });
 
     if (confirmed) {
@@ -131,7 +132,7 @@ export function PanelUploads() {
     const matchesSearch = asset.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
-    
+
     const isVideo = isVideoAsset(asset);
     const matchesTab =
       activeTab === 'all' ||

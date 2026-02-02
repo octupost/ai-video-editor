@@ -3,7 +3,7 @@
 import { useStudioStore } from '@/stores/studio-store';
 import { Log, Text } from '@designcombo/video';
 import { useEffect, useState } from 'react';
-import { ToolCallMessagePartComponent } from '@assistant-ui/react';
+import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import {
   CheckIcon,
   ChevronDownIcon,
@@ -19,7 +19,7 @@ interface AddTextToolArgs {
 export const AddTextTool: ToolCallMessagePartComponent<AddTextToolArgs> = ({
   args,
   result,
-  toolName,
+  toolName: _toolName,
 }) => {
   const { studio } = useStudioStore();
   const [executed, setExecuted] = useState(false);

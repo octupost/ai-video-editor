@@ -3,7 +3,7 @@
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from '@designcombo/video';
 import { useEffect, useState } from 'react';
-import { ToolCallMessagePartComponent } from '@assistant-ui/react';
+import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 
 export const DuplicateSelectedTool: ToolCallMessagePartComponent<any, any> = ({

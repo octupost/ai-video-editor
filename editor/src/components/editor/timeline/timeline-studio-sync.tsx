@@ -5,7 +5,7 @@ import { usePlaybackStore } from '@/stores/playback-store';
 import type { ITimelineTrack, IClip, TrackType } from '@/types/timeline';
 import type { TimelineCanvas } from './timeline';
 import { generateUUID } from '@/utils/id';
-import { clipToJSON, type IClip as StudioClip } from '@designcombo/video';
+import { clipToJSON, type IClip as StudioClip } from 'openvideo';
 import { toast } from 'sonner';
 
 interface TimelineStudioSyncProps {
@@ -45,9 +45,9 @@ export const TimelineStudioSync = ({
       // Find or create track
       // Note: setTracks in store might be needed.
       // Complex part: Studio has the authoritative "Clip" object. Store needs it.
-      const newClips = { ...storeState.clips, [clip.id]: clip };
+      const _newClips = { ...storeState.clips, [clip.id]: clip };
       // Update track
-      const newTracks = storeState._tracks.map((t) => {
+      const _newTracks = storeState._tracks.map((t) => {
         if (t.id === trackId) {
           return { ...t, clipIds: [...t.clipIds, clip.id] };
         }
@@ -629,15 +629,21 @@ export const TimelineStudioSync = ({
       toClipId: string;
     }) => {
       if (!studio) return;
-      
-      const selectedTransitionKey = useStudioStore.getState().selectedTransitionKey;
-      
+
+      const selectedTransitionKey =
+        useStudioStore.getState().selectedTransitionKey;
+
       if (!selectedTransitionKey) {
         toast.error('Select a transition type first');
         return;
       }
-      
-      await studio.addTransition(selectedTransitionKey, 2_000_000, fromClipId, toClipId);
+
+      await studio.addTransition(
+        selectedTransitionKey,
+        2_000_000,
+        fromClipId,
+        toClipId
+      );
     };
 
     const handleSelectionDelete = async () => {

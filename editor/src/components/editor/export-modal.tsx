@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Compositor, Log } from '@designcombo/video';
+import { Compositor, Log } from 'openvideo';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
@@ -123,7 +123,7 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
       }, 500);
     } catch (error) {
       Log.error('Export error:', error);
-      alert('Failed to export: ' + (error as Error).message);
+      alert(`Failed to export: ${(error as Error).message}`);
       setIsExporting(false);
     }
   };

@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useStudioStore } from '@/stores/studio-store';
-import { Text, Log } from '@designcombo/video';
+import { Text, Log } from 'openvideo';
 
 const TEXT_PRESETS = [
   {
@@ -137,6 +137,7 @@ export default function PanelText() {
         <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-3 pb-4">
           {TEXT_PRESETS.map((preset, index) => (
             <button
+              type="button"
               key={index}
               onClick={() => handleAddText(preset)}
               className="aspect-square bg-secondary/50 rounded-lg flex items-center justify-center p-4 hover:bg-secondary transition-colors group relative overflow-hidden border border-border"

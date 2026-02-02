@@ -16,7 +16,7 @@ import PanelSFX from './panel/sfx';
 import PanelStoryboard from './panel/storyboard';
 import { PropertiesPanel } from '../properties-panel';
 import { Assistant } from '@/components/assistant';
-import type { IClip } from '@designcombo/video';
+import type { IClip } from 'openvideo';
 import { useEffect, useState } from 'react';
 import { useStudioStore } from '@/stores/studio-store';
 import { useAssetStore } from '@/stores/asset-store';
