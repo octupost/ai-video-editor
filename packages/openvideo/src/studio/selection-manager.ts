@@ -540,7 +540,6 @@ export class SelectionManager {
       const isReflowableTextClip =
         (clip instanceof Text || clip instanceof Caption) &&
         this.textClipResizedWidth !== null;
-        
 
       if (isReflowableTextClip) {
         const styleUpdate: any = {
@@ -578,14 +577,8 @@ export class SelectionManager {
           root.scale.set(1, 1);
         }
       } else {
-
         let logicalWidth = newWidth;
         let logicalHeight = newHeight;
-
-        if (clip instanceof Caption) {
-          logicalWidth = Math.max(1, newWidth - 30);
-          logicalHeight = Math.max(1, newHeight - 30);
-        }
 
         clip.left = root.x - logicalWidth / 2;
         clip.top = root.y - logicalHeight / 2;
@@ -622,19 +615,12 @@ export class SelectionManager {
         const newWidth = Math.abs(root.scale.x * sprite.scale.x) * textureWidth;
         const newHeight =
           Math.abs(root.scale.y * sprite.scale.y) * textureHeight;
-        
+
         let logicalWidth = newWidth;
         let logicalHeight = newHeight;
 
-        if (clip instanceof Caption) {
-          // Subtract 30px (15px bleed on each side) to get logical dimensions
-          logicalWidth = Math.max(1, newWidth - 30);
-          logicalHeight = Math.max(1, newHeight - 30);
-        }
-
         const newLeft = root.x - logicalWidth / 2;
         const newTop = root.y - logicalHeight / 2;
-
 
         clip.left = newLeft;
         clip.top = newTop;

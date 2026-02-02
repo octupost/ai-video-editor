@@ -139,11 +139,9 @@ export class TimelineModel {
 
     let clipA: IClip | null = null;
     let clipB: IClip | null = null;
-    console.log('[Studio] addTransition', { fromClipId, toClipId });
     if (fromClipId && toClipId) {
       clipA = this.getClipById(fromClipId) ?? null;
       clipB = this.getClipById(toClipId) ?? null;
-      console.log('[Studio] Found clips', { clipA, clipB });
     }
 
     if (!clipA || !clipB) {
@@ -946,6 +944,12 @@ export class TimelineModel {
       // 1. Load Fonts First
       await this.ensureFontsForClips(json.clips);
 
+      // 2. Preload Resources (Video, Audio, Image)
+      const urlsToPreload = json.clips
+        .map((clip) => clip.src)
+        .filter((src) => src && src.trim() !== '');
+      await this.studio.resourceManager.preload(urlsToPreload);
+
       // Build map of ClipID -> TrackID from json.tracks
       const clipToTrackId = new Map<string, string>();
       if (json.tracks) {
@@ -1440,19 +1444,6 @@ export class TimelineModel {
   ): Promise<void> {
     if (this.studio.pixiApp == null) return;
     if (!this.isPlaybackCapable(clip)) {
-      // Fallback logic
-      if (
-        this.studio.pixiApp != null &&
-        (await clip.ready).width > 0 &&
-        (await clip.ready).height > 0
-      ) {
-        const renderer = new PixiSpriteRenderer(
-          this.studio.pixiApp,
-          clip,
-          this.studio.clipsNormalContainer!
-        );
-        this.studio.spriteRenderers.set(clip, renderer);
-      }
       return;
     }
 
@@ -1485,19 +1476,6 @@ export class TimelineModel {
         `Failed to setup playback for ${clip.constructor.name}`,
         err
       );
-      // Fallback logic duplicated
-      if (
-        this.studio.pixiApp != null &&
-        (await clip.ready).width > 0 &&
-        (await clip.ready).height > 0
-      ) {
-        const renderer = new PixiSpriteRenderer(
-          this.studio.pixiApp,
-          clip,
-          this.studio.artboard!
-        ); // Fallback to artboard if clipsNormalContainer null?
-        this.studio.spriteRenderers.set(clip, renderer);
-      }
     }
   }
 

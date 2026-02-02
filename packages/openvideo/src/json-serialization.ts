@@ -10,7 +10,6 @@ import {
   type IClip,
   type ITransitionInfo,
 } from './clips';
-
 // Base interface for all clips
 interface BaseClipJSON {
   id?: string;
@@ -99,7 +98,7 @@ export interface TextStyleJSON {
         x1: number;
         y1: number;
         colors: Array<{ ratio: number; color: string | number }>;
-      };  
+      };
   align?: 'left' | 'center' | 'right';
   fontUrl?: string; // Font URL for custom fonts
   stroke?: {
@@ -122,6 +121,7 @@ export interface TextStyleJSON {
   letterSpacing?: number;
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'title';
   verticalAlign?: 'top' | 'center' | 'bottom';
+  wordsPerLine?: 'single' | 'multiple';
 }
 
 // Text clip specific
@@ -187,6 +187,7 @@ export interface CaptionJSON extends BaseClipJSON {
   videoHeight?: number;
   fontUrl?: string;
   mediaId?: string;
+  wordsPerLine?: 'single' | 'multiple';
 }
 
 // Effect clip specific
@@ -317,36 +318,8 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
     return await ClipClass.fromObject(json);
   }
 
-  // Fallback to manual construction
-  // Create clip based on type
+  // Fallback to manual construction (mostly for non-media clips like Text/Caption that don't need resource management)
   switch (json.type) {
-    case 'Video': {
-      const response = await fetch(json.src);
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch video from ${json.src}: ${response.status} ${response.statusText}. Make sure the file exists in the public directory.`
-        );
-      }
-      // Support both new flat structure and old options structure
-      const options =
-        json.audio !== undefined
-          ? { audio: json.audio, volume: json.volume }
-          : { volume: json.volume };
-      clip = new Video(response.body!, options as any, json.src);
-      break;
-    }
-    case 'Audio': {
-      if (!json.src || json.src.trim() === '') {
-        throw new Error('Audio requires a valid source URL');
-      }
-      // Support both new flat structure and old options structure
-      const options: { loop?: boolean; volume?: number } = {};
-      if (json.loop !== undefined) options.loop = json.loop;
-      if (json.volume !== undefined) options.volume = json.volume;
-      clip = await Audio.fromUrl(json.src, options);
-      break;
-    }
-    // Image is handled via fromObject
     case 'Text': {
       // Read from new hybrid structure
       const text = json.text || '';
@@ -402,6 +375,13 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
         captionClipOpts.fontUrl = style.fontUrl;
       } else if (json.fontUrl !== undefined) {
         captionClipOpts.fontUrl = json.fontUrl;
+      }
+
+      // Handle wordsPerLine from style or top-level
+      if (style.wordsPerLine !== undefined) {
+        captionClipOpts.wordsPerLine = style.wordsPerLine;
+      } else if (json.wordsPerLine !== undefined) {
+        captionClipOpts.wordsPerLine = json.wordsPerLine;
       }
 
       // Handle stroke
@@ -509,6 +489,9 @@ export async function jsonToClip(json: ClipJSON): Promise<IClip> {
 
       if (json.mediaId) {
         captionClipOpts.mediaId = json.mediaId;
+      }
+      if (json.wordsPerLine) {
+        captionClipOpts.wordsPerLine = json.wordsPerLine;
       }
       captionClipOpts.initialLayoutApplied = true;
       clip = new Caption(text, captionClipOpts);

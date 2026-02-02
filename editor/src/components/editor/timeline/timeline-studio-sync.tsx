@@ -5,7 +5,7 @@ import { usePlaybackStore } from '@/stores/playback-store';
 import type { ITimelineTrack, IClip, TrackType } from '@/types/timeline';
 import type { TimelineCanvas } from './timeline';
 import { generateUUID } from '@/utils/id';
-import { clipToJSON, type IClip as StudioClip } from '@designcombo/video';
+import { clipToJSON, type IClip as StudioClip } from 'openvideo';
 
 interface TimelineStudioSyncProps {
   timelineCanvas?: TimelineCanvas | null;
@@ -626,7 +626,18 @@ export const TimelineStudioSync = ({
       toClipId: string;
     }) => {
       if (!studio) return;
-      await studio.addTransition('GridFlip', 2_000_000, fromClipId, toClipId);
+      const fromClip = studio.timeline.getClipById(fromClipId);
+      const toClip = studio.timeline.getClipById(toClipId);
+
+      const minDuration = Math.min(
+        fromClip?.duration ?? Infinity,
+        toClip?.duration ?? Infinity
+      );
+
+      const duration =
+        minDuration === Infinity ? 2_000_000 : minDuration * 0.25;
+
+      await studio.addTransition('GridFlip', duration, fromClipId, toClipId);
     };
 
     const handleSelectionDelete = async () => {

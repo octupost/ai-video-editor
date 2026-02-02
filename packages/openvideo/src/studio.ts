@@ -105,6 +105,7 @@ import { SelectionManager } from './studio/selection-manager';
 import { Transport } from './studio/transport';
 import { TimelineModel } from './studio/timeline-model';
 import { HistoryManager, HistoryState } from './studio/history-manager';
+import { ResourceManager } from './studio/resource-manager';
 import { jsonToClip } from './json-serialization';
 import { Difference } from 'microdiff';
 
@@ -113,6 +114,7 @@ export class Studio extends EventEmitter<StudioEvents> {
   public transport: Transport;
   public timeline: TimelineModel;
   public history: HistoryManager;
+  public resourceManager: ResourceManager;
   public pixiApp: Application | null = null;
   public get tracks() {
     return this.timeline.tracks;
@@ -192,6 +194,7 @@ export class Studio extends EventEmitter<StudioEvents> {
   private processingHistory = false;
   private historyGroupDepth = 0;
   private clipCache = new Map<string, IClip>();
+  private _isUpdatingLayout = false;
 
   // Effect system
   public globalEffects = new Map<string, GlobalEffectInfo>();
@@ -240,6 +243,7 @@ export class Studio extends EventEmitter<StudioEvents> {
     this.transport = new Transport(this);
     this.timeline = new TimelineModel(this);
     this.history = new HistoryManager();
+    this.resourceManager = new ResourceManager();
 
     this.ready = this.initPixiApp().then(() => {
       // Initialize history with initial state after Pixi is ready and dimensions are set correctly
@@ -643,66 +647,57 @@ export class Studio extends EventEmitter<StudioEvents> {
   }
 
   private handleResize = () => {
-    if (this.destroyed || !this.pixiApp) return;
+    if (this.destroyed || !this.pixiApp || this._isUpdatingLayout) return;
     this.updateArtboardLayout();
   };
 
-  private updateArtboardLayout() {
-    if (!this.pixiApp || !this.artboard) return;
+  public updateArtboardLayout() {
+    if (!this.pixiApp || !this.artboard || this._isUpdatingLayout) return;
+    this._isUpdatingLayout = true;
 
-    // Canvas size (container size)
-    const canvasWidth = this.pixiApp.canvas.width;
-    const canvasHeight = this.pixiApp.canvas.height; // Use clientHeight/width? pixiApp.canvas should mirror it if resizeTo is set?
-    // Wait, pixiApp init with explicit width/height initially.
-    // We want the canvas to be responsive. Player component will make it responsive.
-    // AND pixiApp should verify the canvas size.
-    // If Player uses explicit size, we need to respect that.
-    // BUT we want 'canvas should take full size of preview container'.
-    // AND 'artboard should be centered... zoom in the canvas'.
-    // Ideally, Player CSS makes canvas 100% 100%. Pixi App resizing logic:
+    try {
+      // Force PIXI to resize its renderer to match its container (if resizeTo is set)
+      this.pixiApp.resize();
 
-    // We manually calculate scale
-    // Artboard logical size
-    const artboardWidth = this.opts.width;
-    const artboardHeight = this.opts.height;
+      const canvas = this.pixiApp.canvas as HTMLCanvasElement;
+      const parent = canvas.parentElement;
 
-    // Available space
-    // NOTE: pixiApp.canvas might not report the CSS size immediately correctly if not using resizeTo?
-    // Let's rely on the canvas element's clientWidth/Height
-    const containerWidth =
-      (this.pixiApp.canvas as HTMLCanvasElement).parentElement?.clientWidth ||
-      canvasWidth;
-    const containerHeight =
-      (this.pixiApp.canvas as HTMLCanvasElement).parentElement?.clientHeight ||
-      canvasHeight;
+      // Use the parent's bounding rect if available, as clientWidth/Height might be 0 during initial mount or reflow
+      const containerWidth = parent
+        ? parent.getBoundingClientRect().width
+        : this.pixiApp.screen.width;
+      const containerHeight = parent
+        ? parent.getBoundingClientRect().height
+        : this.pixiApp.screen.height;
 
-    const spacing = this.opts.spacing || 0;
-    const containerWidthWithSpacing = Math.max(0, containerWidth - spacing * 2);
-    const containerHeightWithSpacing = Math.max(
-      0,
-      containerHeight - spacing * 2
-    );
+      // Artboard logical size (the "true" size of our project)
+      const artboardWidth = this.opts.width;
+      const artboardHeight = this.opts.height;
 
-    // Calculate scale to fit artboard in container with spacing
-    const scaleX = containerWidthWithSpacing / artboardWidth;
-    const scaleY = containerHeightWithSpacing / artboardHeight;
-    const scale = Math.min(scaleX, scaleY);
-    // User said: 'instead of apply transfrom scale ... it should apply some zoom in the canvas and center it'
-    // AND 'canvas should take full size of preview container'
-    // So yes, scale Artboard to fit (or maybe margin?). Let's stick to fit.
+      const spacing = this.opts.spacing || 0;
+      const containerWidthWithSpacing = Math.max(
+        0,
+        containerWidth - spacing * 2
+      );
+      const containerHeightWithSpacing = Math.max(
+        0,
+        containerHeight - spacing * 2
+      );
 
-    // Apply scale and center
-    this.artboard.scale.set(scale);
+      // Calculate scale to fit artboard in container with spacing
+      const scaleX = containerWidthWithSpacing / artboardWidth;
+      const scaleY = containerHeightWithSpacing / artboardHeight;
+      const scale = Math.min(scaleX, scaleY);
 
-    // Center logic
-    // (containerWidth - artboardWidth * scale) / 2
-    this.artboard.x = (containerWidth - artboardWidth * scale) / 2;
-    this.artboard.y = (containerHeight - artboardHeight * scale) / 2;
+      // Apply scale and center
+      this.artboard.scale.set(scale);
 
-    // Ensure mask is correct scale/pos?
-    // Mask is child of artboard, so it scales with it.
-    // But mask should match Artboard LOGICAL size.
-    // width/height passed to graphics.rect was opts.width/opts.height. Correct.
+      // Center the artboard within the updated container dimensions
+      this.artboard.x = (containerWidth - artboardWidth * scale) / 2;
+      this.artboard.y = (containerHeight - artboardHeight * scale) / 2;
+    } finally {
+      this._isUpdatingLayout = false;
+    }
   }
 
   /**
@@ -937,6 +932,10 @@ export class Studio extends EventEmitter<StudioEvents> {
     return this.timeline.getClipById(id);
   }
 
+  findClip(id: string): IClip | undefined {
+    return this.timeline.getClipById(id);
+  }
+
   /**
    * Setup sprite interactivity for click selection
    * Delegated to SelectionManager
@@ -952,7 +951,15 @@ export class Studio extends EventEmitter<StudioEvents> {
   /**
    * Remove a clip from the studio
    */
-  async removeClip(clip: IClip): Promise<void> {
+  async removeClip(clipOrId: IClip | string): Promise<void> {
+    const clip =
+      typeof clipOrId === 'string' ? this.getClipById(clipOrId) : clipOrId;
+
+    if (!clip) {
+      console.warn(`[Studio] removeClip: Clip not found`, clipOrId);
+      return;
+    }
+
     this.beginHistoryGroup();
     try {
       this.clipCache.set(clip.id, clip);
@@ -1826,23 +1833,9 @@ export class Studio extends EventEmitter<StudioEvents> {
     frame: ImageBitmap | Texture,
     target: RenderTexture
   ): void {
-    if (!this.pixiApp || !this.transBgGraphics) return;
+    if (!this.pixiApp) return;
 
-    // 1. Clear with Background Color (0x000000, alpha 0)
-    // We temporarily set renderer background alpha to 0 to ensure we clear to transparent
-    const oldAlpha = this.pixiApp.renderer.background.alpha;
-    this.pixiApp.renderer.background.alpha = 0;
-
-    // Using the renderer's render method with clear: true and a background container
-    this.pixiApp.renderer.render({
-      container: this.transBgGraphics,
-      target: target,
-      clear: true,
-    });
-
-    this.pixiApp.renderer.background.alpha = oldAlpha;
-
-    // 2. Render Clip Frame with its current transforms
+    // 1. Render Clip Frame with its current transforms and CLEAR the target
     // We use a temporary sprite for this to avoid disrupting the main scene's sprites
     const tempSprite = new Sprite(
       frame instanceof Texture ? frame : Texture.from(frame)
@@ -1879,11 +1872,11 @@ export class Studio extends EventEmitter<StudioEvents> {
     tempSprite.rotation = (clip.flip == null ? 1 : -1) * clip.angle;
     tempSprite.alpha = clip.opacity;
 
-    // Render onto target (do not clear, we already cleared with red)
+    // Render onto target and CLEAR the texture first
     this.pixiApp.renderer.render({
       container: tempSprite,
       target: target,
-      clear: false,
+      clear: true,
     });
 
     // Clean up temporary texture/sprite

@@ -621,7 +621,7 @@ export function makeTransition({ name, renderer }: TransitionOptions) {
       renderer.render({
         container: transitionSprite,
         target: transitionTexture,
-        clear: false,
+        clear: true,
         width,
         height,
       });
