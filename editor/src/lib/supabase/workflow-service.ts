@@ -184,6 +184,50 @@ export async function getStoryboardsForProject(
 }
 
 /**
+ * Get a specific storyboard by ID with its grid_image, scenes, first_frames, and voiceovers
+ */
+export async function getStoryboardWithScenesById(
+  storyboardId: string
+): Promise<StoryboardWithGridImage | null> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('storyboards')
+    .select(
+      `
+      *,
+      grid_images (
+        *,
+        scenes (
+          *,
+          first_frames (*),
+          voiceovers (*)
+        )
+      )
+    `
+    )
+    .eq('id', storyboardId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    console.error('Failed to fetch storyboard:', error);
+    return null;
+  }
+
+  // Sort scenes by order within each grid_image
+  if (data?.grid_images) {
+    for (const gridImage of data.grid_images) {
+      if (gridImage.scenes) {
+        gridImage.scenes.sort((a: Scene, b: Scene) => a.order - b.order);
+      }
+    }
+  }
+
+  return data as StoryboardWithGridImage;
+}
+
+/**
  * Get the latest storyboard with its grid_image, scenes, first_frames, and voiceovers
  * This is the main function for loading workflow data
  */

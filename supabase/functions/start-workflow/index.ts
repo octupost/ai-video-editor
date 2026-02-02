@@ -49,6 +49,7 @@ interface WorkflowInput {
   height: number;
   voiceover: string;
   style: string;
+  style_prompt: string;
   aspect_ratio: string;
 }
 
@@ -62,6 +63,7 @@ function validateInput(input: WorkflowInput): string | null {
     visual_prompt_list,
     voiceover,
     style,
+    style_prompt,
     aspect_ratio,
   } = input;
 
@@ -74,6 +76,7 @@ function validateInput(input: WorkflowInput): string | null {
     !visual_prompt_list ||
     !voiceover ||
     !style ||
+    !style_prompt ||
     !aspect_ratio
   ) {
     return 'Missing required fields';
@@ -98,12 +101,12 @@ interface FalRequestResult {
 async function sendFalRequest(
   falUrl: URL,
   prompt: string,
+  stylePrompt: string,
   log: ReturnType<typeof createLogger>
 ): Promise<FalRequestResult> {
-  log.api('fal.ai', 'nano-banana-pro', {
+  log.api('fal.ai', 'octupost/generategridimage', {
     prompt_length: prompt.length,
-    aspect_ratio: '1:1',
-    resolution: '4K',
+    style_prompt_length: stylePrompt.length,
   });
   log.startTiming('fal_request');
 
@@ -114,11 +117,10 @@ async function sendFalRequest(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      prompt,
-      num_images: 1,
-      aspect_ratio: '1:1',
-      output_format: 'png',
-      resolution: '4K',
+      input: {
+        prompt,
+        style_prompt: stylePrompt,
+      },
     }),
   });
 
@@ -215,6 +217,7 @@ Deno.serve(async (req: Request) => {
       height,
       voiceover,
       style,
+      style_prompt,
       aspect_ratio,
     } = input;
     const numberOfScenes = rows * cols;
@@ -281,10 +284,17 @@ Deno.serve(async (req: Request) => {
       cols: cols.toString(),
     });
     const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
-    const falUrl = new URL('https://queue.fal.run/fal-ai/nano-banana-pro');
+    const falUrl = new URL(
+      'https://queue.fal.run/workflows/octupost/generategridimage'
+    );
     falUrl.searchParams.set('fal_webhook', webhookUrl);
 
-    const falResult = await sendFalRequest(falUrl, grid_image_prompt, log);
+    const falResult = await sendFalRequest(
+      falUrl,
+      grid_image_prompt,
+      style_prompt,
+      log
+    );
     if (falResult.error) {
       await supabase
         .from('grid_images')

@@ -8,8 +8,8 @@ import {
   IconLoader2,
   IconLayoutGrid,
   IconChevronDown,
-  IconChevronUp,
   IconCheck,
+  IconPlus,
 } from '@tabler/icons-react';
 import {
   DropdownMenu,
@@ -17,8 +17,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useProjectId } from '@/contexts/project-context';
 import { createClient } from '@/lib/supabase/client';
+import {
+  getStoryboardsForProject,
+  type Storyboard,
+} from '@/lib/supabase/workflow-service';
 import { StoryboardCards } from './storyboard-cards';
 
 const ASPECT_RATIOS = [
@@ -30,17 +41,19 @@ const ASPECT_RATIOS = [
 type AspectRatio = (typeof ASPECT_RATIOS)[number]['value'];
 
 const STYLE_OPTIONS = [
-  { value: 'cinematic', label: 'Cinematic' },
-  { value: 'anime', label: 'Anime' },
-  { value: 'documentary', label: 'Documentary' },
-  { value: 'commercial', label: 'Commercial' },
-  { value: 'music-video', label: 'Music Video' },
-  { value: 'vlog', label: 'Vlog' },
-  { value: 'corporate', label: 'Corporate' },
-  { value: 'horror', label: 'Horror' },
-  { value: 'warm watercolor illustration', label: 'Watercolor' },
-  { value: 'photorealistic', label: 'Photorealistic' },
+  { value: 'anime-2d', label: 'Anime 2D' },
+  { value: 'pixar-art-3d', label: 'Pixar Art 3D' },
+  { value: 'hollywood', label: 'Hollywood' },
 ] as const;
+
+const STYLE_PROMPTS: Record<string, string> = {
+  'anime-2d':
+    'Render in anime 2D art style with vibrant colors, clean linework, and expressive characters. Maintain the exact grid layout and number of images - only transform the visual style.',
+  'pixar-art-3d':
+    'Render in Pixar-style 3D animation with soft lighting, rounded forms, and rich textures. Maintain the exact grid layout and number of images - only transform the visual style.',
+  hollywood:
+    'Render in cinematic Hollywood style with realistic lighting, dramatic composition, and film-quality visuals. Maintain the exact grid layout and number of images - only transform the visual style.',
+};
 
 type StyleOption = (typeof STYLE_OPTIONS)[number]['value'];
 
@@ -52,11 +65,75 @@ interface StoryboardResponse {
   visual_flow: string[];
 }
 
+type ViewMode = 'view' | 'create';
+
+// Helper functions
+const getStyleLabel = (value: string) =>
+  STYLE_OPTIONS.find((s) => s.value === value)?.label || value;
+
+const getValidSession = async () => {
+  const supabase = createClient();
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.refreshSession();
+  if (error || !session) {
+    throw new Error('Please log in again to continue');
+  }
+  return { supabase, session };
+};
+
+const buildWorkflowBody = (
+  storyboardData: StoryboardResponse,
+  projectId: string | null,
+  selectedRatio: (typeof ASPECT_RATIOS)[number],
+  formVoiceover: string,
+  formStyle: StyleOption,
+  formAspectRatio: AspectRatio
+) => ({
+  project_id: projectId,
+  grid_image_prompt: storyboardData.grid_image_prompt,
+  rows: storyboardData.rows,
+  cols: storyboardData.cols,
+  voiceover_list: storyboardData.voiceover_list,
+  visual_prompt_list: storyboardData.visual_flow,
+  width: selectedRatio.width,
+  height: selectedRatio.height,
+  voiceover: formVoiceover,
+  style: formStyle,
+  style_prompt: STYLE_PROMPTS[formStyle],
+  aspect_ratio: formAspectRatio,
+});
+
+const getErrorMessage = (err: unknown): string =>
+  err instanceof Error ? err.message : 'An error occurred';
+
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 export default function PanelStoryboard() {
   const projectId = useProjectId();
-  const [voiceoverText, setVoiceoverText] = useState('');
-  const [style, setStyle] = useState<StyleOption>('cinematic');
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
+
+  // Storyboard navigation state
+  const [viewMode, setViewMode] = useState<ViewMode>('create');
+  const [storyboards, setStoryboards] = useState<Storyboard[]>([]);
+  const [selectedStoryboardId, setSelectedStoryboardId] = useState<
+    string | null
+  >(null);
+
+  // Form state (for create mode)
+  const [formVoiceover, setFormVoiceover] = useState('');
+  const [formStyle, setFormStyle] = useState<StyleOption>('cinematic');
+  const [formAspectRatio, setFormAspectRatio] = useState<AspectRatio>('16:9');
+
+  // Generation state
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<StoryboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,61 +141,83 @@ export default function PanelStoryboard() {
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [workflowStarted, setWorkflowStarted] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isInputCollapsed, setIsInputCollapsed] = useState(false);
 
-  // Auto-collapse input panel when workflow starts
+  // Derived state
+  const selectedStoryboard = storyboards.find(
+    (sb) => sb.id === selectedStoryboardId
+  );
+
+  // Fetch storyboards on mount and when projectId changes
   useEffect(() => {
-    if (workflowStarted) {
-      setIsInputCollapsed(true);
+    if (!projectId) return;
+
+    getStoryboardsForProject(projectId).then((data) => {
+      setStoryboards(data);
+      // Auto-select most recent storyboard if exists
+      if (data.length > 0) {
+        setSelectedStoryboardId(data[0].id);
+        setViewMode('view');
+      } else {
+        setViewMode('create');
+      }
+    });
+  }, [projectId]);
+
+  const refreshStoryboardsAfterCreate = async () => {
+    if (!projectId) return;
+    const newStoryboards = await getStoryboardsForProject(projectId);
+    setStoryboards(newStoryboards);
+    if (newStoryboards.length > 0) {
+      setSelectedStoryboardId(newStoryboards[0].id);
+      setViewMode('view');
     }
-  }, [workflowStarted]);
+  };
 
   const startWorkflow = async (storyboardData: StoryboardResponse) => {
-    const selectedRatio = ASPECT_RATIOS.find((r) => r.value === aspectRatio);
+    const selectedRatio = ASPECT_RATIOS.find(
+      (r) => r.value === formAspectRatio
+    );
     if (!selectedRatio) return;
 
     setWorkflowLoading(true);
     setWorkflowError(null);
 
     try {
-      const supabase = createClient();
-      const { error: fnError } = await supabase.functions.invoke(
+      const { supabase, session } = await getValidSession();
+
+      const body = buildWorkflowBody(
+        storyboardData,
+        projectId,
+        selectedRatio,
+        formVoiceover,
+        formStyle,
+        formAspectRatio
+      );
+      const { data: fnData, error: fnError } = await supabase.functions.invoke(
         'start-workflow',
         {
-          body: {
-            project_id: projectId,
-            grid_image_prompt: storyboardData.grid_image_prompt,
-            rows: storyboardData.rows,
-            cols: storyboardData.cols,
-            voiceover_list: storyboardData.voiceover_list,
-            visual_prompt_list: storyboardData.visual_flow,
-            width: selectedRatio.width,
-            height: selectedRatio.height,
-            // New storyboard fields
-            voiceover: voiceoverText,
-            style: style,
-            aspect_ratio: aspectRatio,
-          },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body,
         }
       );
 
+      console.log('Edge function result:', { data: fnData, error: fnError });
       if (fnError) {
         throw new Error(fnError.message || 'Failed to start workflow');
       }
 
       setWorkflowStarted(true);
       setRefreshTrigger((prev) => prev + 1);
+      await refreshStoryboardsAfterCreate();
     } catch (err) {
-      setWorkflowError(
-        err instanceof Error ? err.message : 'An error occurred'
-      );
+      setWorkflowError(getErrorMessage(err));
     } finally {
       setWorkflowLoading(false);
     }
   };
 
   const handleGenerate = async () => {
-    if (!voiceoverText.trim()) return;
+    if (!formVoiceover.trim()) return;
 
     setLoading(true);
     setError(null);
@@ -131,7 +230,10 @@ export default function PanelStoryboard() {
       const response = await fetch('/api/storyboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voiceoverText, style }),
+        body: JSON.stringify({
+          voiceoverText: formVoiceover,
+          style: formStyle,
+        }),
       });
 
       if (!response.ok) {
@@ -153,16 +255,63 @@ export default function PanelStoryboard() {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Result Section */}
+      {/* Storyboard Navigation Header */}
+      <div className="flex-none border-b border-border/50 p-3">
+        <div className="flex items-center gap-2">
+          <Select
+            value={selectedStoryboardId || ''}
+            onValueChange={(value) => {
+              setSelectedStoryboardId(value);
+              setViewMode('view');
+            }}
+            disabled={storyboards.length === 0}
+          >
+            <SelectTrigger className="flex-1 h-8 text-xs">
+              <SelectValue placeholder="No storyboards yet" />
+            </SelectTrigger>
+            <SelectContent>
+              {storyboards.map((sb) => (
+                <SelectItem key={sb.id} value={sb.id}>
+                  {formatDate(sb.created_at)} - {getStyleLabel(sb.style)} (
+                  {sb.aspect_ratio})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1"
+            onClick={() => {
+              setSelectedStoryboardId(null);
+              setViewMode('create');
+              setFormVoiceover('');
+              setFormStyle('cinematic');
+              setFormAspectRatio('16:9');
+              setResult(null);
+              setError(null);
+              setWorkflowStarted(false);
+            }}
+          >
+            <IconPlus className="size-3" />
+            New
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
       <ScrollArea className="flex-1 p-4">
+        {/* Error Display */}
         {error && (
-          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
+          <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive mb-4">
             {error}
           </div>
         )}
 
+        {/* Workflow Status Messages */}
         {result && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 mb-4">
             {/* Raw JSON - collapsed by default */}
             <details className="p-3 bg-secondary/30 rounded-md">
               <summary className="text-xs text-muted-foreground cursor-pointer">
@@ -173,7 +322,6 @@ export default function PanelStoryboard() {
               </pre>
             </details>
 
-            {/* Workflow Status */}
             {workflowError && (
               <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
                 {workflowError}
@@ -198,18 +346,20 @@ export default function PanelStoryboard() {
           </div>
         )}
 
-        {/* Scene Cards - ALWAYS show when projectId exists */}
-        {projectId && (
+        {/* Scene Cards - show when we have a selected storyboard or projectId */}
+        {projectId && (viewMode === 'view' || storyboards.length > 0) && (
           <div className="mt-4">
             <div className="text-xs text-muted-foreground mb-2">Scenes</div>
             <StoryboardCards
               projectId={projectId}
+              storyboardId={selectedStoryboardId}
               refreshTrigger={refreshTrigger}
             />
           </div>
         )}
 
-        {!result && !error && !loading && !projectId && (
+        {/* Empty State */}
+        {!projectId && (
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
             <IconLayoutGrid size={32} className="opacity-50" />
             <span className="text-sm text-center">
@@ -222,49 +372,39 @@ export default function PanelStoryboard() {
 
       {/* Input Section - Fixed at Bottom */}
       <div className="flex-none border-t border-border/50">
-        {isInputCollapsed ? (
-          /* Collapsed View */
-          <div
-            className="p-3 flex items-center justify-between cursor-pointer hover:bg-secondary/20 transition-colors"
-            onClick={() => setIsInputCollapsed(false)}
-          >
+        {viewMode === 'view' && selectedStoryboard ? (
+          /* View Mode - Read-only display of saved storyboard settings */
+          <div className="p-4 flex flex-col gap-3 bg-secondary/10">
             <div className="flex items-center gap-2">
-              <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
-                {STYLE_OPTIONS.find((s) => s.value === style)?.label}
+              <span className="text-xs px-2 py-1 bg-secondary rounded-md">
+                {getStyleLabel(selectedStoryboard.style)}
               </span>
-              <span className="text-xs px-2 py-0.5 bg-secondary rounded-full">
-                {aspectRatio}
+              <span className="text-xs px-2 py-1 bg-secondary rounded-md">
+                {selectedStoryboard.aspect_ratio}
               </span>
             </div>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs">
-              New Storyboard
-              <IconChevronUp className="size-3" />
-            </Button>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground">
+                Voiceover Script
+              </span>
+              <div className="p-2 bg-background/50 rounded-md text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap">
+                {selectedStoryboard.voiceover || (
+                  <span className="text-muted-foreground italic">
+                    No voiceover
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         ) : (
-          /* Expanded View */
+          /* Create Mode - Editable form */
           <div className="p-4 flex flex-col gap-3">
-            {/* Collapse button when expanded and workflow has started */}
-            {workflowStarted && (
-              <div className="flex justify-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs text-muted-foreground"
-                  onClick={() => setIsInputCollapsed(true)}
-                >
-                  Collapse
-                  <IconChevronDown className="size-3 ml-1" />
-                </Button>
-              </div>
-            )}
-
             {/* Voiceover Text Input */}
             <Textarea
               placeholder="Enter your voiceover script..."
-              className="resize-none text-sm min-h-[80px]"
-              value={voiceoverText}
-              onChange={(e) => setVoiceoverText(e.target.value)}
+              className="resize-none text-sm min-h-[80px] max-h-[200px] overflow-y-auto"
+              value={formVoiceover}
+              onChange={(e) => setFormVoiceover(e.target.value)}
             />
 
             {/* Controls Row: Dropdowns + Generate Button */}
@@ -272,7 +412,7 @@ export default function PanelStoryboard() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="secondary" size="sm" className="gap-1">
-                    {STYLE_OPTIONS.find((s) => s.value === style)?.label}
+                    {getStyleLabel(formStyle)}
                     <IconChevronDown className="size-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -280,7 +420,7 @@ export default function PanelStoryboard() {
                   {STYLE_OPTIONS.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
-                      onClick={() => setStyle(option.value)}
+                      onClick={() => setFormStyle(option.value)}
                     >
                       {option.label}
                     </DropdownMenuItem>
@@ -291,7 +431,7 @@ export default function PanelStoryboard() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="secondary" size="sm" className="gap-1">
-                    {aspectRatio}
+                    {formAspectRatio}
                     <IconChevronDown className="size-3 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -299,7 +439,7 @@ export default function PanelStoryboard() {
                   {ASPECT_RATIOS.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
-                      onClick={() => setAspectRatio(option.value)}
+                      onClick={() => setFormAspectRatio(option.value)}
                     >
                       {option.label}
                     </DropdownMenuItem>
@@ -311,7 +451,7 @@ export default function PanelStoryboard() {
                 className="h-8 rounded-full text-sm flex-1"
                 size="sm"
                 onClick={handleGenerate}
-                disabled={loading || !voiceoverText.trim()}
+                disabled={loading || !formVoiceover.trim()}
               >
                 {loading ? (
                   <IconLoader2 className="size-4 animate-spin" />

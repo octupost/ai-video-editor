@@ -59,7 +59,7 @@ function SceneThumbnail({
 
   return (
     <div
-      className={`relative aspect-video rounded overflow-hidden bg-background/50 ${hasVideo ? 'cursor-pointer hover:ring-2 hover:ring-primary/50' : ''}`}
+      className={`relative aspect-square rounded overflow-hidden bg-background/50 ${hasVideo ? 'cursor-pointer hover:ring-2 hover:ring-primary/50' : ''}`}
       onClick={handleClick}
     >
       {imageUrl ? (
@@ -381,16 +381,27 @@ export function SceneCard({
         />
       )}
 
-      {firstFrame?.error_message && (
+      <SceneErrors firstFrame={firstFrame} />
+    </div>
+  );
+}
+
+function SceneErrors({ firstFrame }: { firstFrame: FirstFrame | null }) {
+  if (!firstFrame?.error_message && !firstFrame?.video_error_message) {
+    return null;
+  }
+  return (
+    <>
+      {firstFrame.error_message && (
         <div className="mt-1.5 p-1 bg-destructive/10 rounded text-[9px] text-destructive line-clamp-1">
           {firstFrame.error_message}
         </div>
       )}
-      {firstFrame?.video_error_message && (
+      {firstFrame.video_error_message && (
         <div className="mt-1.5 p-1 bg-destructive/10 rounded text-[9px] text-destructive line-clamp-1">
           Video: {firstFrame.video_error_message}
         </div>
       )}
-    </div>
+    </>
   );
 }

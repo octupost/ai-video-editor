@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getLatestStoryboardWithScenes,
   getLatestStoryboard,
+  getStoryboardWithScenesById,
   subscribeToSceneUpdates,
   type GridImage,
   type GridImageWithScenes,
@@ -9,11 +10,30 @@ import {
   type StoryboardWithGridImage,
 } from '@/lib/supabase/workflow-service';
 
+const fetchStoryboardData = async (
+  storyboardId: string | null | undefined,
+  projectId: string | null,
+  includeScenes: boolean
+): Promise<StoryboardWithGridImage | Storyboard | null> => {
+  if (storyboardId) {
+    return getStoryboardWithScenesById(storyboardId);
+  }
+  if (includeScenes && projectId) {
+    return getLatestStoryboardWithScenes(projectId);
+  }
+  if (projectId) {
+    return getLatestStoryboard(projectId);
+  }
+  return null;
+};
+
 interface UseWorkflowOptions {
   /** Whether to subscribe to real-time updates */
   realtime?: boolean;
   /** Whether to include scenes data */
   includeScenes?: boolean;
+  /** Optional specific storyboard ID to fetch. If provided, fetches that storyboard instead of latest */
+  storyboardId?: string | null;
 }
 
 interface UseWorkflowResult {
@@ -40,7 +60,7 @@ export function useWorkflow(
   projectId: string | null,
   options: UseWorkflowOptions = {}
 ): UseWorkflowResult {
-  const { realtime = false, includeScenes = true } = options;
+  const { realtime = false, includeScenes = true, storyboardId } = options;
 
   const [storyboard, setStoryboard] = useState<
     StoryboardWithGridImage | Storyboard | null
@@ -58,7 +78,8 @@ export function useWorkflow(
   }, [storyboard]);
 
   const fetchData = useCallback(async () => {
-    if (!projectId) {
+    // If storyboardId is provided, use it; otherwise require projectId
+    if (!storyboardId && !projectId) {
       setStoryboard(null);
       setLoading(false);
       return;
@@ -68,9 +89,11 @@ export function useWorkflow(
     setError(null);
 
     try {
-      const data = includeScenes
-        ? await getLatestStoryboardWithScenes(projectId)
-        : await getLatestStoryboard(projectId);
+      const data = await fetchStoryboardData(
+        storyboardId,
+        projectId,
+        includeScenes
+      );
       setStoryboard(data);
     } catch (err) {
       setError(
@@ -79,7 +102,7 @@ export function useWorkflow(
     } finally {
       setLoading(false);
     }
-  }, [projectId, includeScenes]);
+  }, [projectId, includeScenes, storyboardId]);
 
   // Initial fetch
   useEffect(() => {

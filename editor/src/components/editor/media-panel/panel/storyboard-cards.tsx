@@ -25,11 +25,13 @@ import type { GridImageWithScenes } from '@/lib/supabase/workflow-service';
 
 interface StoryboardCardsProps {
   projectId: string;
+  storyboardId?: string | null;
   refreshTrigger?: number;
 }
 
 export function StoryboardCards({
   projectId,
+  storyboardId,
   refreshTrigger,
 }: StoryboardCardsProps) {
   const { gridImage, loading, error, isProcessing, refresh } = useWorkflow(
@@ -37,6 +39,7 @@ export function StoryboardCards({
     {
       realtime: true,
       includeScenes: true,
+      storyboardId,
     }
   );
 
