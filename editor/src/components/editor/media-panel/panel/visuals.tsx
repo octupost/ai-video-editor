@@ -7,7 +7,7 @@ import { Film, Trash2 } from 'lucide-react';
 import { useAssetStore } from '@/stores/asset-store';
 import type { Asset } from '@/types/media';
 import { useStudioStore } from '@/stores/studio-store';
-import { Log } from '@designcombo/video';
+import { Log } from 'openvideo';
 import { VisualsChatPanel } from '../visuals-chat-panel';
 import { addMediaToCanvas } from '@/lib/editor-utils';
 

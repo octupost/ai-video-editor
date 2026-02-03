@@ -1,7 +1,7 @@
 'use client';
 
 import { useStudioStore } from '@/stores/studio-store';
-import { Log, Text } from '@designcombo/video';
+import { Log, Text } from 'openvideo';
 import { useEffect, useState } from 'react';
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import {

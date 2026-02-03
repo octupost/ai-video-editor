@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Player } from './player';
-import { Studio, Compositor, fontManager } from '@designcombo/video';
+import { Player } from '../player';
+import { Studio, Compositor, fontManager } from 'openvideo';
 import { useStudioStore } from '@/stores/studio-store';
 import { editorFont } from './constants';
 import {

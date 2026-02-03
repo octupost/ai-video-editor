@@ -7,7 +7,7 @@ import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { useStudioStore } from '@/stores/studio-store';
 import { useAssetStore } from '@/stores/asset-store';
 import type { Asset } from '@/types/media';
-import { Log } from '@designcombo/video';
+import { Log } from 'openvideo';
 import {
   Upload,
   Search,

@@ -1,6 +1,6 @@
 import type { CanvasSize } from '@/types/editor';
 import type { MediaType } from '@/types/media';
-import { type Studio, Image, Video, Audio } from '@designcombo/video';
+import { type Studio, Image, Video, Audio } from 'openvideo';
 
 // ============================================
 // Media Utilities

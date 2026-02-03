@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
-import { clipToJSON, type IClip } from '@designcombo/video';
+import { clipToJSON, type IClip } from 'openvideo';
 
 // Track interface matching the Studio's track structure
 interface StudioTrack {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useStudioStore } from '@/stores/studio-store';
-import { Log } from '@designcombo/video';
+import { Log } from 'openvideo';
 import { useEffect, useState } from 'react';
 import type { ToolCallMessagePartComponent } from '@assistant-ui/react';
 import { CheckIcon, CopyIcon } from 'lucide-react';
