@@ -20,7 +20,10 @@ export function useAutoSave() {
         await saveTimeline(projectId, studio.tracks, studio.clips);
         console.log('Auto-saved');
       } catch (error) {
-        console.error('Auto-save failed:', error);
+        console.error(
+          'Auto-save failed:',
+          error instanceof Error ? error.message : JSON.stringify(error)
+        );
       } finally {
         isSavingRef.current = false;
       }

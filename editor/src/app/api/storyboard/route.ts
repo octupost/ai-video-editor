@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -25,7 +26,7 @@ Given a voiceover script and a visual style, generate a storyboard breakdown.
 - rows × cols = total number of scenes
 - Choose based on voiceover length: ~4-8 sec per scene
 - Available grid options (in order of scene count):
-  - 2x2 (4), 2x3 (6), 3x3 (9), 3x4 (12), 4x4 (16), 4x5 (20), 5x5 (25), 5x6 (30), 6x6 (36), 6x7 (42), 7x7 (49), 7x8 (56), 8x8 (64)
+- 2x2 (4), 3x2 (6), 3x3 (9), 4x3 (12), 4x4 (16), 5x4 (20), 5x5 (25), 6x5 (30), 6x6 (36), 7x6 (42), 7x7 (49), 8x7 (56), 8x8 (64)
 
 ### 2. Voiceover Splitting
 - Each segment: 4-8 seconds of speech
@@ -96,6 +97,49 @@ Generate the storyboard.`;
       {
         error: error instanceof Error ? error.message : 'Internal server error',
       },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Remove storyboard by ID
+export async function DELETE(req: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Storyboard ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // RLS policies handle authorization - storyboards link to users via project_id
+    const { error } = await supabase.from('storyboards').delete().eq('id', id);
+
+    if (error) {
+      console.error('Database error:', error);
+      return NextResponse.json(
+        { error: 'Failed to delete storyboard' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Delete storyboard error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

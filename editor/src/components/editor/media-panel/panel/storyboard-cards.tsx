@@ -5,6 +5,7 @@ import {
   IconLayoutGrid,
   IconLoader2,
   IconMicrophone,
+  IconPlayerTrackNext,
   IconSparkles,
   IconVideo,
 } from '@tabler/icons-react';
@@ -20,7 +21,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useWorkflow } from '@/hooks/use-workflow';
+import { useStudioStore } from '@/stores/studio-store';
 import { createClient } from '@/lib/supabase/client';
+import {
+  addSceneToTimeline,
+  findCompatibleTrack,
+} from '@/lib/scene-timeline-utils';
 import type { GridImageWithScenes } from '@/lib/supabase/workflow-service';
 
 interface StoryboardCardsProps {
@@ -52,9 +58,11 @@ export function StoryboardCards({
   const [videoResolution, setVideoResolution] = useState<
     '480p' | '720p' | '1080p'
   >('720p');
+  const [isAddingToTimeline, setIsAddingToTimeline] = useState(false);
   const [playingVoiceoverId, setPlayingVoiceoverId] = useState<string | null>(
     null
   );
+  const { studio } = useStudioStore();
 
   // Refresh data when refreshTrigger changes (new storyboard generated)
   useEffect(() => {
@@ -174,6 +182,81 @@ export function StoryboardCards({
     }
   };
 
+  // Check if any selected scenes have videos ready
+  const selectedScenesWithVideo = sortedScenes.filter(
+    (s) =>
+      selectedSceneIds.has(s.id) &&
+      s.first_frames?.[0]?.video_status === 'success' &&
+      s.first_frames?.[0]?.video_url
+  );
+
+  const handleAddAllToTimeline = async () => {
+    if (!studio || selectedScenesWithVideo.length === 0) return;
+
+    setIsAddingToTimeline(true);
+    try {
+      // Compute initial start time from existing clips
+      let runningEnd = studio.clips.reduce((max, c) => {
+        const end =
+          c.display.to > 0 ? c.display.to : c.display.from + c.duration;
+        return end > max ? end : max;
+      }, 0);
+
+      // Try to reuse existing tracks if they don't have overlapping clips
+      const estimatedEnd = runningEnd + 10;
+      let videoTrackId: string | undefined = findCompatibleTrack(
+        studio,
+        'Video',
+        runningEnd,
+        estimatedEnd
+      )?.id;
+      let audioTrackId: string | undefined = findCompatibleTrack(
+        studio,
+        'Audio',
+        runningEnd,
+        estimatedEnd
+      )?.id;
+
+      // Sort selected scenes by order and add sequentially
+      const scenesToAdd = [...selectedScenesWithVideo].sort(
+        (a, b) => a.order - b.order
+      );
+
+      for (const scene of scenesToAdd) {
+        const firstFrame = scene.first_frames[0];
+        const voiceover = scene.voiceovers?.[0];
+
+        const result = await addSceneToTimeline(
+          studio,
+          {
+            videoUrl: firstFrame.video_url!,
+            voiceover:
+              voiceover?.status === 'success' && voiceover?.audio_url
+                ? { audioUrl: voiceover.audio_url }
+                : null,
+          },
+          {
+            startTime: runningEnd,
+            videoTrackId,
+            audioTrackId,
+          }
+        );
+
+        runningEnd = result.endTime;
+        videoTrackId = result.videoTrackId;
+        audioTrackId = result.audioTrackId;
+      }
+
+      toast.success(`Added ${scenesToAdd.length} scene(s) to timeline`);
+      clearSelection();
+    } catch (err) {
+      console.error('Failed to add scenes to timeline:', err);
+      toast.error('Failed to add scenes to timeline');
+    } finally {
+      setIsAddingToTimeline(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -282,6 +365,27 @@ export function StoryboardCards({
               <IconVideo className="size-3 mr-1" />
             )}
             Video
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={
+              selectedScenesWithVideo.length === 0 || isAddingToTimeline
+            }
+            onClick={handleAddAllToTimeline}
+            className="h-7 text-xs"
+            title={
+              selectedScenesWithVideo.length === 0
+                ? 'Select scenes with generated videos'
+                : `Add ${selectedScenesWithVideo.length} scene(s) to timeline`
+            }
+          >
+            {isAddingToTimeline ? (
+              <IconLoader2 className="size-3 animate-spin mr-1" />
+            ) : (
+              <IconPlayerTrackNext className="size-3 mr-1" />
+            )}
+            Timeline
           </Button>
         </div>
       </div>

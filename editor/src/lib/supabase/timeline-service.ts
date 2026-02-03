@@ -39,11 +39,19 @@ export async function saveTimeline(
 
   // Delete existing clips for these tracks
   if (trackIds.length > 0) {
-    await supabase.from('clips').delete().in('track_id', trackIds);
+    const { error: deleteClipsError } = await supabase
+      .from('clips')
+      .delete()
+      .in('track_id', trackIds);
+    if (deleteClipsError) throw deleteClipsError;
   }
 
   // Delete existing tracks for this project
-  await supabase.from('tracks').delete().eq('project_id', projectId);
+  const { error: deleteTracksError } = await supabase
+    .from('tracks')
+    .delete()
+    .eq('project_id', projectId);
+  if (deleteTracksError) throw deleteTracksError;
 
   // Insert tracks
   if (tracks.length > 0) {
@@ -61,15 +69,18 @@ export async function saveTimeline(
 
   // Insert clips
   if (clips.length > 0) {
-    const clipRows = clips.map((clip, i) => {
-      const trackId = findTrackForClip(tracks, clip.id);
-      return {
-        id: clip.id,
-        track_id: trackId,
-        position: i,
-        data: clipToJSON(clip), // Serialize clip to JSON
-      };
-    });
+    const clipRows = clips
+      .map((clip, i) => {
+        const trackId = findTrackForClip(tracks, clip.id);
+        if (!trackId) return null;
+        return {
+          id: clip.id,
+          track_id: trackId,
+          position: i,
+          data: clipToJSON(clip), // Serialize clip to JSON
+        };
+      })
+      .filter((row) => row !== null);
     const { error: clipError } = await supabase.from('clips').insert(clipRows);
     if (clipError) throw clipError;
   }

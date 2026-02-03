@@ -15,7 +15,10 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge } from './status-badge';
 import { useStudioStore } from '@/stores/studio-store';
-import { addMediaToCanvas } from '@/lib/editor-utils';
+import {
+  findCompatibleTrack,
+  addSceneToTimeline,
+} from '@/lib/scene-timeline-utils';
 import type {
   Scene,
   FirstFrame,
@@ -277,12 +280,45 @@ export function SceneCard({
   const handleAddToCanvas = async () => {
     if (!studio || !firstFrame?.video_url) return;
     try {
-      await addMediaToCanvas(studio, {
-        url: firstFrame.video_url,
-        type: 'video',
-      });
+      // Calculate where the next clip should start (after all existing clips)
+      const lastClipEnd = studio.clips.reduce((max, c) => {
+        const end =
+          c.display.to > 0 ? c.display.to : c.display.from + c.duration;
+        return end > max ? end : max;
+      }, 0);
+
+      // Estimate clip duration for overlap check (will be refined by addSceneToTimeline)
+      const estimatedEnd = lastClipEnd + 10; // conservative estimate
+      const existingVideoTrack = findCompatibleTrack(
+        studio,
+        'Video',
+        lastClipEnd,
+        estimatedEnd
+      );
+      const existingAudioTrack = findCompatibleTrack(
+        studio,
+        'Audio',
+        lastClipEnd,
+        estimatedEnd
+      );
+
+      await addSceneToTimeline(
+        studio,
+        {
+          videoUrl: firstFrame.video_url,
+          voiceover:
+            voiceover?.status === 'success' && voiceover?.audio_url
+              ? { audioUrl: voiceover.audio_url }
+              : null,
+        },
+        {
+          startTime: lastClipEnd,
+          videoTrackId: existingVideoTrack?.id,
+          audioTrackId: existingAudioTrack?.id,
+        }
+      );
     } catch (error) {
-      console.error('Failed to add scene video to canvas:', error);
+      console.error('Failed to add scene media to canvas:', error);
     }
   };
 

@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  IconLoader2,
-  IconLayoutGrid,
-  IconChevronDown,
   IconCheck,
+  IconChevronDown,
+  IconLayoutGrid,
+  IconLoader2,
   IconPlus,
+  IconTrash,
 } from '@tabler/icons-react';
 import {
   DropdownMenu,
@@ -25,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useProjectId } from '@/contexts/project-context';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 import { createClient } from '@/lib/supabase/client';
 import {
   getStoryboardsForProject,
@@ -120,6 +122,7 @@ const formatDate = (dateStr: string) => {
 
 export default function PanelStoryboard() {
   const projectId = useProjectId();
+  const { confirm } = useDeleteConfirmation();
 
   // Storyboard navigation state
   const [viewMode, setViewMode] = useState<ViewMode>('create');
@@ -170,6 +173,46 @@ export default function PanelStoryboard() {
     if (newStoryboards.length > 0) {
       setSelectedStoryboardId(newStoryboards[0].id);
       setViewMode('view');
+    }
+  };
+
+  const handleDeleteStoryboard = async () => {
+    if (!selectedStoryboardId) return;
+
+    const confirmed = await confirm({
+      title: 'Delete Storyboard',
+      description:
+        'Are you sure you want to delete this storyboard? All scenes and generated content will be permanently removed.',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `/api/storyboard?id=${selectedStoryboardId}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to delete storyboard');
+      }
+
+      // Remove from local state
+      const updatedStoryboards = storyboards.filter(
+        (sb) => sb.id !== selectedStoryboardId
+      );
+      setStoryboards(updatedStoryboards);
+
+      // Select next storyboard or switch to create mode
+      if (updatedStoryboards.length > 0) {
+        setSelectedStoryboardId(updatedStoryboards[0].id);
+        setViewMode('view');
+      } else {
+        setSelectedStoryboardId(null);
+        setViewMode('create');
+      }
+    } catch (error) {
+      console.error('Failed to delete storyboard:', error);
     }
   };
 
@@ -279,6 +322,17 @@ export default function PanelStoryboard() {
             </SelectContent>
           </Select>
 
+          {selectedStoryboardId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              onClick={handleDeleteStoryboard}
+            >
+              <IconTrash className="size-4" />
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -346,8 +400,8 @@ export default function PanelStoryboard() {
           </div>
         )}
 
-        {/* Scene Cards - show when we have a selected storyboard or projectId */}
-        {projectId && (viewMode === 'view' || storyboards.length > 0) && (
+        {/* Scene Cards - show only when viewing a selected storyboard */}
+        {projectId && viewMode === 'view' && selectedStoryboardId && (
           <div className="mt-4">
             <div className="text-xs text-muted-foreground mb-2">Scenes</div>
             <StoryboardCards
