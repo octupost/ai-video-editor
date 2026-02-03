@@ -38,7 +38,6 @@ const SUGGESTIONS: Suggestion[] = [
   { text: 'Generate voiceover "Welcome"' },
   { text: 'Auto-caption video' },
   { text: 'Make text yellow and bigger' },
-  { text: 'Split clip at 5s' },
 ];
 
 export default function Assistant() {
