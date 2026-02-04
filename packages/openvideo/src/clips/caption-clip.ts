@@ -323,7 +323,7 @@ export class Caption extends BaseClip<ICaptionEvents> implements IClip {
   }
 
   override set width(v: number) {
-    if (Math.abs(this._width - v) < 1) return;
+    if (Math.abs(this._width - v) < 0.1) return;
     this._width = v;
     if (v > 0) {
       this._isWidthConstrained = true;
@@ -344,8 +344,9 @@ export class Caption extends BaseClip<ICaptionEvents> implements IClip {
         this.originalOpts.wordWrap = false;
       }
     }
-    this.refreshCaptions();
-    this.emit("propsChange", { width: v });
+    this.refreshCaptions().then(() => {
+      this.emit("propsChange", { width: v });
+    });
   }
 
   override get height(): number {
@@ -353,10 +354,11 @@ export class Caption extends BaseClip<ICaptionEvents> implements IClip {
   }
 
   override set height(v: number) {
-    if (Math.abs(this._height - v) < 1) return;
+    if (Math.abs(this._height - v) < 0.1) return;
     this._height = v;
-    this.refreshCaptions();
-    this.emit("propsChange", { height: v });
+    this.refreshCaptions().then(() => {
+      this.emit("propsChange", { height: v });
+    });
   }
 
   override get left(): number {
@@ -905,8 +907,16 @@ export class Caption extends BaseClip<ICaptionEvents> implements IClip {
    */
   async updateStyle(opts: Partial<ICaptionOpts>): Promise<void> {
     if (!this.originalOpts) this.originalOpts = {};
-    // 1. Update originalOpts with new values
-    this.originalOpts = { ...this.originalOpts, ...opts };
+
+    // 1. Flatten style object if it exists (allows compatibility with editor's updates)
+    let processedOpts = { ...opts };
+    if ((opts as any).style) {
+      processedOpts = { ...processedOpts, ...(opts as any).style };
+      delete (processedOpts as any).style;
+    }
+
+    // 2. Update originalOpts with new values
+    this.originalOpts = { ...this.originalOpts, ...processedOpts };
 
     // 2. Update internal opts
     if (opts.fontSize !== undefined) this.opts.fontSize = opts.fontSize;
@@ -1077,6 +1087,12 @@ export class Caption extends BaseClip<ICaptionEvents> implements IClip {
         // Clear existing children
         this.pixiTextContainer.removeChildren();
       }
+
+      // Cleanup old word texts (Explicit destruction helps GSAP detection)
+      this.wordTexts.forEach((w) => {
+        if (!w.destroyed) w.destroy();
+      });
+      this.wordTexts = [];
 
       const metrics = CanvasTextMetrics.measureText(" ", this.textStyle);
 

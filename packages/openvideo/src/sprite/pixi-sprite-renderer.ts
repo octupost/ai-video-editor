@@ -5,10 +5,10 @@ import {
   Container,
   Graphics,
   BlurFilter,
-} from 'pixi.js';
+} from "pixi.js";
 
-import type { IClip } from '../clips/iclip';
-import { parseColor } from '../utils/color';
+import type { IClip } from "../clips/iclip";
+import { parseColor } from "../utils/color";
 
 /**
  * Update sprite transform based on clip properties
@@ -34,9 +34,9 @@ export function updateSpriteTransform(clip: IClip, sprite: Sprite): void {
   sprite.zIndex = zIndex;
 
   // Flip
-  if (flip === 'horizontal') {
+  if (flip === "horizontal") {
     sprite.scale.x = -Math.abs(sprite.scale.x);
-  } else if (flip === 'vertical') {
+  } else if (flip === "vertical") {
     sprite.scale.y = -Math.abs(sprite.scale.y);
   }
 }
@@ -76,20 +76,20 @@ export class PixiSpriteRenderer {
     // Create a canvas for drawing video frames
     // We'll initialize it when we get the first frame
     this.canvas = new OffscreenCanvas(1, 1);
-    const ctx = this.canvas.getContext('2d');
+    const ctx = this.canvas.getContext("2d");
     if (ctx == null) {
-      throw new Error('Failed to create 2d context for PixiSpriteRenderer');
+      throw new Error("Failed to create 2d context for PixiSpriteRenderer");
     }
     this.context = ctx;
 
     // Initialize Root Container immediately
     this.root = new Container();
-    this.root.label = 'RootContainer';
+    this.root.label = "RootContainer";
     this.root.visible = false; // Hidden until first frame
 
     // Initialize Animation Container (isolation layer for animations)
     this.animationContainer = new Container();
-    this.animationContainer.label = 'AnimationContainer';
+    this.animationContainer.label = "AnimationContainer";
     this.root.addChild(this.animationContainer);
 
     // If we have a target container, add root to it
@@ -120,13 +120,13 @@ export class PixiSpriteRenderer {
     // This is critical because sometimes RenderTexture instance checks fail across module boundaries
     const isTexture =
       frame instanceof Texture ||
-      (frame && typeof (frame as any).source !== 'undefined');
+      (frame && typeof (frame as any).source !== "undefined");
 
     if (isTexture) {
       // Validate texture dimensions
       if (frame.width === 0 || frame.height === 0) {
         console.warn(
-          'PixiSpriteRenderer: Texture has zero dimensions',
+          "PixiSpriteRenderer: Texture has zero dimensions",
           frame.width,
           frame.height
         );
@@ -135,7 +135,7 @@ export class PixiSpriteRenderer {
 
       if (this.pixiSprite == null) {
         this.pixiSprite = new Sprite(frame as Texture);
-        this.pixiSprite.label = 'MainSprite';
+        this.pixiSprite.label = "MainSprite";
         // Add to animationContainer instead of root directly
         this.animationContainer!.addChild(this.pixiSprite);
         this.applySpriteTransforms();
@@ -157,13 +157,13 @@ export class PixiSpriteRenderer {
     const height = (frame as any).height;
 
     if (
-      typeof width !== 'number' ||
-      typeof height !== 'number' ||
+      typeof width !== "number" ||
+      typeof height !== "number" ||
       width <= 0 ||
       height <= 0
     ) {
       console.warn(
-        'PixiSpriteRenderer: Invalid frame dimensions',
+        "PixiSpriteRenderer: Invalid frame dimensions",
         width,
         height
       );
@@ -195,13 +195,13 @@ export class PixiSpriteRenderer {
       // Validate texture was created successfully
       // Use Texture.source instead of baseTexture (PixiJS v8.0.0+)
       if (!this.texture || !this.texture.source) {
-        console.error('PixiSpriteRenderer: Failed to create valid texture');
+        console.error("PixiSpriteRenderer: Failed to create valid texture");
         return;
       }
 
       if (this.pixiSprite == null) {
         this.pixiSprite = new Sprite(this.texture);
-        this.pixiSprite.label = 'MainSprite';
+        this.pixiSprite.label = "MainSprite";
         this.animationContainer!.addChild(this.pixiSprite);
         this.applySpriteTransforms();
       } else {
@@ -223,7 +223,7 @@ export class PixiSpriteRenderer {
         }
       }
 
-      if (typeof source.update === 'function') {
+      if (typeof source.update === "function") {
         source.update();
       }
     }
@@ -282,7 +282,7 @@ export class PixiSpriteRenderer {
     const textureWidth = this.pixiSprite.texture?.width ?? 1;
     const textureHeight = this.pixiSprite.texture?.height ?? 1;
 
-    const isCaption = (this.sprite as any).type === 'Caption';
+    const isCaption = (this.sprite as any).type === "Caption";
 
     // Base scale to fit texture into clip dimensions
     // For width/height in renderTransform, we follow BaseSprite._render logic (not currently using them for scale)
@@ -294,10 +294,10 @@ export class PixiSpriteRenderer {
         ? Math.abs(height) / textureHeight
         : 1;
 
-    if (flip === 'horizontal') {
+    if (flip === "horizontal") {
       this.pixiSprite.scale.x = -baseScaleX;
       this.pixiSprite.scale.y = baseScaleY;
-    } else if (flip === 'vertical') {
+    } else if (flip === "vertical") {
       this.pixiSprite.scale.x = baseScaleX;
       this.pixiSprite.scale.y = -baseScaleY;
     } else {
@@ -345,14 +345,14 @@ export class PixiSpriteRenderer {
       }
     }
 
-    if (this.sprite.type !== 'Text' && this.sprite.type !== 'Caption') {
+    if (this.sprite.type !== "Text" && this.sprite.type !== "Caption") {
       this.applyStroke(style, textureWidth, textureHeight);
     } else if (this.strokeGraphics) {
       this.strokeGraphics.visible = false;
     }
 
     // 3. Apply Drop Shadow (Media only)
-    if (this.sprite.type !== 'Text' && this.sprite.type !== 'Caption') {
+    if (this.sprite.type !== "Text" && this.sprite.type !== "Caption") {
       this.applyShadow(style);
     } else if (this.shadowContainer) {
       this.shadowContainer.visible = false;
@@ -421,7 +421,7 @@ export class PixiSpriteRenderer {
     ) {
       if (this.shadowContainer == null) {
         this.shadowContainer = new Container();
-        this.shadowContainer.label = 'ShadowContainer';
+        this.shadowContainer.label = "ShadowContainer";
         this.shadowGraphics = new Graphics();
         this.shadowContainer.addChild(this.shadowGraphics);
         // Add shadow container to animationContainer at index 0

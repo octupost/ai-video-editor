@@ -16,6 +16,7 @@ import { BaseClip } from "./base-clip";
 import type { IClip } from "./iclip";
 import type { TextJSON, TextStyleJSON } from "../json-serialization";
 import { parseColor, resolveColor } from "../utils/color";
+import type { BaseSpriteEvents } from "../sprite/base-sprite";
 
 export interface ITextOpts {
   /**
@@ -135,6 +136,28 @@ export interface ITextOpts {
    * @default 'none'
    */
   textDecoration?: "none" | "underline" | "line-through" | "overline";
+  /**
+   * Words per line mode ('single' or 'multiple')
+   * @default 'multiple'
+   */
+  wordsPerLine?: "single" | "multiple";
+}
+
+export interface ITextEvents extends BaseSpriteEvents {
+  propsChange: Partial<
+    {
+      left: number;
+      top: number;
+      width: number;
+      height: number;
+      angle: number;
+      zIndex: number;
+      opacity: number;
+      volume: number;
+      text: string;
+      style: any;
+    } & ITextOpts
+  >;
 }
 
 /**
@@ -155,7 +178,7 @@ export interface ITextOpts {
  * });
  * textClip.duration = 5e6; // 5 seconds
  */
-export class Text extends BaseClip {
+export class Text extends BaseClip<ITextEvents> {
   readonly type = "Text";
   ready: IClip["ready"];
 
@@ -176,10 +199,11 @@ export class Text extends BaseClip {
   }
 
   override set width(v: number) {
-    if (this.width === v) return;
+    if (Math.abs(this.width - v) < 0.1) return;
     (this as any)._width = v;
-    this.refreshText();
-    this.emit("propsChange", { width: v });
+    this.refreshText().then(() => {
+      this.emit("propsChange", { width: v });
+    });
   }
 
   override get height(): number {
@@ -187,10 +211,11 @@ export class Text extends BaseClip {
   }
 
   override set height(v: number) {
-    if (this.height === v) return;
+    if (Math.abs(this.height - v) < 0.1) return;
     (this as any)._height = v;
-    this.refreshText();
-    this.emit("propsChange", { height: v });
+    this.refreshText().then(() => {
+      this.emit("propsChange", { height: v });
+    });
   }
 
   private _lastContentWidth = 0;
@@ -210,7 +235,9 @@ export class Text extends BaseClip {
     this._text = v;
     // Only refresh if already initialized
     if (this.originalOpts && this.textStyle) {
-      this.refreshText();
+      this.refreshText().then(() => {
+        this.emit("propsChange", { text: v });
+      });
     }
   }
 
@@ -346,7 +373,7 @@ export class Text extends BaseClip {
   constructor(
     text: string,
     opts: ITextOpts = {},
-    renderer?: Application["renderer"],
+    renderer?: Application["renderer"]
   ) {
     super();
     // Store original options for serialization (shallow copy is fine since options are primitives)
@@ -405,7 +432,7 @@ export class Text extends BaseClip {
 
     if (this.pixiApp?.renderer == null) {
       throw new Error(
-        "TextClip: Failed to create renderer. Please provide a renderer via constructor or setRenderer() method.",
+        "TextClip: Failed to create renderer. Please provide a renderer via constructor or setRenderer() method."
       );
     }
 
@@ -449,7 +476,7 @@ export class Text extends BaseClip {
     // Validate RenderTexture dimensions before rendering
     if (this.renderTexture.width <= 0 || this.renderTexture.height <= 0) {
       throw new Error(
-        `Invalid RenderTexture dimensions: ${this.renderTexture.width}x${this.renderTexture.height}`,
+        `Invalid RenderTexture dimensions: ${this.renderTexture.width}x${this.renderTexture.height}`
       );
     }
 
@@ -534,7 +561,7 @@ export class Text extends BaseClip {
       key: string;
       startTime: number;
       duration: number;
-    }>,
+    }>
   ) {
     const effect = this.effects.find((e) => e.id === effectId);
     if (effect) {
@@ -572,8 +599,8 @@ export class Text extends BaseClip {
         (Array.isArray(style.fontFamily)
           ? style.fontFamily[0]
           : typeof style.fontFamily === "string"
-            ? style.fontFamily
-            : "Roboto"),
+          ? style.fontFamily
+          : "Roboto"),
       fontWeight: originalOpts.fontWeight ?? style.fontWeight,
       fontStyle: originalOpts.fontStyle ?? style.fontStyle,
       align:
@@ -672,10 +699,17 @@ export class Text extends BaseClip {
    * This is used for dynamic updates like resizing with text reflow
    */
   async updateStyle(opts: Partial<ITextOpts>): Promise<void> {
-    // 1. Update originalOpts with new values
-    this.originalOpts = { ...this.originalOpts, ...opts };
+    // 1. Flatten style object if it exists (allows compatibility with editor's updates)
+    let processedOpts = { ...opts };
+    if ((opts as any).style) {
+      processedOpts = { ...processedOpts, ...(opts as any).style };
+      delete (processedOpts as any).style;
+    }
 
-    // 2. Create new style options
+    // 2. Update originalOpts with new values
+    this.originalOpts = { ...this.originalOpts, ...processedOpts };
+
+    // 3. Create new style options
     const styleOptions = this.createStyleFromOpts(this.originalOpts);
     const {
       wordWrap,
@@ -693,6 +727,7 @@ export class Text extends BaseClip {
 
     // 4. Refresh text and texture
     await this.refreshText();
+    this.emit("propsChange", opts);
   }
 
   /**
@@ -713,8 +748,12 @@ export class Text extends BaseClip {
     } else if (textCase === "title") {
       textToRender = textToRender.replace(
         /\w\S*/g,
-        (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase(),
+        (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
       );
+    }
+
+    if (typeof document !== "undefined") {
+      await document.fonts.ready;
     }
 
     if (!this.pixiTextContainer) {
@@ -753,7 +792,7 @@ export class Text extends BaseClip {
       style: this.textStyleBase,
     });
     const spaceWidth = Math.ceil(
-      tempSpace.getLocalBounds().width || tempSpace.width || metrics.width,
+      tempSpace.getLocalBounds().width || tempSpace.width || metrics.width
     );
     tempSpace.destroy();
 
@@ -870,7 +909,7 @@ export class Text extends BaseClip {
         decoration &&
         decoration !== "none" &&
         ["underline", "overline", "strikethrough", "line-through"].includes(
-          decoration,
+          decoration
         )
       ) {
         hasDecoration = true;
@@ -903,7 +942,7 @@ export class Text extends BaseClip {
           lineXStart,
           currentY + yOffset,
           line.width,
-          lineThickness,
+          lineThickness
         );
         graphics.fill(lineColor);
       }
@@ -967,18 +1006,18 @@ export class Text extends BaseClip {
         opts.fill.x0,
         opts.fill.y0,
         opts.fill.x1,
-        opts.fill.y1,
+        opts.fill.y1
       );
       opts.fill.colors.forEach(({ ratio, color }) => {
         const colorNumber =
-          typeof color === "number" ? color : (parseColor(color) ?? 0xffffff);
+          typeof color === "number" ? color : parseColor(color) ?? 0xffffff;
         gradient.addColorStop(ratio, colorNumber);
       });
       styleOptions.fill = { fill: gradient };
     } else {
       // Simple color fill
       const { color: fillColor, alpha: fillAlpha } = resolveColor(
-        opts.fill as string,
+        opts.fill as string
       );
       styleOptions.fill = fillColor;
       if (fillAlpha < 1) {
