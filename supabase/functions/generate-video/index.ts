@@ -83,6 +83,17 @@ const MODEL_CONFIG: Record<string, ModelConfig> = {
       duration: String(duration),
     }),
   },
+  grok: {
+    endpoint: 'workflows/octupost/grok',
+    validResolutions: ['480p', '720p'],
+    bucketDuration: (raw) => Math.max(1, Math.min(15, raw)),
+    buildPayload: ({ prompt, image_url, resolution, duration }) => ({
+      prompt,
+      image_url,
+      resolution,
+      duration: String(duration),
+    }),
+  },
 };
 
 const DEFAULT_MODEL = 'bytedance1.5pro';
