@@ -38,9 +38,62 @@ function errorResponse(error: string, status = 500): Response {
   return jsonResponse({ success: false, error }, status);
 }
 
+// ── Model configuration ───────────────────────────────────────────────
+
+interface ModelConfig {
+  endpoint: string;
+  validResolutions: string[];
+  bucketDuration: (rawCeil: number) => number;
+  buildPayload: (opts: {
+    prompt: string;
+    image_url: string;
+    resolution: string;
+    duration: number;
+    aspect_ratio?: string;
+  }) => Record<string, unknown>;
+}
+
+const MODEL_CONFIG: Record<string, ModelConfig> = {
+  'wan2.6': {
+    endpoint: 'workflows/octupost/wan26',
+    validResolutions: ['720p', '1080p'],
+    bucketDuration: (raw) => (raw <= 5 ? 5 : raw <= 10 ? 10 : 15),
+    buildPayload: ({ prompt, image_url, resolution, duration }) => ({
+      prompt,
+      image_url,
+      resolution,
+      duration: String(duration),
+    }),
+  },
+  'bytedance1.5pro': {
+    endpoint: 'workflows/octupost/bytedancepro15',
+    validResolutions: ['480p', '720p', '1080p'],
+    bucketDuration: (raw) => Math.max(4, Math.min(12, raw)),
+    buildPayload: ({
+      prompt,
+      image_url,
+      resolution,
+      duration,
+      aspect_ratio,
+    }) => ({
+      prompt,
+      image_url,
+      aspect_ratio: aspect_ratio ?? '16:9',
+      resolution,
+      duration: String(duration),
+    }),
+  },
+};
+
+const DEFAULT_MODEL = 'bytedance1.5pro';
+
+// ── Types ─────────────────────────────────────────────────────────────
+
 interface GenerateVideoInput {
   scene_ids: string[];
   resolution: '480p' | '720p' | '1080p';
+  model?: string;
+  aspect_ratio?: string;
 }
 
 interface VideoContext {
@@ -53,9 +106,12 @@ interface VideoContext {
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
+// ── Helpers ───────────────────────────────────────────────────────────
+
 async function getVideoContext(
   supabase: SupabaseClient,
   sceneId: string,
+  bucketDuration: (raw: number) => number,
   log: ReturnType<typeof createLogger>
 ): Promise<VideoContext | null> {
   const { data: scene, error: sceneError } = await supabase
@@ -102,9 +158,8 @@ async function getVideoContext(
     return null;
   }
 
-  // Bucket duration to 5, 10, or 15 (cap at 15)
   const raw = Math.ceil(voiceover.duration);
-  const durationInt = raw <= 5 ? 5 : raw <= 10 ? 10 : 15;
+  const durationInt = bucketDuration(raw);
 
   return {
     first_frame_id: firstFrame.id,
@@ -117,7 +172,9 @@ async function getVideoContext(
 
 async function sendVideoRequest(
   context: VideoContext,
-  resolution: '480p' | '720p' | '1080p',
+  resolution: string,
+  modelConfig: ModelConfig,
+  aspect_ratio: string | undefined,
   log: ReturnType<typeof createLogger>
 ): Promise<{ requestId: string | null; error: string | null }> {
   const webhookParams = new URLSearchParams({
@@ -126,12 +183,10 @@ async function sendVideoRequest(
   });
   const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
 
-  const falUrl = new URL(
-    'https://queue.fal.run/workflows/octupost/bytedancepro15'
-  );
+  const falUrl = new URL(`https://queue.fal.run/${modelConfig.endpoint}`);
   falUrl.searchParams.set('fal_webhook', webhookUrl);
 
-  log.api('fal.ai', 'workflows/octupost/bytedancepro15', {
+  log.api('fal.ai', modelConfig.endpoint, {
     first_frame_id: context.first_frame_id,
     resolution,
     duration: context.duration,
@@ -139,18 +194,21 @@ async function sendVideoRequest(
   log.startTiming('fal_video_request');
 
   try {
+    const payload = modelConfig.buildPayload({
+      prompt: context.visual_prompt,
+      image_url: context.final_url,
+      resolution,
+      duration: context.duration,
+      aspect_ratio,
+    });
+
     const falResponse = await fetch(falUrl.toString(), {
       method: 'POST',
       headers: {
         Authorization: `Key ${FAL_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        prompt: context.visual_prompt,
-        image_url: context.final_url,
-        resolution: resolution,
-        duration: String(context.duration),
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!falResponse.ok) {
@@ -186,6 +244,8 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ── Handler ───────────────────────────────────────────────────────────
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return corsResponse();
@@ -198,21 +258,39 @@ Deno.serve(async (req: Request) => {
     log.info('Request received', { method: req.method });
 
     const input: GenerateVideoInput = await req.json();
-    const { scene_ids, resolution = '720p' } = input;
+    const {
+      scene_ids,
+      resolution = '720p',
+      model = DEFAULT_MODEL,
+      aspect_ratio,
+    } = input;
 
     if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
       log.error('Invalid input', { scene_ids });
       return errorResponse('scene_ids must be a non-empty array', 400);
     }
 
-    if (!['480p', '720p', '1080p'].includes(resolution)) {
-      log.error('Invalid resolution', { resolution });
-      return errorResponse('resolution must be 480p, 720p, or 1080p', 400);
+    const modelConfig = MODEL_CONFIG[model];
+    if (!modelConfig) {
+      log.error('Invalid model', { model });
+      return errorResponse(
+        `model must be one of: ${Object.keys(MODEL_CONFIG).join(', ')}`,
+        400
+      );
+    }
+
+    if (!modelConfig.validResolutions.includes(resolution)) {
+      log.error('Invalid resolution for model', { model, resolution });
+      return errorResponse(
+        `resolution must be one of: ${modelConfig.validResolutions.join(', ')} for model ${model}`,
+        400
+      );
     }
 
     log.info('Processing video requests', {
       scene_count: scene_ids.length,
       resolution,
+      model,
     });
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -236,7 +314,12 @@ Deno.serve(async (req: Request) => {
 
       // Get video context
       log.startTiming(`get_context_${i}`);
-      const context = await getVideoContext(supabase, sceneId, log);
+      const context = await getVideoContext(
+        supabase,
+        sceneId,
+        modelConfig.bucketDuration,
+        log
+      );
       log.info('Video context fetched', {
         scene_id: sceneId,
         has_context: !!context,
@@ -265,6 +348,8 @@ Deno.serve(async (req: Request) => {
       const { requestId, error } = await sendVideoRequest(
         context,
         resolution,
+        modelConfig,
+        aspect_ratio,
         log
       );
 

@@ -40,7 +40,14 @@ function errorResponse(error: string, status = 500): Response {
 
 interface EnhanceImageInput {
   scene_ids: string[];
+  model?: 'kling' | 'banana' | 'fibo';
 }
+
+const ENHANCE_ENDPOINTS: Record<string, string> = {
+  kling: 'workflows/octupost/enhance-image-kling',
+  banana: 'workflows/octupost/enhance-image-banana',
+  fibo: 'workflows/octupost/enhance-image-fibo',
+};
 
 interface FirstFrameContext {
   first_frame_id: string;
@@ -92,6 +99,8 @@ async function getFirstFrameContext(
 
 async function sendEnhanceRequest(
   context: FirstFrameContext,
+  endpoint: string,
+  model: string,
   log: ReturnType<typeof createLogger>
 ): Promise<{ requestId: string | null; error: string | null }> {
   const webhookParams = new URLSearchParams({
@@ -100,16 +109,20 @@ async function sendEnhanceRequest(
   });
   const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
 
-  const falUrl = new URL(
-    'https://queue.fal.run/workflows/octupost/enhanceimage'
-  );
+  const falUrl = new URL(`https://queue.fal.run/${endpoint}`);
   falUrl.searchParams.set('fal_webhook', webhookUrl);
 
-  log.api('fal.ai', 'workflows/octupost/enhanceimage', {
+  log.api('fal.ai', endpoint, {
     first_frame_id: context.first_frame_id,
     has_out_padded_url: !!context.out_padded_url,
   });
   log.startTiming('fal_enhance_request');
+
+  // fibo uses image_url (singular string), others use image_urls (array)
+  const requestBody =
+    model === 'fibo'
+      ? { image_url: context.out_padded_url }
+      : { image_urls: [context.out_padded_url] };
 
   try {
     const falResponse = await fetch(falUrl.toString(), {
@@ -118,9 +131,7 @@ async function sendEnhanceRequest(
         Authorization: `Key ${FAL_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        image_urls: [context.out_padded_url],
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!falResponse.ok) {
@@ -168,14 +179,20 @@ Deno.serve(async (req: Request) => {
     log.info('Request received', { method: req.method });
 
     const input: EnhanceImageInput = await req.json();
-    const { scene_ids } = input;
+    const { scene_ids, model = 'kling' } = input;
 
     if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
       log.error('Invalid input', { scene_ids });
       return errorResponse('scene_ids must be a non-empty array', 400);
     }
 
-    log.info('Processing enhance requests', { scene_count: scene_ids.length });
+    const endpoint = ENHANCE_ENDPOINTS[model] ?? ENHANCE_ENDPOINTS.kling;
+
+    log.info('Processing enhance requests', {
+      scene_count: scene_ids.length,
+      model,
+      endpoint,
+    });
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -223,7 +240,12 @@ Deno.serve(async (req: Request) => {
         .eq('id', context.first_frame_id);
 
       // Send enhance request
-      const { requestId, error } = await sendEnhanceRequest(context, log);
+      const { requestId, error } = await sendEnhanceRequest(
+        context,
+        endpoint,
+        model,
+        log
+      );
 
       if (error || !requestId) {
         // Mark as failed with request_error
