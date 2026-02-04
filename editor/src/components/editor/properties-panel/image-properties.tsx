@@ -45,7 +45,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import color from "color";
 import { NumberInput } from "@/components/ui/number-input";
-import { AnimationEditor } from "./AnimationEditor";
+import useLayoutStore from "../store/use-layout-store";
 
 interface ImagePropertiesProps {
   clip: IClip;
@@ -132,28 +132,7 @@ export function ImageProperties({ clip }: ImagePropertiesProps) {
     });
   };
 
-  const [showAnimationEditor, setShowAnimationEditor] = useState(false);
-  const [editingAnimation, setEditingAnimation] = useState<any | null>(null);
-
-  const handleAnimationSave = (
-    type: string,
-    opts: AnimationOptions,
-    params: KeyframeData,
-  ) => {
-    if (editingAnimation) {
-      imageClip.updateAnimation(editingAnimation.id, type, opts, params);
-    } else {
-      imageClip.addAnimation(type, opts, params);
-    }
-    setShowAnimationEditor(false);
-    setEditingAnimation(null);
-    setTick((t) => t + 1);
-  };
-
-  const handleAnimationEdit = (anim: any) => {
-    setEditingAnimation(anim);
-    setShowAnimationEditor(true);
-  };
+  const { setFloatingControl } = useLayoutStore();
 
   const handleAnimationRemove = (id: string) => {
     imageClip.removeAnimation(id);
@@ -283,35 +262,17 @@ export function ImageProperties({ clip }: ImagePropertiesProps) {
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             Animations
           </label>
-          <Popover
-            modal={true}
-            open={showAnimationEditor}
-            onOpenChange={setShowAnimationEditor}
+          <button
+            onClick={() => {
+              setFloatingControl("animation-properties-picker", {
+                clipId: imageClip.id,
+                mode: "add",
+              });
+            }}
+            className="text-muted-foreground hover:text-white transition-colors"
           >
-            <PopoverTrigger asChild>
-              <button
-                onClick={() => {
-                  setEditingAnimation(null);
-                  setShowAnimationEditor(true);
-                }}
-                className="text-muted-foreground hover:text-white transition-colors"
-              >
-                <IconPlus className="size-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="end">
-              <AnimationEditor
-                mode={editingAnimation ? "edit" : "add"}
-                clipDuration={imageClip.duration}
-                animation={editingAnimation}
-                onSave={handleAnimationSave}
-                onCancel={() => {
-                  setShowAnimationEditor(false);
-                  setEditingAnimation(null);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+            <IconPlus className="size-3.5" />
+          </button>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -336,7 +297,13 @@ export function ImageProperties({ clip }: ImagePropertiesProps) {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handleAnimationEdit(anim)}
+                    onClick={() => {
+                      setFloatingControl("animation-properties-picker", {
+                        clipId: imageClip.id,
+                        animationId: anim.id,
+                        mode: "edit",
+                      });
+                    }}
                     className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-white transition-all"
                   >
                     <IconEdit className="size-3.5" />

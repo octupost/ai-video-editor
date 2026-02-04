@@ -49,8 +49,6 @@ import useLayoutStore from "../store/use-layout-store";
 import { Button } from "@/components/ui/button";
 import { ChevronDown } from "lucide-react";
 import { useStudioStore } from "@/stores/studio-store";
-import { AnimationEditor } from "./AnimationEditor";
-import { useState } from "react";
 
 const GROUPED_FONTS = getGroupedFonts();
 
@@ -115,29 +113,6 @@ export function CaptionProperties({ clip }: CaptionPropertiesProps) {
 
     // Trigger a re-render by emitting a props change event
     captionClip.emit("propsChange", {});
-  };
-
-  const [showAnimationEditor, setShowAnimationEditor] = useState(false);
-  const [editingAnimation, setEditingAnimation] = useState<any | null>(null);
-
-  const handleAnimationSave = (
-    type: string,
-    opts: AnimationOptions,
-    params: KeyframeData,
-  ) => {
-    if (editingAnimation) {
-      captionClip.updateAnimation(editingAnimation.id, type, opts, params);
-    } else {
-      captionClip.addAnimation(type, opts, params);
-    }
-    setShowAnimationEditor(false);
-    setEditingAnimation(null);
-    captionClip.emit("propsChange", {});
-  };
-
-  const handleAnimationEdit = (anim: any) => {
-    setEditingAnimation(anim);
-    setShowAnimationEditor(true);
   };
 
   const handleAnimationRemove = (id: string) => {
@@ -690,35 +665,17 @@ export function CaptionProperties({ clip }: CaptionPropertiesProps) {
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
             Animations
           </label>
-          <Popover
-            modal={true}
-            open={showAnimationEditor}
-            onOpenChange={setShowAnimationEditor}
+          <button
+            onClick={() => {
+              setFloatingControl("animation-properties-picker", {
+                clipId: captionClip.id,
+                mode: "add",
+              });
+            }}
+            className="text-muted-foreground hover:text-white transition-colors"
           >
-            <PopoverTrigger asChild>
-              <button
-                onClick={() => {
-                  setEditingAnimation(null);
-                  setShowAnimationEditor(true);
-                }}
-                className="text-muted-foreground hover:text-white transition-colors"
-              >
-                <IconPlus className="size-3.5" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="end">
-              <AnimationEditor
-                mode={editingAnimation ? "edit" : "add"}
-                clipDuration={captionClip.duration}
-                animation={editingAnimation}
-                onSave={handleAnimationSave}
-                onCancel={() => {
-                  setShowAnimationEditor(false);
-                  setEditingAnimation(null);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+            <IconPlus className="size-3.5" />
+          </button>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -743,7 +700,13 @@ export function CaptionProperties({ clip }: CaptionPropertiesProps) {
                 </div>
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => handleAnimationEdit(anim)}
+                    onClick={() => {
+                      setFloatingControl("animation-properties-picker", {
+                        clipId: captionClip.id,
+                        animationId: anim.id,
+                        mode: "edit",
+                      });
+                    }}
                     className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-white transition-all"
                   >
                     <IconEdit className="size-3.5" />
