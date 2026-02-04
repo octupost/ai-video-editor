@@ -47,9 +47,10 @@ export function AnimationPropertiesPicker() {
 
   const [activeTab, setActiveTab] = useState<string>("in");
   const [preset, setPreset] = useState<string>(animation?.type || "fadeIn");
-  const [presetParams, setPresetParams] = useState({
+  const [presetParams, setPresetParams] = useState<any>({
     direction: "left",
     distance: 300,
+    stagger: 0.05,
   });
   const [keyframes, setKeyframes] = useState<
     Record<string, Partial<AnimationProps>>
@@ -264,10 +265,19 @@ export function AnimationPropertiesPicker() {
       return aNum - bNum;
     });
 
+  const isTextLike = clip?.type === "Text" || clip?.type === "Caption";
+
   const inPresets = [
     { label: "Fade In", value: "fadeIn" },
     { label: "Zoom In", value: "zoomIn" },
     { label: "Slide In", value: "slideIn" },
+    ...(isTextLike
+      ? [
+          { label: "Char Fade In", value: "charFadeIn" },
+          { label: "Char Slide Up", value: "charSlideUp" },
+          { label: "Char Typewriter", value: "charTypewriter" },
+        ]
+      : []),
   ];
 
   const outPresets = [
@@ -355,7 +365,10 @@ export function AnimationPropertiesPicker() {
                     <Select
                       value={presetParams.direction}
                       onValueChange={(val) =>
-                        setPresetParams((prev) => ({ ...prev, direction: val }))
+                        setPresetParams((prev: any) => ({
+                          ...prev,
+                          direction: val,
+                        }))
                       }
                     >
                       <SelectTrigger className="h-7 text-xs">
@@ -376,11 +389,37 @@ export function AnimationPropertiesPicker() {
                     <NumberInput
                       value={presetParams.distance}
                       onChange={(val) =>
-                        setPresetParams((prev) => ({ ...prev, distance: val }))
+                        setPresetParams((prev: any) => ({
+                          ...prev,
+                          distance: val,
+                        }))
                       }
                       className="h-7 text-xs"
                     />
                   </div>
+                </div>
+              )}
+
+              {/* Stagger (for character animations) */}
+              {preset.startsWith("char") && (
+                <div className="flex flex-col gap-2 p-2 bg-secondary/20 rounded-md">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-muted-foreground">
+                      Stagger: {presetParams.stagger}s
+                    </label>
+                  </div>
+                  <Slider
+                    value={[presetParams.stagger || 0.05]}
+                    min={0}
+                    max={0.5}
+                    step={0.01}
+                    onValueChange={([val]) =>
+                      setPresetParams((prev: any) => ({
+                        ...prev,
+                        stagger: val,
+                      }))
+                    }
+                  />
                 </div>
               )}
 

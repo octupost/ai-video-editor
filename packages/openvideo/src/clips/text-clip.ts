@@ -10,12 +10,12 @@ import {
   Container,
   Graphics,
   CanvasTextMetrics,
-} from 'pixi.js';
-import { Log } from '../utils/log';
-import { BaseClip } from './base-clip';
-import type { IClip } from './iclip';
-import type { TextJSON, TextStyleJSON } from '../json-serialization';
-import { parseColor, resolveColor } from '../utils/color';
+} from "pixi.js";
+import { Log } from "../utils/log";
+import { BaseClip } from "./base-clip";
+import type { IClip } from "./iclip";
+import type { TextJSON, TextStyleJSON } from "../json-serialization";
+import { parseColor, resolveColor } from "../utils/color";
 
 export interface ITextOpts {
   /**
@@ -50,7 +50,7 @@ export interface ITextOpts {
     | string
     | number
     | {
-        type: 'gradient';
+        type: "gradient";
         x0: number;
         y0: number;
         x1: number;
@@ -66,8 +66,8 @@ export interface ITextOpts {
     | {
         color: string | number;
         width: number;
-        join?: 'miter' | 'round' | 'bevel';
-        cap?: 'butt' | 'round' | 'square';
+        join?: "miter" | "round" | "bevel";
+        cap?: "butt" | "round" | "square";
         miterLimit?: number;
       };
   /**
@@ -79,22 +79,22 @@ export interface ITextOpts {
    * Text alignment ('left', 'center', 'right')
    * @default 'left'
    */
-  align?: 'left' | 'center' | 'right';
+  align?: "left" | "center" | "right";
   /**
    * Alias for align to match UI property naming
    */
-  textAlign?: 'left' | 'center' | 'right';
+  textAlign?: "left" | "center" | "right";
   /**
    * Vertical alignment ('top', 'center', 'bottom')
    * @default 'top'
    */
   verticalAlign?:
-    | 'top'
-    | 'center'
-    | 'bottom'
-    | 'underline'
-    | 'overline'
-    | 'strikethrough';
+    | "top"
+    | "center"
+    | "bottom"
+    | "underline"
+    | "overline"
+    | "strikethrough";
   /**
    * Drop shadow configuration
    */
@@ -129,12 +129,12 @@ export interface ITextOpts {
    * Text case transformation
    * @default 'none'
    */
-  textCase?: 'none' | 'uppercase' | 'lowercase' | 'title';
+  textCase?: "none" | "uppercase" | "lowercase" | "title";
   /**
    * Text decoration ('none', 'underline', 'line-through', 'overline')
    * @default 'none'
    */
-  textDecoration?: 'none' | 'underline' | 'line-through' | 'overline';
+  textDecoration?: "none" | "underline" | "line-through" | "overline";
 }
 
 /**
@@ -156,8 +156,8 @@ export interface ITextOpts {
  * textClip.duration = 5e6; // 5 seconds
  */
 export class Text extends BaseClip {
-  readonly type = 'Text';
-  ready: IClip['ready'];
+  readonly type = "Text";
+  ready: IClip["ready"];
 
   private _meta = {
     duration: Infinity,
@@ -179,7 +179,7 @@ export class Text extends BaseClip {
     if (this.width === v) return;
     (this as any)._width = v;
     this.refreshText();
-    this.emit('propsChange', { width: v });
+    this.emit("propsChange", { width: v });
   }
 
   override get height(): number {
@@ -190,13 +190,13 @@ export class Text extends BaseClip {
     if (this.height === v) return;
     (this as any)._height = v;
     this.refreshText();
-    this.emit('propsChange', { height: v });
+    this.emit("propsChange", { height: v });
   }
 
   private _lastContentWidth = 0;
   private _lastContentHeight = 0;
 
-  private _text: string = '';
+  private _text: string = "";
 
   /**
    * Text content (hybrid JSON structure)
@@ -231,7 +231,7 @@ export class Text extends BaseClip {
       fill: this.originalOpts.fill,
       align: this.originalOpts.align,
       stroke: this.originalOpts.stroke
-        ? typeof this.originalOpts.stroke === 'object'
+        ? typeof this.originalOpts.stroke === "object"
           ? {
               color: this.originalOpts.stroke.color,
               width: this.originalOpts.stroke.width,
@@ -246,7 +246,7 @@ export class Text extends BaseClip {
         : undefined,
       dropShadow: this.originalOpts.dropShadow
         ? {
-            color: this.originalOpts.dropShadow.color ?? '#000000',
+            color: this.originalOpts.dropShadow.color ?? "#000000",
             alpha: this.originalOpts.dropShadow.alpha ?? 0.5,
             blur: this.originalOpts.dropShadow.blur ?? 4,
             distance: this.originalOpts.dropShadow.distance ?? 0,
@@ -269,13 +269,13 @@ export class Text extends BaseClip {
   /**
    * Text alignment proxy for compatibility with UI
    */
-  get textAlign(): 'left' | 'center' | 'right' {
+  get textAlign(): "left" | "center" | "right" {
     return (
-      this.originalOpts.align || (this.originalOpts as any).textAlign || 'left'
+      this.originalOpts.align || (this.originalOpts as any).textAlign || "left"
     );
   }
 
-  set textAlign(v: 'left' | 'center' | 'right') {
+  set textAlign(v: "left" | "center" | "right") {
     this.updateStyle({ align: v });
   }
 
@@ -286,16 +286,16 @@ export class Text extends BaseClip {
     return (
       (this.originalOpts as any).verticalAlign ||
       this.originalOpts.textDecoration ||
-      'top'
+      "top"
     );
   }
 
   set verticalAlign(v: string) {
     if (
-      ['underline', 'overline', 'strikethrough', 'line-through'].includes(v)
+      ["underline", "overline", "strikethrough", "line-through"].includes(v)
     ) {
       this.updateStyle({
-        textDecoration: v === 'strikethrough' ? 'line-through' : (v as any),
+        textDecoration: v === "strikethrough" ? "line-through" : (v as any),
       } as any);
       // Also store as verticalAlign for UI state persistence
       (this.originalOpts as any).verticalAlign = v;
@@ -308,10 +308,10 @@ export class Text extends BaseClip {
    * Text case proxy
    */
   get textCase(): string {
-    return this.originalOpts.textCase || 'none';
+    return this.originalOpts.textCase || "none";
   }
 
-  set textCase(v: 'none' | 'uppercase' | 'lowercase' | 'title') {
+  set textCase(v: "none" | "uppercase" | "lowercase" | "title") {
     this.updateStyle({ textCase: v });
   }
 
@@ -322,7 +322,7 @@ export class Text extends BaseClip {
   private renderTexture: RenderTexture | null = null;
   // External renderer (preferred) - provided via constructor or setRenderer()
   // If not provided, Text will create its own minimal renderer as fallback
-  private externalRenderer: Application['renderer'] | null = null;
+  private externalRenderer: Application["renderer"] | null = null;
   private pixiApp: Application | null = null; // Fallback renderer
   // Store original options for serialization to avoid accessing TextStyle properties
   private originalOpts: ITextOpts;
@@ -346,7 +346,7 @@ export class Text extends BaseClip {
   constructor(
     text: string,
     opts: ITextOpts = {},
-    renderer?: Application['renderer']
+    renderer?: Application["renderer"],
   ) {
     super();
     // Store original options for serialization (shallow copy is fine since options are primitives)
@@ -389,7 +389,7 @@ export class Text extends BaseClip {
    * This is an optimization for Studio preview
    * Can be called before ready() completes
    */
-  setRenderer(renderer: Application['renderer']): void {
+  setRenderer(renderer: Application["renderer"]): void {
     this.externalRenderer = renderer;
   }
 
@@ -397,7 +397,7 @@ export class Text extends BaseClip {
    * Get the renderer for rendering text to RenderTexture
    * Creates a minimal renderer as fallback if no external renderer is provided
    */
-  private async getRenderer(): Promise<Application['renderer']> {
+  private async getRenderer(): Promise<Application["renderer"]> {
     // Use external renderer if available (preferred)
     if (this.externalRenderer != null) {
       return this.externalRenderer;
@@ -405,7 +405,7 @@ export class Text extends BaseClip {
 
     if (this.pixiApp?.renderer == null) {
       throw new Error(
-        'TextClip: Failed to create renderer. Please provide a renderer via constructor or setRenderer() method.'
+        "TextClip: Failed to create renderer. Please provide a renderer via constructor or setRenderer() method.",
       );
     }
 
@@ -438,18 +438,18 @@ export class Text extends BaseClip {
 
   async tick(_time: number): Promise<{
     video: ImageBitmap;
-    state: 'success';
+    state: "success";
   }> {
     await this.ready;
 
     if (this.pixiTextContainer == null || this.renderTexture == null) {
-      throw new Error('Text not initialized');
+      throw new Error("Text not initialized");
     }
 
     // Validate RenderTexture dimensions before rendering
     if (this.renderTexture.width <= 0 || this.renderTexture.height <= 0) {
       throw new Error(
-        `Invalid RenderTexture dimensions: ${this.renderTexture.width}x${this.renderTexture.height}`
+        `Invalid RenderTexture dimensions: ${this.renderTexture.width}x${this.renderTexture.height}`,
       );
     }
 
@@ -491,18 +491,18 @@ export class Text extends BaseClip {
         const width = this.renderTexture.width;
         const height = this.renderTexture.height;
         const canvas = new OffscreenCanvas(width, height);
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         if (ctx == null) {
-          throw new Error('Failed to create 2d context for fallback rendering');
+          throw new Error("Failed to create 2d context for fallback rendering");
         }
         // We can't easily extract pixels, so throw an error
-        throw new Error('Unable to extract canvas from render texture');
+        throw new Error("Unable to extract canvas from render texture");
       }
     }
 
     return {
       video: imageBitmap,
-      state: 'success',
+      state: "success",
     };
   }
 
@@ -512,6 +512,10 @@ export class Text extends BaseClip {
     const clone1 = await this.clone();
     const clone2 = await this.clone();
     return [clone1, clone2];
+  }
+
+  override animate(time: number): void {
+    super.animate(time, this.pixiTextContainer);
   }
 
   // Effects
@@ -530,7 +534,7 @@ export class Text extends BaseClip {
       key: string;
       startTime: number;
       duration: number;
-    }>
+    }>,
   ) {
     const effect = this.effects.find((e) => e.id === effectId);
     if (effect) {
@@ -555,7 +559,7 @@ export class Text extends BaseClip {
     // Helper to convert color to number
     const colorToNumber = (color: any): number | undefined => {
       if (color === undefined || color === null) return undefined;
-      if (typeof color === 'number') return color;
+      if (typeof color === "number") return color;
       if (color instanceof Color) return color.toNumber();
       return undefined;
     };
@@ -567,16 +571,16 @@ export class Text extends BaseClip {
         originalOpts.fontFamily ??
         (Array.isArray(style.fontFamily)
           ? style.fontFamily[0]
-          : typeof style.fontFamily === 'string'
+          : typeof style.fontFamily === "string"
             ? style.fontFamily
-            : 'Roboto'),
+            : "Roboto"),
       fontWeight: originalOpts.fontWeight ?? style.fontWeight,
       fontStyle: originalOpts.fontStyle ?? style.fontStyle,
       align:
         originalOpts.align ??
-        (style.align === 'justify'
-          ? 'left'
-          : (style.align as 'left' | 'center' | 'right')),
+        (style.align === "justify"
+          ? "left"
+          : (style.align as "left" | "center" | "right")),
       textCase: originalOpts.textCase,
       textDecoration: originalOpts.textDecoration,
     };
@@ -584,9 +588,9 @@ export class Text extends BaseClip {
     // Handle fill - prefer originalOpts to preserve gradients
     if (
       originalOpts.fill &&
-      typeof originalOpts.fill === 'object' &&
-      'type' in originalOpts.fill &&
-      originalOpts.fill.type === 'gradient'
+      typeof originalOpts.fill === "object" &&
+      "type" in originalOpts.fill &&
+      originalOpts.fill.type === "gradient"
     ) {
       opts.fill = originalOpts.fill;
     } else {
@@ -598,8 +602,8 @@ export class Text extends BaseClip {
     // Handle stroke - prefer originalOpts to preserve advanced stroke options
     if (
       originalOpts.stroke &&
-      typeof originalOpts.stroke === 'object' &&
-      'color' in originalOpts.stroke
+      typeof originalOpts.stroke === "object" &&
+      "color" in originalOpts.stroke
     ) {
       opts.stroke = originalOpts.stroke;
     } else {
@@ -702,14 +706,14 @@ export class Text extends BaseClip {
     let textToRender = this.text;
     const textCase = this.originalOpts.textCase;
 
-    if (textCase === 'uppercase') {
+    if (textCase === "uppercase") {
       textToRender = textToRender.toUpperCase();
-    } else if (textCase === 'lowercase') {
+    } else if (textCase === "lowercase") {
       textToRender = textToRender.toLowerCase();
-    } else if (textCase === 'title') {
+    } else if (textCase === "title") {
       textToRender = textToRender.replace(
         /\w\S*/g,
-        (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase()
+        (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase(),
       );
     }
 
@@ -742,14 +746,14 @@ export class Text extends BaseClip {
     const lineHeight = fontSize * lineHeightMultiplier;
 
     // Heuristics for space width
-    const metrics = CanvasTextMetrics.measureText(' ', styleBase as TextStyle);
+    const metrics = CanvasTextMetrics.measureText(" ", styleBase as TextStyle);
 
     const tempSpace = new SplitBitmapText({
-      text: ' ',
+      text: " ",
       style: this.textStyleBase,
     });
     const spaceWidth = Math.ceil(
-      tempSpace.getLocalBounds().width || tempSpace.width || metrics.width
+      tempSpace.getLocalBounds().width || tempSpace.width || metrics.width,
     );
     tempSpace.destroy();
 
@@ -831,10 +835,10 @@ export class Text extends BaseClip {
 
     // 6. Positioning words within the container
     let startY = 0;
-    const finalVAlign = (this.originalOpts as any).verticalAlign || 'top';
-    if (finalVAlign === 'center') {
+    const finalVAlign = (this.originalOpts as any).verticalAlign || "top";
+    if (finalVAlign === "center") {
       startY = (containerHeight - textHeight) / 2;
-    } else if (finalVAlign === 'bottom') {
+    } else if (finalVAlign === "bottom") {
       startY = containerHeight - textHeight;
     }
 
@@ -845,9 +849,9 @@ export class Text extends BaseClip {
     lines.forEach((line) => {
       let currentX = 0;
       const finalAlign = this.textAlign;
-      if (finalAlign === 'center') {
+      if (finalAlign === "center") {
         currentX = (containerWidth - line.width) / 2;
-      } else if (finalAlign === 'right') {
+      } else if (finalAlign === "right") {
         currentX = containerWidth - line.width;
       }
 
@@ -864,34 +868,34 @@ export class Text extends BaseClip {
       // Handle Text Decoration
       if (
         decoration &&
-        decoration !== 'none' &&
-        ['underline', 'overline', 'strikethrough', 'line-through'].includes(
-          decoration
+        decoration !== "none" &&
+        ["underline", "overline", "strikethrough", "line-through"].includes(
+          decoration,
         )
       ) {
         hasDecoration = true;
         const finalDecoration =
-          decoration === 'strikethrough' ? 'line-through' : decoration;
+          decoration === "strikethrough" ? "line-through" : decoration;
         const lineThickness = Math.max(1, fontSize / 12);
 
         // Determine Line Color
         let lineColor = 0xffffff;
-        if (typeof style.fill === 'number') {
+        if (typeof style.fill === "number") {
           lineColor = style.fill;
         } else if (
           style.fill &&
-          typeof style.fill === 'object' &&
-          'fill' in style.fill
+          typeof style.fill === "object" &&
+          "fill" in style.fill
         ) {
           lineColor = 0xffffff;
         }
 
         let yOffset = 0;
-        if (finalDecoration === 'underline') {
+        if (finalDecoration === "underline") {
           yOffset = line.height;
-        } else if (finalDecoration === 'line-through') {
+        } else if (finalDecoration === "line-through") {
           yOffset = line.height / 2;
-        } else if (finalDecoration === 'overline') {
+        } else if (finalDecoration === "overline") {
           yOffset = 0;
         }
 
@@ -899,7 +903,7 @@ export class Text extends BaseClip {
           lineXStart,
           currentY + yOffset,
           line.width,
-          lineThickness
+          lineThickness,
         );
         graphics.fill(lineColor);
       }
@@ -942,10 +946,10 @@ export class Text extends BaseClip {
 
     const styleOptions: any = {
       fontSize,
-      fontFamily: opts.fontFamily ?? 'Roboto',
-      fontWeight: (opts.fontWeight as any) ?? 'normal',
-      fontStyle: opts.fontStyle ?? 'normal',
-      align: opts.align ?? 'left',
+      fontFamily: opts.fontFamily ?? "Roboto",
+      fontWeight: (opts.fontWeight as any) ?? "normal",
+      fontStyle: opts.fontStyle ?? "normal",
+      align: opts.align ?? "left",
       wordWrap: opts.wordWrap ?? false,
       wordWrapWidth: opts.wordWrapWidth ?? 100,
       lineHeight: fontSize * lineHeightMultiplier,
@@ -955,26 +959,26 @@ export class Text extends BaseClip {
     // Handle fill - can be color or gradient
     if (
       opts.fill &&
-      typeof opts.fill === 'object' &&
-      opts.fill.type === 'gradient'
+      typeof opts.fill === "object" &&
+      opts.fill.type === "gradient"
     ) {
       // Create gradient fill
       const gradient = new FillGradient(
         opts.fill.x0,
         opts.fill.y0,
         opts.fill.x1,
-        opts.fill.y1
+        opts.fill.y1,
       );
       opts.fill.colors.forEach(({ ratio, color }) => {
         const colorNumber =
-          typeof color === 'number' ? color : (parseColor(color) ?? 0xffffff);
+          typeof color === "number" ? color : (parseColor(color) ?? 0xffffff);
         gradient.addColorStop(ratio, colorNumber);
       });
       styleOptions.fill = { fill: gradient };
     } else {
       // Simple color fill
       const { color: fillColor, alpha: fillAlpha } = resolveColor(
-        opts.fill as string
+        opts.fill as string,
       );
       styleOptions.fill = fillColor;
       if (fillAlpha < 1) {
@@ -985,8 +989,8 @@ export class Text extends BaseClip {
     // Handle stroke - can be color or advanced stroke object
     if (
       opts.stroke &&
-      typeof opts.stroke === 'object' &&
-      'color' in opts.stroke
+      typeof opts.stroke === "object" &&
+      "color" in opts.stroke
     ) {
       // Advanced stroke object
       const strokeColor = parseColor(opts.stroke.color);
@@ -1030,7 +1034,7 @@ export class Text extends BaseClip {
 
   destroy(): void {
     if (this.destroyed) return;
-    Log.info('Text destroy');
+    Log.info("Text destroy");
 
     // Destroy pixiTextContainer first (must be destroyed before app)
     try {
@@ -1112,7 +1116,7 @@ export class Text extends BaseClip {
 
     // Handle stroke
     if (this.originalOpts.stroke) {
-      if (typeof this.originalOpts.stroke === 'object') {
+      if (typeof this.originalOpts.stroke === "object") {
         style.stroke = {
           color: this.originalOpts.stroke.color as any,
           width: this.originalOpts.stroke.width,
@@ -1130,7 +1134,7 @@ export class Text extends BaseClip {
 
     if (this.originalOpts.dropShadow) {
       style.shadow = {
-        color: (this.originalOpts.dropShadow.color ?? '#000000') as string,
+        color: (this.originalOpts.dropShadow.color ?? "#000000") as string,
         alpha: this.originalOpts.dropShadow.alpha ?? 0.5,
         blur: this.originalOpts.dropShadow.blur ?? 4,
         distance: this.originalOpts.dropShadow.distance ?? 0,
@@ -1140,7 +1144,7 @@ export class Text extends BaseClip {
 
     return {
       ...base,
-      type: 'Text',
+      type: "Text",
       text: this.text,
       style,
       id: this.id,
@@ -1154,12 +1158,12 @@ export class Text extends BaseClip {
    * @returns Promise that resolves to a Text instance
    */
   static async fromObject(json: TextJSON): Promise<Text> {
-    if (json.type !== 'Text') {
+    if (json.type !== "Text") {
       throw new Error(`Expected Text, got ${json.type}`);
     }
 
     // Support new structure (text + style) and old structure (options)
-    const text = json.text || '';
+    const text = json.text || "";
     const style = json.style || {};
 
     // Build options object from style
@@ -1251,8 +1255,8 @@ export class Text extends BaseClip {
    * This allows resizing width and height independently while preventing corner handles that might distort text
    */
   override getVisibleHandles(): Array<
-    'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb' | 'rot'
+    "tl" | "tr" | "bl" | "br" | "ml" | "mr" | "mt" | "mb" | "rot"
   > {
-    return ['mr', 'mb', 'br', 'rot'];
+    return ["mr", "mb", "br", "rot"];
   }
 }

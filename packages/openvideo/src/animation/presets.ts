@@ -1,5 +1,6 @@
 import { AnimationFactory, animationRegistry } from "./registry";
 import { KeyframeAnimation } from "./keyframe-animation";
+import { GsapAnimation } from "./gsap-animation";
 
 // Animation Presets
 
@@ -122,6 +123,45 @@ export const zoomOut: AnimationFactory = (opts, params) => {
   );
 };
 
+export const charFadeIn: AnimationFactory = (opts, params) => {
+  return new GsapAnimation(
+    {
+      type: "character",
+      from: { alpha: 0, scale: 0.5 },
+      to: { alpha: 1, scale: 1 },
+      stagger: params?.stagger ?? 0.05,
+    },
+    { ...opts, easing: opts.easing || "back.out" },
+    "charFadeIn",
+  );
+};
+
+export const charSlideUp: AnimationFactory = (opts, params) => {
+  return new GsapAnimation(
+    {
+      type: "character",
+      from: { alpha: 0, y: 50 },
+      to: { alpha: 1, y: 0 },
+      stagger: params?.stagger ?? 0.05,
+    },
+    { ...opts, easing: opts.easing || "power2.out" },
+    "charSlideUp",
+  );
+};
+
+export const charTypewriter: AnimationFactory = (opts, params) => {
+  return new GsapAnimation(
+    {
+      type: "character",
+      from: { alpha: 0 },
+      to: { alpha: 1, duration: 0.001 },
+      stagger: params?.stagger ?? 0.05,
+    },
+    { ...opts, easing: opts.easing || "none" },
+    "charTypewriter",
+  );
+};
+
 // Register them
 animationRegistry.register("fadeIn", fadeIn);
 animationRegistry.register("fadeOut", fadeOut);
@@ -129,6 +169,9 @@ animationRegistry.register("slideIn", slideIn);
 animationRegistry.register("slideOut", slideOut);
 animationRegistry.register("zoomIn", zoomIn);
 animationRegistry.register("zoomOut", zoomOut);
+animationRegistry.register("charFadeIn", charFadeIn);
+animationRegistry.register("charSlideUp", charSlideUp);
+animationRegistry.register("charTypewriter", charTypewriter);
 
 /**
  * Get the keyframe template for a preset animation
