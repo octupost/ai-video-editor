@@ -795,6 +795,96 @@ async function handleGenerateVideo(
   );
 }
 
+async function handleGenerateSFX(
+  supabase: ReturnType<typeof createClient>,
+  falPayload: FalWebhookPayload,
+  params: URLSearchParams,
+  log: Logger
+): Promise<Response> {
+  const first_frame_id = params.get('first_frame_id')!;
+
+  log.info('Processing GenerateSFX', {
+    first_frame_id,
+    fal_status: falPayload.status,
+  });
+
+  log.startTiming('extract_videos');
+  const videos = getVideos(falPayload);
+  const extractTime = log.endTiming('extract_videos');
+
+  log.info('Video extraction (SFX)', {
+    count: videos?.length || 0,
+    has_url: !!videos?.[0]?.url,
+    time_ms: extractTime,
+  });
+
+  // Check if generation failed
+  if (falPayload.status === 'ERROR' || !videos?.[0]?.url) {
+    log.error('SFX generation failed', {
+      fal_error: falPayload.error,
+      has_videos: !!videos,
+    });
+
+    log.startTiming('db_update_failed');
+    await supabase
+      .from('first_frames')
+      .update({
+        sfx_status: 'failed',
+        sfx_error_message: 'generation_error',
+      })
+      .eq('id', first_frame_id);
+    log.db('UPDATE', 'first_frames', {
+      id: first_frame_id,
+      sfx_status: 'failed',
+      time_ms: log.endTiming('db_update_failed'),
+    });
+
+    log.summary('error', { first_frame_id, reason: 'sfx_generation_failed' });
+    return new Response(
+      JSON.stringify({ success: false, error: 'SFX generation failed' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  // Get first video URL only (SFX result overwrites video_url)
+  const videoUrl = videos[0].url;
+
+  log.success('SFX generated', {
+    video_url: videoUrl,
+  });
+
+  // Update first_frame with success and overwrite video_url
+  log.startTiming('db_update_success');
+  await supabase
+    .from('first_frames')
+    .update({
+      sfx_status: 'success',
+      video_url: videoUrl,
+    })
+    .eq('id', first_frame_id);
+  log.db('UPDATE', 'first_frames', {
+    id: first_frame_id,
+    sfx_status: 'success',
+    time_ms: log.endTiming('db_update_success'),
+  });
+
+  log.summary('success', { first_frame_id, video_url: videoUrl });
+  return new Response(
+    JSON.stringify({
+      success: true,
+      step: 'GenerateSFX',
+      first_frame_id,
+      video_url: videoUrl,
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
+}
+
 Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -871,6 +961,8 @@ Deno.serve(async (req: Request) => {
         return await handleEnhanceImage(supabase, falPayload, params, log);
       case 'GenerateVideo':
         return await handleGenerateVideo(supabase, falPayload, params, log);
+      case 'GenerateSFX':
+        return await handleGenerateSFX(supabase, falPayload, params, log);
       default:
         log.error('Unknown step', { step });
         return new Response(

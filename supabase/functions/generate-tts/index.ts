@@ -40,6 +40,7 @@ function errorResponse(error: string, status = 500): Response {
 
 interface GenerateTTSInput {
   scene_ids: string[];
+  voice?: string;
 }
 
 interface SceneContext {
@@ -126,6 +127,7 @@ async function getSceneContext(
 
 async function sendTTSRequest(
   context: SceneContext,
+  voice: string,
   log: ReturnType<typeof createLogger>
 ): Promise<{ requestId: string | null; error: string | null }> {
   const webhookParams = new URLSearchParams({
@@ -155,7 +157,7 @@ async function sendTTSRequest(
       },
       body: JSON.stringify({
         text: context.text,
-        voice: 'Rachel',
+        voice,
         stability: 0.5,
         similarity_boost: 0.75,
         speed: 1.0,
@@ -209,7 +211,7 @@ Deno.serve(async (req: Request) => {
     log.info('Request received', { method: req.method });
 
     const input: GenerateTTSInput = await req.json();
-    const { scene_ids } = input;
+    const { scene_ids, voice = 'pNInz6obpgDQGcFmaJgB' } = input;
 
     if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
       log.error('Invalid input', { scene_ids });
@@ -281,7 +283,7 @@ Deno.serve(async (req: Request) => {
         .eq('id', context.voiceover_id);
 
       // Send TTS request
-      const { requestId, error } = await sendTTSRequest(context, log);
+      const { requestId, error } = await sendTTSRequest(context, voice, log);
 
       if (error || !requestId) {
         // Mark as failed with request_error

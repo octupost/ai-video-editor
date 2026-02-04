@@ -38,32 +38,26 @@ function errorResponse(error: string, status = 500): Response {
   return jsonResponse({ success: false, error }, status);
 }
 
-interface GenerateVideoInput {
+interface GenerateSfxInput {
   scene_ids: string[];
-  resolution: '480p' | '720p' | '1080p';
-}
-
-interface VideoContext {
-  first_frame_id: string;
-  scene_id: string;
-  final_url: string;
-  visual_prompt: string;
-  duration: number;
 }
 
 type SupabaseClient = ReturnType<typeof createClient>;
 
-async function getVideoContext(
+async function getSfxContext(
   supabase: SupabaseClient,
   sceneId: string,
   log: ReturnType<typeof createLogger>
-): Promise<VideoContext | null> {
+): Promise<{
+  first_frame_id: string;
+  video_url: string;
+  sfx_prompt: string | null;
+} | null> {
   const { data: scene, error: sceneError } = await supabase
     .from('scenes')
     .select(`
       id,
-      first_frames (id, final_url, visual_prompt, video_status),
-      voiceovers (duration)
+      first_frames (id, video_url, video_status, sfx_status, sfx_prompt)
     `)
     .eq('id', sceneId)
     .single();
@@ -82,104 +76,26 @@ async function getVideoContext(
     return null;
   }
 
-  if (!firstFrame.final_url) {
-    log.warn('No final_url for first_frame (enhance required)', {
+  if (firstFrame.video_status !== 'success' || !firstFrame.video_url) {
+    log.warn('No successful video for scene, skipping', {
       first_frame_id: firstFrame.id,
+      video_status: firstFrame.video_status,
     });
     return null;
   }
 
-  if (firstFrame.video_status === 'processing') {
-    log.warn('Video already processing, skipping', {
+  if (firstFrame.sfx_status === 'processing') {
+    log.warn('SFX already processing, skipping', {
       first_frame_id: firstFrame.id,
     });
     return null;
   }
-
-  const voiceover = scene.voiceovers?.[0];
-  if (!voiceover?.duration) {
-    log.warn('No voiceover duration found', { scene_id: sceneId });
-    return null;
-  }
-
-  // Bucket duration to 5, 10, or 15 (cap at 15)
-  const raw = Math.ceil(voiceover.duration);
-  const durationInt = raw <= 5 ? 5 : raw <= 10 ? 10 : 15;
 
   return {
     first_frame_id: firstFrame.id,
-    scene_id: sceneId,
-    final_url: firstFrame.final_url,
-    visual_prompt: firstFrame.visual_prompt || '',
-    duration: durationInt,
+    video_url: firstFrame.video_url,
+    sfx_prompt: firstFrame.sfx_prompt ?? null,
   };
-}
-
-async function sendVideoRequest(
-  context: VideoContext,
-  resolution: '480p' | '720p' | '1080p',
-  log: ReturnType<typeof createLogger>
-): Promise<{ requestId: string | null; error: string | null }> {
-  const webhookParams = new URLSearchParams({
-    step: 'GenerateVideo',
-    first_frame_id: context.first_frame_id,
-  });
-  const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
-
-  const falUrl = new URL(
-    'https://queue.fal.run/workflows/octupost/bytedancepro15'
-  );
-  falUrl.searchParams.set('fal_webhook', webhookUrl);
-
-  log.api('fal.ai', 'workflows/octupost/bytedancepro15', {
-    first_frame_id: context.first_frame_id,
-    resolution,
-    duration: context.duration,
-  });
-  log.startTiming('fal_video_request');
-
-  try {
-    const falResponse = await fetch(falUrl.toString(), {
-      method: 'POST',
-      headers: {
-        Authorization: `Key ${FAL_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        prompt: context.visual_prompt,
-        image_url: context.final_url,
-        resolution: resolution,
-        duration: String(context.duration),
-      }),
-    });
-
-    if (!falResponse.ok) {
-      const errorText = await falResponse.text();
-      log.error('fal.ai video request failed', {
-        status: falResponse.status,
-        error: errorText,
-        time_ms: log.endTiming('fal_video_request'),
-      });
-      return {
-        requestId: null,
-        error: `fal.ai request failed: ${falResponse.status}`,
-      };
-    }
-
-    const falResult = await falResponse.json();
-    log.success('fal.ai video request accepted', {
-      request_id: falResult.request_id,
-      time_ms: log.endTiming('fal_video_request'),
-    });
-
-    return { requestId: falResult.request_id, error: null };
-  } catch (err) {
-    log.error('fal.ai video request exception', {
-      error: err instanceof Error ? err.message : String(err),
-      time_ms: log.endTiming('fal_video_request'),
-    });
-    return { requestId: null, error: 'Request exception' };
-  }
 }
 
 function delay(ms: number): Promise<void> {
@@ -192,27 +108,21 @@ Deno.serve(async (req: Request) => {
   }
 
   const log = createLogger();
-  log.setContext({ step: 'GenerateVideo' });
+  log.setContext({ step: 'GenerateSFX' });
 
   try {
     log.info('Request received', { method: req.method });
 
-    const input: GenerateVideoInput = await req.json();
-    const { scene_ids, resolution = '720p' } = input;
+    const input: GenerateSfxInput = await req.json();
+    const { scene_ids } = input;
 
     if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
       log.error('Invalid input', { scene_ids });
       return errorResponse('scene_ids must be a non-empty array', 400);
     }
 
-    if (!['480p', '720p', '1080p'].includes(resolution)) {
-      log.error('Invalid resolution', { resolution });
-      return errorResponse('resolution must be 480p, 720p, or 1080p', 400);
-    }
-
-    log.info('Processing video requests', {
+    log.info('Processing SFX requests', {
       scene_count: scene_ids.length,
-      resolution,
     });
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -234,10 +144,10 @@ Deno.serve(async (req: Request) => {
         await delay(1000);
       }
 
-      // Get video context
+      // Get SFX context
       log.startTiming(`get_context_${i}`);
-      const context = await getVideoContext(supabase, sceneId, log);
-      log.info('Video context fetched', {
+      const context = await getSfxContext(supabase, sceneId, log);
+      log.info('SFX context fetched', {
         scene_id: sceneId,
         has_context: !!context,
         time_ms: log.endTiming(`get_context_${i}`),
@@ -249,32 +159,106 @@ Deno.serve(async (req: Request) => {
           first_frame_id: null,
           request_id: null,
           status: 'skipped',
-          error:
-            'Prerequisites not met (need enhanced image and voiceover duration)',
+          error: 'Prerequisites not met (need successful video)',
         });
         continue;
       }
 
-      // Update status to processing and store resolution
+      // Update status to processing
       await supabase
         .from('first_frames')
-        .update({ video_status: 'processing', video_resolution: resolution })
+        .update({ sfx_status: 'processing' })
         .eq('id', context.first_frame_id);
 
-      // Send video request
-      const { requestId, error } = await sendVideoRequest(
-        context,
-        resolution,
-        log
-      );
+      // Build webhook URL
+      const webhookParams = new URLSearchParams({
+        step: 'GenerateSFX',
+        first_frame_id: context.first_frame_id,
+      });
+      const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
 
-      if (error || !requestId) {
-        // Mark as failed
+      const falUrl = new URL('https://queue.fal.run/workflows/octupost/sfx');
+      falUrl.searchParams.set('fal_webhook', webhookUrl);
+
+      log.api('fal.ai', 'workflows/octupost/sfx', {
+        first_frame_id: context.first_frame_id,
+      });
+      log.startTiming(`fal_sfx_request_${i}`);
+
+      try {
+        const falResponse = await fetch(falUrl.toString(), {
+          method: 'POST',
+          headers: {
+            Authorization: `Key ${FAL_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            video_url: context.video_url,
+            ...(context.sfx_prompt ? { prompt: context.sfx_prompt } : {}),
+          }),
+        });
+
+        if (!falResponse.ok) {
+          const errorText = await falResponse.text();
+          log.error('fal.ai SFX request failed', {
+            status: falResponse.status,
+            error: errorText,
+            time_ms: log.endTiming(`fal_sfx_request_${i}`),
+          });
+
+          await supabase
+            .from('first_frames')
+            .update({
+              sfx_status: 'failed',
+              sfx_error_message: 'request_error',
+            })
+            .eq('id', context.first_frame_id);
+
+          results.push({
+            scene_id: sceneId,
+            first_frame_id: context.first_frame_id,
+            request_id: null,
+            status: 'failed',
+            error: `fal.ai request failed: ${falResponse.status}`,
+          });
+          continue;
+        }
+
+        const falResult = await falResponse.json();
+        log.success('fal.ai SFX request accepted', {
+          request_id: falResult.request_id,
+          time_ms: log.endTiming(`fal_sfx_request_${i}`),
+        });
+
+        // Store request_id
+        await supabase
+          .from('first_frames')
+          .update({ sfx_request_id: falResult.request_id })
+          .eq('id', context.first_frame_id);
+
+        results.push({
+          scene_id: sceneId,
+          first_frame_id: context.first_frame_id,
+          request_id: falResult.request_id,
+          status: 'queued',
+        });
+
+        log.success('SFX request queued', {
+          scene_id: sceneId,
+          first_frame_id: context.first_frame_id,
+          request_id: falResult.request_id,
+        });
+      } catch (err) {
+        log.error('fal.ai SFX request exception', {
+          error: err instanceof Error ? err.message : String(err),
+          time_ms: log.endTiming(`fal_sfx_request_${i}`),
+        });
+
         await supabase
           .from('first_frames')
           .update({
-            video_status: 'failed',
-            video_error_message: 'request_error',
+            sfx_status: 'failed',
+            sfx_error_message: 'request_error',
           })
           .eq('id', context.first_frame_id);
 
@@ -283,29 +267,9 @@ Deno.serve(async (req: Request) => {
           first_frame_id: context.first_frame_id,
           request_id: null,
           status: 'failed',
-          error: error || 'Unknown error',
+          error: 'Request exception',
         });
-        continue;
       }
-
-      // Store request_id
-      await supabase
-        .from('first_frames')
-        .update({ video_request_id: requestId })
-        .eq('id', context.first_frame_id);
-
-      results.push({
-        scene_id: sceneId,
-        first_frame_id: context.first_frame_id,
-        request_id: requestId,
-        status: 'queued',
-      });
-
-      log.success('Video request queued', {
-        scene_id: sceneId,
-        first_frame_id: context.first_frame_id,
-        request_id: requestId,
-      });
     }
 
     const queuedCount = results.filter((r) => r.status === 'queued').length;

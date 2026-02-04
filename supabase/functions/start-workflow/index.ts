@@ -45,11 +45,10 @@ interface WorkflowInput {
   cols: number;
   voiceover_list: string[];
   visual_prompt_list: string[];
+  sfx_prompt_list?: string[];
   width: number;
   height: number;
   voiceover: string;
-  style: string;
-  style_prompt: string;
   aspect_ratio: string;
 }
 
@@ -61,9 +60,8 @@ function validateInput(input: WorkflowInput): string | null {
     cols,
     voiceover_list,
     visual_prompt_list,
+    sfx_prompt_list,
     voiceover,
-    style,
-    style_prompt,
     aspect_ratio,
   } = input;
 
@@ -75,8 +73,6 @@ function validateInput(input: WorkflowInput): string | null {
     !voiceover_list ||
     !visual_prompt_list ||
     !voiceover ||
-    !style ||
-    !style_prompt ||
     !aspect_ratio
   ) {
     return 'Missing required fields';
@@ -90,6 +86,10 @@ function validateInput(input: WorkflowInput): string | null {
     return 'voiceover_list and visual_prompt_list must match rows * cols';
   }
 
+  if (sfx_prompt_list && sfx_prompt_list.length !== numberOfScenes) {
+    return 'sfx_prompt_list must match rows * cols';
+  }
+
   return null;
 }
 
@@ -101,12 +101,10 @@ interface FalRequestResult {
 async function sendFalRequest(
   falUrl: URL,
   prompt: string,
-  stylePrompt: string,
   log: ReturnType<typeof createLogger>
 ): Promise<FalRequestResult> {
   log.api('fal.ai', 'octupost/generategridimage', {
     prompt_length: prompt.length,
-    style_prompt_length: stylePrompt.length,
   });
   log.startTiming('fal_request');
 
@@ -117,10 +115,7 @@ async function sendFalRequest(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      input: {
-        prompt,
-        style_prompt: stylePrompt,
-      },
+      prompt,
     }),
   });
 
@@ -153,6 +148,7 @@ async function createScenes(
   numberOfScenes: number,
   visualPromptList: string[],
   voiceoverList: string[],
+  sfxPromptList: string[] | undefined,
   log: ReturnType<typeof createLogger>
 ): Promise<string[]> {
   log.info('Creating scenes', { count: numberOfScenes });
@@ -178,6 +174,7 @@ async function createScenes(
     await supabase.from('first_frames').insert({
       scene_id: scene.id,
       visual_prompt: visualPromptList[i],
+      sfx_prompt: sfxPromptList?.[i] ?? null,
       status: 'processing',
     });
     await supabase.from('voiceovers').insert({
@@ -213,11 +210,10 @@ Deno.serve(async (req: Request) => {
       cols,
       voiceover_list,
       visual_prompt_list,
+      sfx_prompt_list,
       width,
       height,
       voiceover,
-      style,
-      style_prompt,
       aspect_ratio,
     } = input;
     const numberOfScenes = rows * cols;
@@ -232,7 +228,7 @@ Deno.serve(async (req: Request) => {
     // Create storyboard record
     const { data: storyboard, error: storyboardError } = await supabase
       .from('storyboards')
-      .insert({ project_id, voiceover, style, aspect_ratio })
+      .insert({ project_id, voiceover, aspect_ratio })
       .select()
       .single();
 
@@ -289,12 +285,7 @@ Deno.serve(async (req: Request) => {
     );
     falUrl.searchParams.set('fal_webhook', webhookUrl);
 
-    const falResult = await sendFalRequest(
-      falUrl,
-      grid_image_prompt,
-      style_prompt,
-      log
-    );
+    const falResult = await sendFalRequest(falUrl, grid_image_prompt, log);
     if (falResult.error) {
       await supabase
         .from('grid_images')
@@ -324,6 +315,7 @@ Deno.serve(async (req: Request) => {
       numberOfScenes,
       visual_prompt_list,
       voiceover_list,
+      sfx_prompt_list,
       log
     );
 
