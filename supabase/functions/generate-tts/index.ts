@@ -38,9 +38,17 @@ function errorResponse(error: string, status = 500): Response {
   return jsonResponse({ success: false, error }, status);
 }
 
+const TTS_ENDPOINTS: Record<string, string> = {
+  'turbo-v2.5': 'fal-ai/elevenlabs/tts/turbo-v2.5',
+  'multilingual-v2': 'fal-ai/elevenlabs/tts/multilingual-v2',
+};
+
+const DEFAULT_TTS_MODEL = 'turbo-v2.5';
+
 interface GenerateTTSInput {
   scene_ids: string[];
   voice?: string;
+  model?: 'turbo-v2.5' | 'multilingual-v2';
 }
 
 interface SceneContext {
@@ -128,6 +136,7 @@ async function getSceneContext(
 async function sendTTSRequest(
   context: SceneContext,
   voice: string,
+  endpoint: string,
   log: ReturnType<typeof createLogger>
 ): Promise<{ requestId: string | null; error: string | null }> {
   const webhookParams = new URLSearchParams({
@@ -136,12 +145,10 @@ async function sendTTSRequest(
   });
   const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
 
-  const falUrl = new URL(
-    'https://queue.fal.run/fal-ai/elevenlabs/tts/turbo-v2.5'
-  );
+  const falUrl = new URL(`https://queue.fal.run/${endpoint}`);
   falUrl.searchParams.set('fal_webhook', webhookUrl);
 
-  log.api('fal.ai', 'elevenlabs/tts/turbo-v2.5', {
+  log.api('fal.ai', endpoint, {
     text_length: context.text.length,
     has_previous: !!context.previous_text,
     has_next: !!context.next_text,
@@ -211,14 +218,30 @@ Deno.serve(async (req: Request) => {
     log.info('Request received', { method: req.method });
 
     const input: GenerateTTSInput = await req.json();
-    const { scene_ids, voice = 'pNInz6obpgDQGcFmaJgB' } = input;
+    const {
+      scene_ids,
+      voice = 'pNInz6obpgDQGcFmaJgB',
+      model = DEFAULT_TTS_MODEL,
+    } = input;
 
     if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
       log.error('Invalid input', { scene_ids });
       return errorResponse('scene_ids must be a non-empty array', 400);
     }
 
-    log.info('Processing TTS requests', { scene_count: scene_ids.length });
+    const endpoint = TTS_ENDPOINTS[model];
+    if (!endpoint) {
+      log.error('Invalid TTS model', { model });
+      return errorResponse(
+        `model must be one of: ${Object.keys(TTS_ENDPOINTS).join(', ')}`,
+        400
+      );
+    }
+
+    log.info('Processing TTS requests', {
+      scene_count: scene_ids.length,
+      model,
+    });
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -283,7 +306,12 @@ Deno.serve(async (req: Request) => {
         .eq('id', context.voiceover_id);
 
       // Send TTS request
-      const { requestId, error } = await sendTTSRequest(context, voice, log);
+      const { requestId, error } = await sendTTSRequest(
+        context,
+        voice,
+        endpoint,
+        log
+      );
 
       if (error || !requestId) {
         // Mark as failed with request_error
