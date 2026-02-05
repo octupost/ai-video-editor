@@ -58,6 +58,7 @@ export async function addSceneToTimeline(
   const videoClip = await Video.fromUrl(scene.videoUrl);
   await videoClip.scaleToFit(canvasWidth, canvasHeight);
   videoClip.centerInScene(canvasWidth, canvasHeight);
+  videoClip.volume = 0.3;
 
   let endTime: number;
   let usedVideoTrackId = videoTrackId;
@@ -88,13 +89,13 @@ export async function addSceneToTimeline(
     // Capture the actual track IDs that were used/created
     if (!usedVideoTrackId) {
       const vTrack = studio.tracks.find(
-        (t) => t.type === 'video' && t.clipIds.includes(videoClip.id)
+        (t) => t.type === 'Video' && t.clipIds.includes(videoClip.id)
       );
       usedVideoTrackId = vTrack?.id;
     }
     if (!usedAudioTrackId) {
       const aTrack = studio.tracks.find(
-        (t) => t.type === 'audio' && t.clipIds.includes(audioClip.id)
+        (t) => t.type === 'Audio' && t.clipIds.includes(audioClip.id)
       );
       usedAudioTrackId = aTrack?.id;
     }
@@ -107,7 +108,7 @@ export async function addSceneToTimeline(
 
     if (!usedVideoTrackId) {
       const vTrack = studio.tracks.find(
-        (t) => t.type === 'video' && t.clipIds.includes(videoClip.id)
+        (t) => t.type === 'Video' && t.clipIds.includes(videoClip.id)
       );
       usedVideoTrackId = vTrack?.id;
     }

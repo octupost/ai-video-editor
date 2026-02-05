@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     const {
       text,
-      voiceId = '21m00Tcm4TlvDq8ikWAM',
+      voiceId = 'pNInz6obpgDQGcFmaJgB',
       project_id,
     } = await req.json();
 

@@ -70,7 +70,7 @@ function SceneThumbnail({
           src={imageUrl}
           alt={`Scene ${sceneOrder + 1}`}
           fill
-          className="object-cover"
+          className="object-contain"
           unoptimized
         />
       ) : (

@@ -18,6 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
 import {
   Select,
   SelectContent,
@@ -27,12 +28,14 @@ import {
 } from '@/components/ui/select';
 import { useProjectId } from '@/contexts/project-context';
 import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
-import { createClient } from '@/lib/supabase/client';
 import {
+  getDraftStoryboard,
   getStoryboardsForProject,
   type Storyboard,
+  type StoryboardPlan,
 } from '@/lib/supabase/workflow-service';
 import { StoryboardCards } from './storyboard-cards';
+import { DraftPlanEditor } from './draft-plan-editor';
 
 const ASPECT_RATIOS = [
   { value: '16:9', label: '16:9', width: 1920, height: 1080 },
@@ -42,22 +45,13 @@ const ASPECT_RATIOS = [
 
 type AspectRatio = (typeof ASPECT_RATIOS)[number]['value'];
 
-const STYLE_OPTIONS = [
-  { value: 'anime-2d', label: 'Anime 2D' },
-  { value: 'pixar-art-3d', label: 'Pixar Art 3D' },
-  { value: 'hollywood', label: 'Hollywood' },
+const STORYBOARD_MODELS = [
+  { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro' },
+  { value: 'anthropic/claude-opus-4.5', label: 'Claude Opus 4.5' },
+  { value: 'openai/gpt-5.2-pro', label: 'GPT 5.2 Pro' },
 ] as const;
 
-const STYLE_PROMPTS: Record<string, string> = {
-  'anime-2d':
-    'Render in anime 2D art style with vibrant colors, clean linework, and expressive characters. Maintain the exact grid layout and number of images - only transform the visual style.',
-  'pixar-art-3d':
-    'Render in Pixar-style 3D animation with soft lighting, rounded forms, and rich textures. Maintain the exact grid layout and number of images - only transform the visual style.',
-  hollywood:
-    'Render in cinematic Hollywood style with realistic lighting, dramatic composition, and film-quality visuals. Maintain the exact grid layout and number of images - only transform the visual style.',
-};
-
-type StyleOption = (typeof STYLE_OPTIONS)[number]['value'];
+type StoryboardModel = (typeof STORYBOARD_MODELS)[number]['value'];
 
 interface StoryboardResponse {
   rows: number;
@@ -67,48 +61,7 @@ interface StoryboardResponse {
   visual_flow: string[];
 }
 
-type ViewMode = 'view' | 'create';
-
-// Helper functions
-const getStyleLabel = (value: string) =>
-  STYLE_OPTIONS.find((s) => s.value === value)?.label || value;
-
-const getValidSession = async () => {
-  const supabase = createClient();
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.refreshSession();
-  if (error || !session) {
-    throw new Error('Please log in again to continue');
-  }
-  return { supabase, session };
-};
-
-const buildWorkflowBody = (
-  storyboardData: StoryboardResponse,
-  projectId: string | null,
-  selectedRatio: (typeof ASPECT_RATIOS)[number],
-  formVoiceover: string,
-  formStyle: StyleOption,
-  formAspectRatio: AspectRatio
-) => ({
-  project_id: projectId,
-  grid_image_prompt: storyboardData.grid_image_prompt,
-  rows: storyboardData.rows,
-  cols: storyboardData.cols,
-  voiceover_list: storyboardData.voiceover_list,
-  visual_prompt_list: storyboardData.visual_flow,
-  width: selectedRatio.width,
-  height: selectedRatio.height,
-  voiceover: formVoiceover,
-  style: formStyle,
-  style_prompt: STYLE_PROMPTS[formStyle],
-  aspect_ratio: formAspectRatio,
-});
-
-const getErrorMessage = (err: unknown): string =>
-  err instanceof Error ? err.message : 'An error occurred';
+type ViewMode = 'view' | 'create' | 'draft';
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -133,17 +86,26 @@ export default function PanelStoryboard() {
 
   // Form state (for create mode)
   const [formVoiceover, setFormVoiceover] = useState('');
-  const [formStyle, setFormStyle] = useState<StyleOption>('cinematic');
-  const [formAspectRatio, setFormAspectRatio] = useState<AspectRatio>('16:9');
+  const [formAspectRatio, setFormAspectRatio] = useState<AspectRatio>('9:16');
+  const [formModel, setFormModel] = useState<StoryboardModel>(
+    'google/gemini-3-pro-preview'
+  );
 
   // Generation state
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<StoryboardResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [workflowLoading, setWorkflowLoading] = useState(false);
   const [workflowError, setWorkflowError] = useState<string | null>(null);
   const [workflowStarted, setWorkflowStarted] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Draft state
+  const [draftPlan, setDraftPlan] = useState<StoryboardPlan | null>(null);
+  const [draftStoryboardId, setDraftStoryboardId] = useState<string | null>(
+    null
+  );
+  const [isApprovingDraft, setIsApprovingDraft] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
 
   // Derived state
   const selectedStoryboard = storyboards.find(
@@ -154,8 +116,20 @@ export default function PanelStoryboard() {
   useEffect(() => {
     if (!projectId) return;
 
-    getStoryboardsForProject(projectId).then((data) => {
+    const loadStoryboards = async () => {
+      const data = await getStoryboardsForProject(projectId);
       setStoryboards(data);
+
+      // Check for existing draft
+      const draft = await getDraftStoryboard(projectId);
+      if (draft && draft.plan) {
+        // Restore draft state
+        setDraftPlan(draft.plan);
+        setDraftStoryboardId(draft.id);
+        setViewMode('draft');
+        return;
+      }
+
       // Auto-select most recent storyboard if exists
       if (data.length > 0) {
         setSelectedStoryboardId(data[0].id);
@@ -163,7 +137,9 @@ export default function PanelStoryboard() {
       } else {
         setViewMode('create');
       }
-    });
+    };
+
+    loadStoryboards();
   }, [projectId]);
 
   const refreshStoryboardsAfterCreate = async () => {
@@ -216,84 +192,169 @@ export default function PanelStoryboard() {
     }
   };
 
-  const startWorkflow = async (storyboardData: StoryboardResponse) => {
-    const selectedRatio = ASPECT_RATIOS.find(
-      (r) => r.value === formAspectRatio
-    );
-    if (!selectedRatio) return;
-
-    setWorkflowLoading(true);
-    setWorkflowError(null);
-
-    try {
-      const { supabase, session } = await getValidSession();
-
-      const body = buildWorkflowBody(
-        storyboardData,
-        projectId,
-        selectedRatio,
-        formVoiceover,
-        formStyle,
-        formAspectRatio
-      );
-      const { data: fnData, error: fnError } = await supabase.functions.invoke(
-        'start-workflow',
-        {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-          body,
-        }
-      );
-
-      console.log('Edge function result:', { data: fnData, error: fnError });
-      if (fnError) {
-        throw new Error(fnError.message || 'Failed to start workflow');
-      }
-
-      setWorkflowStarted(true);
-      setRefreshTrigger((prev) => prev + 1);
-      await refreshStoryboardsAfterCreate();
-    } catch (err) {
-      setWorkflowError(getErrorMessage(err));
-    } finally {
-      setWorkflowLoading(false);
-    }
-  };
-
   const handleGenerate = async () => {
     if (!formVoiceover.trim()) return;
+
+    if (!projectId) {
+      setError(
+        'No project selected. Create or select a project before generating a storyboard.'
+      );
+      console.error('[Storyboard] Generate blocked: projectId is null');
+      return;
+    }
 
     setLoading(true);
     setError(null);
     setResult(null);
     setWorkflowStarted(false);
     setWorkflowError(null);
+    setDraftError(null);
 
     try {
-      // Step 1: Generate storyboard with AI
+      console.log('[Storyboard] Generating storyboard plan...', {
+        projectId,
+        aspectRatio: formAspectRatio,
+        voiceoverLength: formVoiceover.length,
+      });
+
+      // Generate storyboard with AI and create draft record
       const response = await fetch('/api/storyboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           voiceoverText: formVoiceover,
-          style: formStyle,
+          model: formModel,
+          projectId,
+          aspectRatio: formAspectRatio,
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('[Storyboard] AI generation failed:', {
+          status: response.status,
+          errorData,
+        });
         throw new Error(errorData.error || 'Failed to generate storyboard');
       }
 
-      const data: StoryboardResponse = await response.json();
-      setResult(data);
-      setLoading(false);
+      const data = await response.json();
+      console.log('[Storyboard] Plan generated:', {
+        rows: data.rows,
+        cols: data.cols,
+        scenes: data.rows * data.cols,
+        storyboard_id: data.storyboard_id,
+      });
 
-      // Step 2: Automatically start workflow with the generated data
-      await startWorkflow(data);
+      // Set draft state and switch to draft mode for review
+      setDraftPlan({
+        rows: data.rows,
+        cols: data.cols,
+        grid_image_prompt: data.grid_image_prompt,
+        voiceover_list: data.voiceover_list,
+        visual_flow: data.visual_flow,
+      });
+      setDraftStoryboardId(data.storyboard_id);
+      setViewMode('draft');
+      setResult(data);
     } catch (err) {
+      console.error('[Storyboard] Generate error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
       setLoading(false);
     }
+  };
+
+  const handleApproveDraft = async () => {
+    if (!draftStoryboardId || !draftPlan) return;
+
+    setIsApprovingDraft(true);
+    setDraftError(null);
+
+    try {
+      // First, save any pending plan changes
+      const patchResponse = await fetch('/api/storyboard', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storyboardId: draftStoryboardId,
+          plan: draftPlan,
+        }),
+      });
+
+      if (!patchResponse.ok) {
+        const errorData = await patchResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save plan changes');
+      }
+
+      // Then approve and start scene generation
+      const approveResponse = await fetch('/api/storyboard/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storyboardId: draftStoryboardId }),
+      });
+
+      if (!approveResponse.ok) {
+        const errorData = await approveResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to start scene generation');
+      }
+
+      console.log('[Storyboard] Draft approved, scenes generating');
+
+      // Clear draft state and refresh
+      setDraftPlan(null);
+      setDraftStoryboardId(null);
+      setResult(null);
+      setWorkflowStarted(true);
+      setRefreshTrigger((prev) => prev + 1);
+      await refreshStoryboardsAfterCreate();
+    } catch (err) {
+      console.error('[Storyboard] Approve error:', err);
+      setDraftError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsApprovingDraft(false);
+    }
+  };
+
+  const handleRegenerateDraft = async () => {
+    if (!draftStoryboardId) return;
+
+    // Delete the current draft
+    try {
+      await fetch(`/api/storyboard?id=${draftStoryboardId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('[Storyboard] Failed to delete draft:', err);
+    }
+
+    // Clear draft state and regenerate
+    setDraftPlan(null);
+    setDraftStoryboardId(null);
+    setViewMode('create');
+
+    // Trigger regeneration
+    handleGenerate();
+  };
+
+  const handleCancelDraft = async () => {
+    if (draftStoryboardId) {
+      // Delete the draft
+      try {
+        await fetch(`/api/storyboard?id=${draftStoryboardId}`, {
+          method: 'DELETE',
+        });
+      } catch (err) {
+        console.error('[Storyboard] Failed to delete draft:', err);
+      }
+    }
+
+    // Clear draft state
+    setDraftPlan(null);
+    setDraftStoryboardId(null);
+    setDraftError(null);
+    setResult(null);
+    setViewMode('create');
   };
 
   return (
@@ -315,8 +376,7 @@ export default function PanelStoryboard() {
             <SelectContent>
               {storyboards.map((sb) => (
                 <SelectItem key={sb.id} value={sb.id}>
-                  {formatDate(sb.created_at)} - {getStyleLabel(sb.style)} (
-                  {sb.aspect_ratio})
+                  {formatDate(sb.created_at)} ({sb.aspect_ratio})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -341,8 +401,8 @@ export default function PanelStoryboard() {
               setSelectedStoryboardId(null);
               setViewMode('create');
               setFormVoiceover('');
-              setFormStyle('cinematic');
-              setFormAspectRatio('16:9');
+              setFormAspectRatio('9:16');
+              setFormModel('google/gemini-3-pro-preview');
               setResult(null);
               setError(null);
               setWorkflowStarted(false);
@@ -363,8 +423,8 @@ export default function PanelStoryboard() {
           </div>
         )}
 
-        {/* Workflow Status Messages */}
-        {result && (
+        {/* Workflow Status Messages - hide in draft mode */}
+        {result && viewMode !== 'draft' && (
           <div className="flex flex-col gap-4 mb-4">
             {/* Raw JSON - collapsed by default */}
             <details className="p-3 bg-secondary/30 rounded-md">
@@ -382,13 +442,6 @@ export default function PanelStoryboard() {
               </div>
             )}
 
-            {workflowLoading && (
-              <div className="p-3 bg-secondary/30 rounded-md flex items-center gap-2">
-                <IconLoader2 className="size-4 animate-spin" />
-                <span className="text-sm">Starting workflow...</span>
-              </div>
-            )}
-
             {workflowStarted && (
               <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-md flex items-center gap-2">
                 <IconCheck className="size-4 text-green-500" />
@@ -398,6 +451,19 @@ export default function PanelStoryboard() {
               </div>
             )}
           </div>
+        )}
+
+        {/* Draft Plan Editor - show when in draft mode */}
+        {viewMode === 'draft' && draftPlan && (
+          <DraftPlanEditor
+            plan={draftPlan}
+            onPlanChange={setDraftPlan}
+            onApprove={handleApproveDraft}
+            onRegenerate={handleRegenerateDraft}
+            onCancel={handleCancelDraft}
+            isApproving={isApprovingDraft}
+            error={draftError}
+          />
         )}
 
         {/* Scene Cards - show only when viewing a selected storyboard */}
@@ -417,106 +483,101 @@ export default function PanelStoryboard() {
           <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
             <IconLayoutGrid size={32} className="opacity-50" />
             <span className="text-sm text-center">
-              Enter your voiceover script and select a style to generate a
-              storyboard.
+              Enter your voiceover script to generate a storyboard.
             </span>
           </div>
         )}
       </ScrollArea>
 
-      {/* Input Section - Fixed at Bottom */}
-      <div className="flex-none border-t border-border/50">
-        {viewMode === 'view' && selectedStoryboard ? (
-          /* View Mode - Read-only display of saved storyboard settings */
-          <div className="p-4 flex flex-col gap-3 bg-secondary/10">
-            <div className="flex items-center gap-2">
-              <span className="text-xs px-2 py-1 bg-secondary rounded-md">
-                {getStyleLabel(selectedStoryboard.style)}
-              </span>
-              <span className="text-xs px-2 py-1 bg-secondary rounded-md">
-                {selectedStoryboard.aspect_ratio}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">
-                Voiceover Script
-              </span>
-              <div className="p-2 bg-background/50 rounded-md text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap">
-                {selectedStoryboard.voiceover || (
-                  <span className="text-muted-foreground italic">
-                    No voiceover
-                  </span>
-                )}
+      {/* Input Section - Fixed at Bottom (hidden in draft mode) */}
+      {viewMode !== 'draft' && (
+        <div className="flex-none border-t border-border/50">
+          {viewMode === 'view' && selectedStoryboard ? (
+            /* View Mode - Read-only display of saved storyboard settings */
+            <div className="p-4 flex flex-col gap-3 bg-secondary/10">
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2 py-1 bg-secondary rounded-md">
+                  {selectedStoryboard.aspect_ratio}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-muted-foreground">
+                  Voiceover Script
+                </span>
+                <div className="p-2 bg-background/50 rounded-md text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap">
+                  {selectedStoryboard.voiceover || (
+                    <span className="text-muted-foreground italic">
+                      No voiceover
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          /* Create Mode - Editable form */
-          <div className="p-4 flex flex-col gap-3">
-            {/* Voiceover Text Input */}
-            <Textarea
-              placeholder="Enter your voiceover script..."
-              className="resize-none text-sm min-h-[80px] max-h-[200px] overflow-y-auto"
-              value={formVoiceover}
-              onChange={(e) => setFormVoiceover(e.target.value)}
-            />
+          ) : (
+            /* Create Mode - Editable form */
+            <div className="p-4 flex flex-col gap-3">
+              {/* Voiceover Text Input */}
+              <Textarea
+                placeholder="Enter your voiceover script..."
+                className="resize-none text-sm min-h-[80px] max-h-[200px] overflow-y-auto"
+                value={formVoiceover}
+                onChange={(e) => setFormVoiceover(e.target.value)}
+              />
 
-            {/* Controls Row: Dropdowns + Generate Button */}
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" className="gap-1">
-                    {getStyleLabel(formStyle)}
-                    <IconChevronDown className="size-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {STYLE_OPTIONS.map((option) => (
-                    <DropdownMenuItem
-                      key={option.value}
-                      onClick={() => setFormStyle(option.value)}
-                    >
-                      {option.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Controls Row: Dropdowns + Generate Button */}
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="secondary" size="sm" className="gap-1">
+                      {formAspectRatio}
+                      <IconChevronDown className="size-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {ASPECT_RATIOS.map((option) => (
+                      <DropdownMenuItem
+                        key={option.value}
+                        onClick={() => setFormAspectRatio(option.value)}
+                      >
+                        {option.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" className="gap-1">
-                    {formAspectRatio}
-                    <IconChevronDown className="size-3 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {ASPECT_RATIOS.map((option) => (
-                    <DropdownMenuItem
-                      key={option.value}
-                      onClick={() => setFormAspectRatio(option.value)}
-                    >
-                      {option.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                <Select
+                  value={formModel}
+                  onValueChange={(v) => setFormModel(v as StoryboardModel)}
+                >
+                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STORYBOARD_MODELS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-              <Button
-                className="h-8 rounded-full text-sm flex-1"
-                size="sm"
-                onClick={handleGenerate}
-                disabled={loading || !formVoiceover.trim()}
-              >
-                {loading ? (
-                  <IconLoader2 className="size-4 animate-spin" />
-                ) : (
-                  'Generate'
-                )}
-              </Button>
+                <Button
+                  className="h-8 rounded-full text-sm flex-1"
+                  size="sm"
+                  onClick={handleGenerate}
+                  disabled={loading || !formVoiceover.trim()}
+                >
+                  {loading ? (
+                    <IconLoader2 className="size-4 animate-spin" />
+                  ) : (
+                    'Generate'
+                  )}
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

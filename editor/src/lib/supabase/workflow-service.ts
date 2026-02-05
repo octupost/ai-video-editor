@@ -3,13 +3,24 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Types for workflow data
 
+export type PlanStatus = 'draft' | 'approved' | 'generating' | null;
+
+export interface StoryboardPlan {
+  rows: number;
+  cols: number;
+  grid_image_prompt: string;
+  voiceover_list: string[];
+  visual_flow: string[];
+}
+
 export interface Storyboard {
   id: string;
   project_id: string;
   voiceover: string;
-  style: string;
   aspect_ratio: string;
   created_at: string;
+  plan: StoryboardPlan | null;
+  plan_status: PlanStatus;
 }
 
 export interface GridImage {
@@ -31,6 +42,7 @@ export interface FirstFrame {
   id: string;
   scene_id: string;
   visual_prompt: string | null;
+  sfx_prompt: string | null;
   url: string | null;
   out_padded_url: string | null;
   status: 'pending' | 'processing' | 'success' | 'failed';
@@ -44,6 +56,9 @@ export interface FirstFrame {
   video_request_id: string | null;
   video_error_message: string | null;
   video_resolution: '480p' | '720p' | '1080p' | null;
+  sfx_status: 'pending' | 'processing' | 'success' | 'failed' | null;
+  sfx_request_id: string | null;
+  sfx_error_message: string | null;
 }
 
 export interface Voiceover {
@@ -442,4 +457,58 @@ export function subscribeToSceneUpdates(
       supabase.removeChannel(ch);
     }
   };
+}
+
+/**
+ * Get the draft storyboard for a project (if one exists)
+ * Returns the storyboard with plan_status='draft'
+ */
+export async function getDraftStoryboard(
+  projectId: string
+): Promise<Storyboard | null> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('storyboards')
+    .select('*')
+    .eq('project_id', projectId)
+    .eq('plan_status', 'draft')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    console.error('Failed to fetch draft storyboard:', error);
+    return null;
+  }
+
+  return data as Storyboard;
+}
+
+/**
+ * Get a storyboard by ID
+ */
+export async function getStoryboardById(
+  storyboardId: string
+): Promise<Storyboard | null> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from('storyboards')
+    .select('*')
+    .eq('id', storyboardId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
+    console.error('Failed to fetch storyboard:', error);
+    return null;
+  }
+
+  return data as Storyboard;
 }

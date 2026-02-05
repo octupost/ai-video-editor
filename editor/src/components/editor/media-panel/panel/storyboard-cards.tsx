@@ -5,9 +5,12 @@ import {
   IconLayoutGrid,
   IconLoader2,
   IconMicrophone,
+  IconPlayerPause,
+  IconPlayerPlay,
   IconPlayerTrackNext,
   IconSparkles,
   IconVideo,
+  IconVolume,
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { SceneCard } from './scene-card';
@@ -20,6 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useVoicePreview } from '@/hooks/use-voice-preview';
 import { useWorkflow } from '@/hooks/use-workflow';
 import { useStudioStore } from '@/stores/studio-store';
 import { createClient } from '@/lib/supabase/client';
@@ -28,6 +37,144 @@ import {
   findCompatibleTrack,
 } from '@/lib/scene-timeline-utils';
 import type { GridImageWithScenes } from '@/lib/supabase/workflow-service';
+
+const VOICES = [
+  {
+    value: 'pNInz6obpgDQGcFmaJgB',
+    label: 'Adam',
+    description: 'American, middle-aged male',
+  },
+  {
+    value: 'Xb7hH8MSUJpSbSDYk0k2',
+    label: 'Alice',
+    description: 'British, middle-aged female',
+  },
+  {
+    value: 'hpp4J3VqNfWAUOO0d1Us',
+    label: 'Bella',
+    description: 'American, middle-aged female',
+  },
+  {
+    value: 'pqHfZKP75CvOlQylNhV4',
+    label: 'Bill',
+    description: 'American, older male',
+  },
+  {
+    value: 'nPczCjzI2devNBz1zQrb',
+    label: 'Brian',
+    description: 'American, middle-aged male',
+  },
+  {
+    value: 'N2lVS1w4EtoT3dr4eOWO',
+    label: 'Callum',
+    description: 'American, middle-aged male',
+  },
+  {
+    value: 'IKne3meq5aSn9XLyUdCD',
+    label: 'Charlie',
+    description: 'Australian, young male',
+  },
+  {
+    value: 'iP95p4xoKVk53GoZ742B',
+    label: 'Chris',
+    description: 'American, middle-aged male',
+  },
+  {
+    value: 'onwK4e9ZLuTAKqWW03F9',
+    label: 'Daniel',
+    description: 'British, middle-aged male',
+  },
+  {
+    value: 'cjVigY5qzO86Huf0OWal',
+    label: 'Eric',
+    description: 'American, middle-aged male',
+  },
+  {
+    value: 'JBFqnCBsd6RMkjVDRZzb',
+    label: 'George',
+    description: 'British, middle-aged male',
+  },
+  {
+    value: 'SOYHLrjzK2X1ezoPC6cr',
+    label: 'Harry',
+    description: 'American, young male',
+  },
+  {
+    value: 'cgSgspJ2msm6clMCkdW9',
+    label: 'Jessica',
+    description: 'American, young female',
+  },
+  {
+    value: 'FGY2WhTYpPnrIDTdsKH5',
+    label: 'Laura',
+    description: 'American, young female',
+  },
+  {
+    value: 'TX3LPaxmHKxFdv7VOQHJ',
+    label: 'Liam',
+    description: 'American, young male',
+  },
+  {
+    value: 'pFZP5JQG7iQjIQuC4Bku',
+    label: 'Lily',
+    description: 'British, middle-aged female',
+  },
+  {
+    value: 'XrExE9yKIg1WjnnlVkGX',
+    label: 'Matilda',
+    description: 'American, middle-aged female',
+  },
+  {
+    value: 'SAz9YHcvj6GT2YYXdXww',
+    label: 'River',
+    description: 'American, middle-aged neutral',
+  },
+  {
+    value: 'CwhRBWXzGAHq8TQ4Fs17',
+    label: 'Roger',
+    description: 'American, middle-aged male',
+  },
+  {
+    value: 'EXAVITQu4vr4xnSDxMaL',
+    label: 'Sarah',
+    description: 'American, young female',
+  },
+  {
+    value: 'bIHbv24MWmeRgasZH58o',
+    label: 'Will',
+    description: 'American, young male',
+  },
+] as const;
+
+const TTS_MODELS = {
+  'turbo-v2.5': { label: 'Turbo v2.5', description: 'Fast' },
+  'multilingual-v2': {
+    label: 'Multilingual v2',
+    description: 'Better languages',
+  },
+} as const;
+
+type TTSModelKey = keyof typeof TTS_MODELS;
+
+const ENHANCE_MODELS = {
+  kling: { label: 'Kling' },
+  banana: { label: 'Banana' },
+  fibo: { label: 'Fibo' },
+} as const;
+
+const VIDEO_MODELS = {
+  'wan2.6': { label: 'Wan 2.6', resolutions: ['720p', '1080p'] as const },
+  'bytedance1.5pro': {
+    label: 'ByteDance 1.5 Pro',
+    resolutions: ['480p', '720p', '1080p'] as const,
+  },
+  grok: {
+    label: 'Grok',
+    resolutions: ['720p', '480p'] as const,
+  },
+} as const;
+
+type VideoModelKey = keyof typeof VIDEO_MODELS;
 
 interface StoryboardCardsProps {
   projectId: string;
@@ -40,29 +187,40 @@ export function StoryboardCards({
   storyboardId,
   refreshTrigger,
 }: StoryboardCardsProps) {
-  const { gridImage, loading, error, isProcessing, refresh } = useWorkflow(
-    projectId,
-    {
+  const { gridImage, storyboard, loading, error, isProcessing, refresh } =
+    useWorkflow(projectId, {
       realtime: true,
       includeScenes: true,
       storyboardId,
-    }
-  );
+    });
 
   const [selectedSceneIds, setSelectedSceneIds] = useState<Set<string>>(
     new Set()
   );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [enhanceModel, setEnhanceModel] =
+    useState<keyof typeof ENHANCE_MODELS>('kling');
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [videoModel, setVideoModel] =
+    useState<VideoModelKey>('bytedance1.5pro');
   const [videoResolution, setVideoResolution] = useState<
     '480p' | '720p' | '1080p'
   >('720p');
+  const [isGeneratingSfx, setIsGeneratingSfx] = useState(false);
   const [isAddingToTimeline, setIsAddingToTimeline] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState('pNInz6obpgDQGcFmaJgB');
+  const [ttsModel, setTtsModel] = useState<TTSModelKey>('turbo-v2.5');
   const [playingVoiceoverId, setPlayingVoiceoverId] = useState<string | null>(
     null
   );
   const { studio } = useStudioStore();
+  const {
+    previewUrls,
+    playingVoiceId: previewPlayingId,
+    togglePreview,
+    stopPreview,
+  } = useVoicePreview();
 
   // Refresh data when refreshTrigger changes (new storyboard generated)
   useEffect(() => {
@@ -70,6 +228,14 @@ export function StoryboardCards({
       refresh();
     }
   }, [refreshTrigger, refresh]);
+
+  // Auto-correct resolution when model changes
+  useEffect(() => {
+    const allowed = VIDEO_MODELS[videoModel].resolutions as readonly string[];
+    if (!allowed.includes(videoResolution)) {
+      setVideoResolution(allowed[0] as '480p' | '720p' | '1080p');
+    }
+  }, [videoModel, videoResolution]);
 
   const scenes =
     gridImage && 'scenes' in gridImage
@@ -108,7 +274,11 @@ export function StoryboardCards({
     try {
       const supabase = createClient();
       const { data, error } = await supabase.functions.invoke('generate-tts', {
-        body: { scene_ids: Array.from(selectedSceneIds) },
+        body: {
+          scene_ids: Array.from(selectedSceneIds),
+          voice: selectedVoice,
+          model: ttsModel,
+        },
       });
 
       if (error) throw error;
@@ -133,7 +303,7 @@ export function StoryboardCards({
     try {
       const supabase = createClient();
       const { data, error } = await supabase.functions.invoke('enhance-image', {
-        body: { scene_ids: Array.from(selectedSceneIds) },
+        body: { scene_ids: Array.from(selectedSceneIds), model: enhanceModel },
       });
 
       if (error) throw error;
@@ -163,6 +333,11 @@ export function StoryboardCards({
           body: {
             scene_ids: Array.from(selectedSceneIds),
             resolution: videoResolution,
+            model: videoModel,
+            aspect_ratio:
+              storyboard && 'aspect_ratio' in storyboard
+                ? storyboard.aspect_ratio
+                : '16:9',
           },
         }
       );
@@ -181,6 +356,39 @@ export function StoryboardCards({
       setIsGeneratingVideo(false);
     }
   };
+
+  const handleGenerateSfx = async () => {
+    if (selectedSceneIds.size === 0) return;
+
+    setIsGeneratingSfx(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke('generate-sfx', {
+        body: { scene_ids: Array.from(selectedSceneIds) },
+      });
+
+      if (error) throw error;
+
+      toast.success(
+        `SFX generation started for ${data.summary.queued} scene(s)`
+      );
+      clearSelection();
+      refresh();
+    } catch (err) {
+      console.error('Failed to generate SFX:', err);
+      toast.error('Failed to generate SFX');
+    } finally {
+      setIsGeneratingSfx(false);
+    }
+  };
+
+  // Check if any selected scenes have videos ready (for SFX and timeline)
+  const selectedScenesWithVideoForSfx = sortedScenes.filter(
+    (s) =>
+      selectedSceneIds.has(s.id) &&
+      s.first_frames?.[0]?.video_status === 'success' &&
+      s.first_frames?.[0]?.video_url
+  );
 
   // Check if any selected scenes have videos ready
   const selectedScenesWithVideo = sortedScenes.filter(
@@ -287,106 +495,251 @@ export function StoryboardCards({
   return (
     <div className="flex flex-col gap-3">
       {/* Selection Action Bar */}
-      <div className="flex items-center justify-between gap-2 p-2 bg-secondary/20 rounded-md">
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={allSelected}
-            onCheckedChange={(checked) => {
-              if (checked) {
-                selectAll();
-              } else {
-                clearSelection();
-              }
-            }}
-          />
-          <span className="text-xs text-muted-foreground">
-            {allSelected ? 'Deselect All' : 'Select All'}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-1.5">
+        {/* Row 1: Selection */}
+        <div className="flex items-center justify-between px-2 py-1.5 bg-secondary/20 rounded-md">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={(checked) => {
+                if (checked) {
+                  selectAll();
+                } else {
+                  clearSelection();
+                }
+              }}
+            />
+            <span className="text-xs text-muted-foreground">
+              {allSelected ? 'Deselect All' : 'Select All'}
+            </span>
+          </div>
           {selectedSceneIds.size > 0 && (
             <span className="text-xs text-muted-foreground">
               {selectedSceneIds.size} selected
             </span>
           )}
-          <Button
-            size="sm"
-            variant="default"
-            disabled={selectedSceneIds.size === 0 || isGenerating}
-            onClick={handleGenerateVoiceovers}
-            className="h-7 text-xs"
-          >
-            {isGenerating ? (
-              <IconLoader2 className="size-3 animate-spin mr-1" />
-            ) : (
-              <IconMicrophone className="size-3 mr-1" />
-            )}
-            Voiceover
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={selectedSceneIds.size === 0 || isEnhancing}
-            onClick={handleEnhanceImages}
-            className="h-7 text-xs"
-          >
-            {isEnhancing ? (
-              <IconLoader2 className="size-3 animate-spin mr-1" />
-            ) : (
-              <IconSparkles className="size-3 mr-1" />
-            )}
-            Enhance
-          </Button>
-          <Select
-            value={videoResolution}
-            onValueChange={(value: '480p' | '720p' | '1080p') =>
-              setVideoResolution(value)
-            }
-          >
-            <SelectTrigger className="h-7 w-[70px] text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="480p">480p</SelectItem>
-              <SelectItem value="720p">720p</SelectItem>
-              <SelectItem value="1080p">1080p</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={selectedSceneIds.size === 0 || isGeneratingVideo}
-            onClick={handleGenerateVideo}
-            className="h-7 text-xs"
-          >
-            {isGeneratingVideo ? (
-              <IconLoader2 className="size-3 animate-spin mr-1" />
-            ) : (
-              <IconVideo className="size-3 mr-1" />
-            )}
-            Video
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={
-              selectedScenesWithVideo.length === 0 || isAddingToTimeline
-            }
-            onClick={handleAddAllToTimeline}
-            className="h-7 text-xs"
-            title={
-              selectedScenesWithVideo.length === 0
-                ? 'Select scenes with generated videos'
-                : `Add ${selectedScenesWithVideo.length} scene(s) to timeline`
-            }
-          >
-            {isAddingToTimeline ? (
-              <IconLoader2 className="size-3 animate-spin mr-1" />
-            ) : (
-              <IconPlayerTrackNext className="size-3 mr-1" />
-            )}
-            Timeline
-          </Button>
+        </div>
+
+        {/* Row 2: Actions (scrollable) */}
+        <div
+          className="flex items-center gap-1.5 px-2 py-1.5 bg-secondary/20 rounded-md overflow-x-auto"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {/* Audio group */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Select
+              value={selectedVoice}
+              onValueChange={(value) => {
+                stopPreview();
+                setSelectedVoice(value);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VOICES.map((v) => (
+                  <SelectItem key={v.value} value={v.value}>
+                    <span>{v.label}</span>
+                    <span className="ml-1 text-muted-foreground">
+                      {v.description}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={ttsModel}
+              onValueChange={(v) => setTtsModel(v as TTSModelKey)}
+            >
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(TTS_MODELS) as TTSModelKey[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    <span>{TTS_MODELS[key].label}</span>
+                    <span className="ml-1 text-muted-foreground">
+                      {TTS_MODELS[key].description}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  disabled={!previewUrls.has(selectedVoice)}
+                  onClick={() => togglePreview(selectedVoice)}
+                >
+                  {previewPlayingId === selectedVoice ? (
+                    <IconPlayerPause className="size-3.5" />
+                  ) : (
+                    <IconPlayerPlay className="size-3.5" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {previewPlayingId === selectedVoice
+                  ? 'Stop preview'
+                  : 'Preview voice'}
+              </TooltipContent>
+            </Tooltip>
+            <Button
+              size="sm"
+              variant="default"
+              disabled={selectedSceneIds.size === 0 || isGenerating}
+              onClick={handleGenerateVoiceovers}
+              className="h-8 text-xs"
+            >
+              {isGenerating ? (
+                <IconLoader2 className="size-3.5 animate-spin mr-1" />
+              ) : (
+                <IconMicrophone className="size-3.5 mr-1" />
+              )}
+              Voiceover
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={
+                selectedScenesWithVideoForSfx.length === 0 || isGeneratingSfx
+              }
+              onClick={handleGenerateSfx}
+              className="h-8 text-xs"
+              title={
+                selectedScenesWithVideoForSfx.length === 0
+                  ? 'Select scenes with generated videos'
+                  : `Add SFX to ${selectedScenesWithVideoForSfx.length} scene(s)`
+              }
+            >
+              {isGeneratingSfx ? (
+                <IconLoader2 className="size-3.5 animate-spin mr-1" />
+              ) : (
+                <IconVolume className="size-3.5 mr-1" />
+              )}
+              SFX
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="h-5 border-l border-border/40 flex-shrink-0" />
+
+          {/* Visual group */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Select
+              value={enhanceModel}
+              onValueChange={(v) =>
+                setEnhanceModel(v as keyof typeof ENHANCE_MODELS)
+              }
+            >
+              <SelectTrigger className="h-8 w-[100px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(
+                  Object.keys(ENHANCE_MODELS) as (keyof typeof ENHANCE_MODELS)[]
+                ).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {ENHANCE_MODELS[key].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={selectedSceneIds.size === 0 || isEnhancing}
+              onClick={handleEnhanceImages}
+              className="h-8 text-xs"
+            >
+              {isEnhancing ? (
+                <IconLoader2 className="size-3.5 animate-spin mr-1" />
+              ) : (
+                <IconSparkles className="size-3.5 mr-1" />
+              )}
+              Enhance
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="h-5 border-l border-border/40 flex-shrink-0" />
+
+          {/* Output group */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Select
+              value={videoModel}
+              onValueChange={(value: string) =>
+                setVideoModel(value as VideoModelKey)
+              }
+            >
+              <SelectTrigger className="h-8 w-[150px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(VIDEO_MODELS) as VideoModelKey[]).map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {VIDEO_MODELS[key].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={videoResolution}
+              onValueChange={(value: '480p' | '720p' | '1080p') =>
+                setVideoResolution(value)
+              }
+            >
+              <SelectTrigger className="h-8 w-[70px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {VIDEO_MODELS[videoModel].resolutions.map((res) => (
+                  <SelectItem key={res} value={res}>
+                    {res}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={selectedSceneIds.size === 0 || isGeneratingVideo}
+              onClick={handleGenerateVideo}
+              className="h-8 text-xs"
+            >
+              {isGeneratingVideo ? (
+                <IconLoader2 className="size-3.5 animate-spin mr-1" />
+              ) : (
+                <IconVideo className="size-3.5 mr-1" />
+              )}
+              Video
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={
+                selectedScenesWithVideo.length === 0 || isAddingToTimeline
+              }
+              onClick={handleAddAllToTimeline}
+              className="h-8 text-xs"
+              title={
+                selectedScenesWithVideo.length === 0
+                  ? 'Select scenes with generated videos'
+                  : `Add ${selectedScenesWithVideo.length} scene(s) to timeline`
+              }
+            >
+              {isAddingToTimeline ? (
+                <IconLoader2 className="size-3.5 animate-spin mr-1" />
+              ) : (
+                <IconPlayerTrackNext className="size-3.5 mr-1" />
+              )}
+              Timeline
+            </Button>
+          </div>
         </div>
       </div>
 
