@@ -254,6 +254,7 @@ export abstract class BaseSprite<
     angle: 0,
     blur: 0,
     brightness: 1,
+    mirror: 0,
   };
 
   /**
@@ -337,6 +338,7 @@ export abstract class BaseSprite<
       angle: 0,
       blur: 0,
       brightness: 1,
+      mirror: 0,
     };
 
     // 1. Process new modular animations
@@ -358,6 +360,11 @@ export abstract class BaseSprite<
         this.renderTransform.opacity! *= transform.opacity;
       if (transform.brightness !== undefined)
         this.renderTransform.brightness! *= transform.brightness;
+      if (transform.mirror !== undefined)
+        this.renderTransform.mirror = Math.max(
+          this.renderTransform.mirror || 0,
+          transform.mirror,
+        );
 
       if (target && anim.apply) {
         anim.apply(target, time);

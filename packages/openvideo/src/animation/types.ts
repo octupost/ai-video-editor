@@ -10,6 +10,7 @@ export interface AnimationProps {
   angle?: number;
   blur?: number;
   brightness?: number;
+  mirror?: number;
 }
 
 export interface AnimationOptions {
@@ -51,6 +52,7 @@ export interface AnimationTransform {
   angle?: number; // additive offset
   blur?: number; // additive offset
   brightness?: number; // multiplier (relative to 1.0)
+  mirror?: number; // 0 or 1 (boolean via number)
 }
 
 export interface KeyframeData {
@@ -67,4 +69,5 @@ export const ANIMATABLE_PROPERTIES = {
   angle: { label: "Rotation", min: -360, max: 360, step: 1, default: 0 },
   blur: { label: "Blur", min: 0, max: 100, step: 1, default: 0 },
   brightness: { label: "Brightness", min: 0, max: 5, step: 0.1, default: 1 },
+  mirror: { label: "Mirror", min: 0, max: 1, step: 1, default: 0 },
 } as const;

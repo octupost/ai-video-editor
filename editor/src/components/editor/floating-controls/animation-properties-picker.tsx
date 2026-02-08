@@ -286,15 +286,6 @@ export function AnimationPropertiesPicker() {
     { label: "Slide In", value: "slideIn" },
     { label: "Blur In", value: "blurIn" },
     { label: "Pulse", value: "pulse" },
-    { label: "Blur Slide Right In", value: "blurSlideRightIn" },
-    { label: "Wobble Zoom In", value: "wobbleZoomIn" },
-    { label: "Spin Zoom In", value: "spinZoomIn" },
-    { label: "Blur Slide Left In", value: "blurSlideLeftIn" },
-    { label: "Blur Slide Right Strong In", value: "blurSlideRightStrongIn" },
-    { label: "Cinematic Zoom Slide In", value: "cinematicZoomSlideIn" },
-    { label: "Elastic Twist In", value: "elasticTwistIn" },
-    { label: "Spin Fade In", value: "spinFadeIn" },
-    { label: "Flash Zoom In", value: "flashZoomIn" },
     ...(isTextLike
       ? [
           { label: "Char Fade In", value: "charFadeIn" },
@@ -310,13 +301,6 @@ export function AnimationPropertiesPicker() {
     { label: "Slide Out", value: "slideOut" },
     { label: "Blur Out", value: "blurOut" },
     { label: "Pulse", value: "pulse" },
-    { label: "Tilt Slide Right Out", value: "tiltSlideRightOut" },
-    { label: "Tilt Zoom Out", value: "tiltZoomOut" },
-    { label: "Glitch Slide Out", value: "glitchSlideOut" },
-    { label: "Drop Blur Out", value: "dropBlurOut" },
-    { label: "Fall Zoom Out", value: "fallZoomOut" },
-    { label: "Zoom Spin Out", value: "zoomSpinOut" },
-    { label: "Dramatic Spin Slide Out", value: "dramaticSpinSlideOut" },
   ];
 
   return (
@@ -361,7 +345,7 @@ export function AnimationPropertiesPicker() {
                   <SelectTrigger className="w-full h-9">
                     <SelectValue placeholder="Select a preset" />
                   </SelectTrigger>
-                  <SelectContent className="z-[250] h-60">
+                  <SelectContent className="z-[250] max-h-60">
                     {activeTab === "in" &&
                       inPresets.map((p) => (
                         <SelectItem key={p.value} value={p.value}>

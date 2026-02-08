@@ -83,7 +83,11 @@ export class KeyframeAnimation implements IAnimation {
 
     // If iterCount is finite, the whole animation must finish at precisely 'duration'
     if (iterCount !== Infinity && offsetTime >= duration) {
-      return this.interpolateProps(1);
+      const transform = this.interpolateProps(1);
+      if ("mirror" in transform) {
+        (transform as any).mirror = 0;
+      }
+      return transform;
     }
 
     const cycleDuration =
