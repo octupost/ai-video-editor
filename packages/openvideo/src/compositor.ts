@@ -4,6 +4,7 @@ import {
   Filter,
   RenderTexture,
   Sprite,
+  TilingSprite,
   Texture,
   Graphics,
   BlurFilter,
@@ -689,11 +690,26 @@ function createSpritesRender(opts: {
     });
 
     // 2. Render Clip Frame
-    const tempSprite = new Sprite(
-      frame instanceof Texture ? frame : Texture.from(frame),
-    );
-
     const { renderTransform } = clip;
+    let tempSprite: Sprite | TilingSprite;
+    const isMirrored = (renderTransform?.mirror ?? 0) > 0.5;
+
+    if (isMirrored) {
+      tempSprite = new TilingSprite({
+        texture: frame instanceof Texture ? frame : Texture.from(frame),
+        width: 1, // Placeholder
+        height: 1,
+      });
+      if (tempSprite.texture.source) {
+        tempSprite.texture.source.style.addressMode = "mirror-repeat";
+        tempSprite.texture.source.update();
+      }
+    } else {
+      tempSprite = new Sprite(
+        frame instanceof Texture ? frame : Texture.from(frame),
+      );
+    }
+
     const xOffset = renderTransform?.x ?? 0;
     const yOffset = renderTransform?.y ?? 0;
     const angleOffset = renderTransform?.angle ?? 0;
@@ -709,22 +725,49 @@ function createSpritesRender(opts: {
     const textureWidth = tempSprite.texture.width || 1;
     const textureHeight = tempSprite.texture.height || 1;
 
+    const isCaption = (clip as any).type === "Caption";
+
     const baseScaleX =
-      clip.width && clip.width !== 0 ? Math.abs(clip.width) / textureWidth : 1;
+      !isCaption && clip.width && clip.width !== 0
+        ? Math.abs(clip.width) / textureWidth
+        : 1;
     const baseScaleY =
-      clip.height && clip.height !== 0
+      !isCaption && clip.height && clip.height !== 0
         ? Math.abs(clip.height) / textureHeight
         : 1;
 
-    if (clip.flip === "horizontal") {
-      tempSprite.scale.x = -baseScaleX * scaleMultiplier;
-      tempSprite.scale.y = baseScaleY * scaleMultiplier;
-    } else if (clip.flip === "vertical") {
-      tempSprite.scale.x = baseScaleX * scaleMultiplier;
-      tempSprite.scale.y = -baseScaleY * scaleMultiplier;
+    if (isMirrored && tempSprite instanceof TilingSprite) {
+      // Override width/height to be larger
+      tempSprite.width = textureWidth * 5;
+      tempSprite.height = textureHeight * 5;
+
+      // Center the texture within the large box
+      tempSprite.tilePosition.set(
+        (tempSprite.width - textureWidth) / 2,
+        (tempSprite.height - textureHeight) / 2,
+      );
+
+      if (clip.flip === "horizontal") {
+        tempSprite.scale.x = -baseScaleX * scaleMultiplier;
+        tempSprite.scale.y = baseScaleY * scaleMultiplier;
+      } else if (clip.flip === "vertical") {
+        tempSprite.scale.x = baseScaleX * scaleMultiplier;
+        tempSprite.scale.y = -baseScaleY * scaleMultiplier;
+      } else {
+        tempSprite.scale.x = baseScaleX * scaleMultiplier;
+        tempSprite.scale.y = baseScaleY * scaleMultiplier;
+      }
     } else {
-      tempSprite.scale.x = baseScaleX * scaleMultiplier;
-      tempSprite.scale.y = baseScaleY * scaleMultiplier;
+      if (clip.flip === "horizontal") {
+        tempSprite.scale.x = -baseScaleX * scaleMultiplier;
+        tempSprite.scale.y = baseScaleY * scaleMultiplier;
+      } else if (clip.flip === "vertical") {
+        tempSprite.scale.x = baseScaleX * scaleMultiplier;
+        tempSprite.scale.y = -baseScaleY * scaleMultiplier;
+      } else {
+        tempSprite.scale.x = baseScaleX * scaleMultiplier;
+        tempSprite.scale.y = baseScaleY * scaleMultiplier;
+      }
     }
 
     tempSprite.rotation =

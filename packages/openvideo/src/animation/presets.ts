@@ -221,8 +221,8 @@ export const blurSlideRightIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { blur: 5, x: 100 },
-      "100%": { blur: 0, x: 0 },
+      "0%": { blur: 5, x: 100, mirror: 1 },
+      "100%": { blur: 0, x: 0, mirror: 1 },
     },
     {
       ...opts,
@@ -238,10 +238,10 @@ export const wobbleZoomIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { scale: 1.2, angle: -5 },
-      "32%": { scale: 1, angle: 0 },
-      "64%": { scale: 1.2, angle: -5 },
-      "100%": { scale: 1, angle: 0 },
+      "0%": { scale: 1.2, angle: -5, mirror: 1 },
+      "32%": { scale: 1, angle: 0, mirror: 1 },
+      "64%": { scale: 1.2, angle: -5, mirror: 1 },
+      "100%": { scale: 1, angle: 0, mirror: 1 },
     },
     {
       ...opts,
@@ -257,8 +257,8 @@ export const spinZoomIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { blur: 5, angle: 45, scale: 2 },
-      "100%": { blur: 0, angle: 0, scale: 1 },
+      "0%": { blur: 5, angle: 45, scale: 2, mirror: 1 },
+      "100%": { blur: 0, angle: 0, scale: 1, mirror: 1 },
     },
     {
       ...opts,
@@ -274,8 +274,8 @@ export const blurSlideLeftIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { x: -200, blur: 10 },
-      "100%": { x: 0, blur: 0 },
+      "0%": { x: -200, blur: 10, mirror: 1 },
+      "100%": { x: 0, blur: 0, mirror: 1 },
     },
     {
       ...opts,
@@ -291,8 +291,8 @@ export const blurSlideRightStrongIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { x: 200, blur: 10 },
-      "100%": { x: 0, blur: 0 },
+      "0%": { x: 200, blur: 10, mirror: 1 },
+      "100%": { x: 0, blur: 0, mirror: 1 },
     },
     {
       ...opts,
@@ -308,10 +308,10 @@ export const cinematicZoomSlideIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { scale: 0.6, blur: 30, x: 200 },
-      "30%": { scale: 0.8, blur: 20, x: 50 },
-      "60%": { scale: 0.9, blur: 10, x: 0 },
-      "100%": { scale: 1, blur: 0, x: 0 },
+      "0%": { scale: 0.6, blur: 30, x: 200, mirror: 1 },
+      "30%": { scale: 0.8, blur: 20, x: 50, mirror: 1 },
+      "60%": { scale: 0.9, blur: 10, x: 0, mirror: 1 },
+      "100%": { scale: 1, blur: 0, x: 0, mirror: 1 },
     },
     {
       ...opts,
@@ -327,10 +327,10 @@ export const elasticTwistIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { scale: 1.4, blur: 20, angle: 10 },
-      "40%": { scale: 1, blur: 0, angle: 0 },
-      "60%": { scale: 1.3, blur: 0, angle: -10 },
-      "100%": { scale: 1, blur: 0, angle: 0 },
+      "0%": { scale: 1.4, blur: 20, angle: 10, mirror: 1 },
+      "40%": { scale: 1, blur: 0, angle: 0, mirror: 1 },
+      "60%": { scale: 1.3, blur: 0, angle: -10, mirror: 1 },
+      "100%": { scale: 1, blur: 0, angle: 0, mirror: 1 },
     },
     {
       ...opts,
@@ -346,8 +346,8 @@ export const spinFadeIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { blur: 40, angle: 80 },
-      "100%": { blur: 0, angle: 0 },
+      "0%": { blur: 40, angle: 80, mirror: 1 },
+      "100%": { blur: 0, angle: 0, mirror: 1 },
     },
     {
       ...opts,
@@ -363,10 +363,10 @@ export const flashZoomIn: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { scale: 1, brightness: 3 },
-      "40%": { scale: 1, brightness: 3 },
-      "80%": { scale: 1.5, brightness: 3 },
-      "100%": { scale: 1, brightness: 1 },
+      "0%": { scale: 1, brightness: 3, mirror: 1 },
+      "40%": { scale: 1, brightness: 3, mirror: 1 },
+      "80%": { scale: 1.5, brightness: 3, mirror: 1 },
+      "100%": { scale: 1, brightness: 1, mirror: 1 },
     },
     {
       ...opts,
@@ -383,9 +383,9 @@ export const tiltSlideRightOut: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { angle: 0, x: 0 },
-      "70%": { angle: 7, x: 0 },
-      "100%": { angle: 10, x: 200 },
+      "0%": { angle: 0, x: 0, mirror: 1 },
+      "70%": { angle: 7, x: 0, mirror: 1 },
+      "100%": { angle: 10, x: 200, mirror: 1 },
     },
     {
       ...opts,
@@ -401,8 +401,8 @@ export const tiltZoomOut: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { angle: 0, scale: 1 },
-      "100%": { angle: -10, scale: 1.2 },
+      "0%": { angle: 0, scale: 1, mirror: 1 },
+      "100%": { angle: -10, scale: 1.2, mirror: 1 },
     },
     {
       ...opts,
@@ -418,10 +418,10 @@ export const glitchSlideOut: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { x: 0, angle: 0 },
-      "30%": { x: 100, angle: -5 },
-      "70%": { x: 100, angle: -20 },
-      "100%": { x: -100, angle: -20 },
+      "0%": { x: 0, angle: 0, mirror: 1 },
+      "30%": { x: 100, angle: -5, mirror: 1 },
+      "70%": { x: 100, angle: -20, mirror: 1 },
+      "100%": { x: -100, angle: -20, mirror: 1 },
     },
     {
       ...opts,
@@ -437,8 +437,8 @@ export const dropBlurOut: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { y: 0, blur: 0 },
-      "100%": { y: 200, blur: 20 },
+      "0%": { y: 0, blur: 0, mirror: 1 },
+      "100%": { y: 200, blur: 20, mirror: 1 },
     },
     {
       ...opts,
@@ -454,8 +454,8 @@ export const fallZoomOut: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { y: 0, scale: 1 },
-      "100%": { y: 250, scale: 1.5 },
+      "0%": { y: 0, scale: 1, mirror: 1 },
+      "100%": { y: 250, scale: 1.5, mirror: 1 },
     },
     {
       ...opts,
@@ -471,8 +471,8 @@ export const zoomSpinOut: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { scale: 1, angle: 0 },
-      "100%": { scale: 2, angle: 10 },
+      "0%": { scale: 1, angle: 0, mirror: 1 },
+      "100%": { scale: 2, angle: 10, mirror: 1 },
     },
     {
       ...opts,
@@ -488,9 +488,9 @@ export const dramaticSpinSlideOut: AnimationFactory = (opts, params) => {
   }
   return new KeyframeAnimation(
     {
-      "0%": { x: 0, angle: 0, blur: 0 },
-      "40%": { x: -200, angle: 10, blur: 5 },
-      "100%": { x: -200, angle: 60, blur: 20 },
+      "0%": { x: 0, angle: 0, blur: 0, mirror: 1 },
+      "40%": { x: -200, angle: 10, blur: 5, mirror: 1 },
+      "100%": { x: -200, angle: 60, blur: 20, mirror: 1 },
     },
     {
       ...opts,
@@ -618,95 +618,95 @@ export function getPresetTemplate(type: string, params?: any): any {
       };
     case "blurSlideRightIn":
       return {
-        "0%": { blur: 5, x: 100 },
-        "100%": { blur: 0, x: 0 },
+        "0%": { blur: 5, x: 100, mirror: 1 },
+        "100%": { blur: 0, x: 0, mirror: 1 },
       };
     case "wobbleZoomIn":
       return {
-        "0%": { scale: 1.2, angle: -5 },
-        "32%": { scale: 1, angle: 0 },
-        "64%": { scale: 1.2, angle: -5 },
-        "100%": { scale: 1, angle: 0 },
+        "0%": { scale: 1.2, angle: -5, mirror: 1 },
+        "32%": { scale: 1, angle: 0, mirror: 1 },
+        "64%": { scale: 1.2, angle: -5, mirror: 1 },
+        "100%": { scale: 1, angle: 0, mirror: 1 },
       };
     case "spinZoomIn":
       return {
-        "0%": { blur: 5, angle: 45, scale: 2 },
-        "100%": { blur: 0, angle: 0, scale: 1 },
+        "0%": { blur: 5, angle: 45, scale: 2, mirror: 1 },
+        "100%": { blur: 0, angle: 0, scale: 1, mirror: 1 },
       };
     case "blurSlideLeftIn":
       return {
-        "0%": { x: -200, blur: 10 },
-        "100%": { x: 0, blur: 0 },
+        "0%": { x: -200, blur: 10, mirror: 1 },
+        "100%": { x: 0, blur: 0, mirror: 1 },
       };
     case "blurSlideRightStrongIn":
       return {
-        "0%": { x: 200, blur: 10 },
-        "100%": { x: 0, blur: 0 },
+        "0%": { x: 200, blur: 10, mirror: 1 },
+        "100%": { x: 0, blur: 0, mirror: 1 },
       };
     case "cinematicZoomSlideIn":
       return {
-        "0%": { scale: 1, blur: 30, x: 200 },
-        "30%": { scale: 1.2, blur: 20, x: 50 },
-        "60%": { scale: 1.3, blur: 10, x: 0 },
-        "100%": { scale: 1.4, blur: 0, x: 0 },
+        "0%": { scale: 0.6, blur: 30, x: 200, mirror: 1 },
+        "30%": { scale: 0.8, blur: 20, x: 50, mirror: 1 },
+        "60%": { scale: 0.9, blur: 10, x: 0, mirror: 1 },
+        "100%": { scale: 1, blur: 0, x: 0, mirror: 1 },
       };
     case "elasticTwistIn":
       return {
-        "0%": { scale: 1.4, blur: 20, angle: 10 },
-        "40%": { scale: 1, blur: 0, angle: 0 },
-        "60%": { scale: 1.3, blur: 0, angle: -10 },
-        "100%": { scale: 1, blur: 0, angle: 0 },
+        "0%": { scale: 1.4, blur: 20, angle: 10, mirror: 1 },
+        "40%": { scale: 1, blur: 0, angle: 0, mirror: 1 },
+        "60%": { scale: 1.3, blur: 0, angle: -10, mirror: 1 },
+        "100%": { scale: 1, blur: 0, angle: 0, mirror: 1 },
       };
     case "spinFadeIn":
       return {
-        "0%": { blur: 40, angle: 80 },
-        "100%": { blur: 0, angle: 0 },
+        "0%": { blur: 40, angle: 80, mirror: 1 },
+        "100%": { blur: 0, angle: 0, mirror: 1 },
       };
     case "flashZoomIn":
       return {
-        "0%": { scale: 1, brightness: 3 },
-        "40%": { scale: 1, brightness: 3 },
-        "80%": { scale: 1.5, brightness: 3 },
-        "100%": { scale: 1, brightness: 1 },
+        "0%": { scale: 1, brightness: 3, mirror: 1 },
+        "40%": { scale: 1, brightness: 3, mirror: 1 },
+        "80%": { scale: 1.5, brightness: 3, mirror: 1 },
+        "100%": { scale: 1, brightness: 1, mirror: 1 },
       };
     case "tiltSlideRightOut":
       return {
-        "0%": { angle: 0, x: 0 },
-        "70%": { angle: 7, x: 0 },
-        "100%": { angle: 10, x: 200 },
+        "0%": { angle: 0, x: 0, mirror: 1 },
+        "70%": { angle: 7, x: 0, mirror: 1 },
+        "100%": { angle: 10, x: 200, mirror: 1 },
       };
     case "tiltZoomOut":
       return {
-        "0%": { angle: 0, scale: 1 },
-        "100%": { angle: -10, scale: 1.2 },
+        "0%": { angle: 0, scale: 1, mirror: 1 },
+        "100%": { angle: -10, scale: 1.2, mirror: 1 },
       };
     case "glitchSlideOut":
       return {
-        "0%": { x: 0, angle: 0 },
-        "30%": { x: 100, angle: -5 },
-        "70%": { x: 100, angle: -20 },
-        "100%": { x: -100, angle: -20 },
+        "0%": { x: 0, angle: 0, mirror: 1 },
+        "30%": { x: 100, angle: -5, mirror: 1 },
+        "70%": { x: 100, angle: -20, mirror: 1 },
+        "100%": { x: -100, angle: -20, mirror: 1 },
       };
     case "dropBlurOut":
       return {
-        "0%": { y: 0, blur: 0 },
-        "100%": { y: 200, blur: 20 },
+        "0%": { y: 0, blur: 0, mirror: 1 },
+        "100%": { y: 200, blur: 20, mirror: 1 },
       };
     case "fallZoomOut":
       return {
-        "0%": { y: 0, scale: 1 },
-        "100%": { y: 250, scale: 1.5 },
+        "0%": { y: 0, scale: 1, mirror: 1 },
+        "100%": { y: 250, scale: 1.5, mirror: 1 },
       };
     case "zoomSpinOut":
       return {
-        "0%": { scale: 1, angle: 0 },
-        "100%": { scale: 2, angle: 10 },
+        "0%": { scale: 1, angle: 0, mirror: 1 },
+        "100%": { scale: 2, angle: 10, mirror: 1 },
       };
     case "dramaticSpinSlideOut":
       return {
-        "0%": { x: 0, angle: 0, blur: 0 },
-        "40%": { x: -200, angle: 10, blur: 5 },
-        "100%": { x: -200, angle: 60, blur: 20 },
+        "0%": { x: 0, angle: 0, blur: 0, mirror: 1 },
+        "40%": { x: -200, angle: 10, blur: 5, mirror: 1 },
+        "100%": { x: -200, angle: 60, blur: 20, mirror: 1 },
       };
     case "custom":
     default:

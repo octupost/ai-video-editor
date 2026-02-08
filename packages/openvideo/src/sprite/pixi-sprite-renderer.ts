@@ -6,6 +6,7 @@ import {
   Graphics,
   BlurFilter,
   ColorMatrixFilter,
+  TilingSprite,
 } from "pixi.js";
 
 import type { IClip } from "../clips/iclip";
@@ -48,7 +49,7 @@ export function updateSpriteTransform(clip: IClip, sprite: Sprite): void {
  * This matches the pattern used in other video rendering libraries
  */
 export class PixiSpriteRenderer {
-  private pixiSprite: Sprite | null = null;
+  private pixiSprite: Sprite | TilingSprite | null = null;
   private texture: Texture | null = null;
   private canvas: OffscreenCanvas;
   private context: OffscreenCanvasRenderingContext2D;
@@ -259,6 +260,7 @@ export class PixiSpriteRenderer {
     const opacityMultiplier = renderTransform?.opacity ?? 1;
     const blurOffset = renderTransform?.blur ?? 0;
     const brightnessMultiplier = renderTransform?.brightness ?? 1;
+    const isMirrored = (renderTransform?.mirror ?? 0) > 0.5;
 
     // 1. Root container stays at the stable "Anchor" position
     // This ensures the wireframe/transformer remains stationary during animation
@@ -280,7 +282,55 @@ export class PixiSpriteRenderer {
       this.applyBrightness(brightnessMultiplier);
     }
 
-    // 3. Local transforms for the sprite (center it within animationRoot)
+    // 3. Handle Sprite vs TilingSprite for Mirroring
+    if (isMirrored) {
+      if (!(this.pixiSprite instanceof TilingSprite)) {
+        // Switch to TilingSprite
+        const oldSprite = this.pixiSprite;
+        this.pixiSprite = new TilingSprite({
+          texture: oldSprite.texture,
+          width: 0, // Will be set below
+          height: 0,
+        });
+        this.pixiSprite.label = "MainSprite-Tiling";
+
+        // Replace in container
+        if (this.animationContainer) {
+          const idx = this.animationContainer.getChildIndex(oldSprite);
+          this.animationContainer.removeChild(oldSprite);
+          this.animationContainer.addChildAt(this.pixiSprite, idx);
+          oldSprite.destroy();
+        }
+
+        // Set texture wrap mode to mirror-repeat
+        if (this.pixiSprite.texture.source) {
+          this.pixiSprite.texture.source.style.addressMode = "mirror-repeat";
+          this.pixiSprite.texture.source.update();
+        }
+      }
+    } else {
+      if (this.pixiSprite instanceof TilingSprite) {
+        // Switch back to regular Sprite
+        const oldSprite = this.pixiSprite;
+        this.pixiSprite = new Sprite(oldSprite.texture);
+        this.pixiSprite.label = "MainSprite";
+
+        // Replace in container
+        if (this.animationContainer) {
+          const idx = this.animationContainer.getChildIndex(oldSprite);
+          this.animationContainer.removeChild(oldSprite);
+          this.animationContainer.addChildAt(this.pixiSprite, idx);
+          oldSprite.destroy();
+        }
+
+        // Reset texture wrap mode (optional, but good practice)
+        if (this.pixiSprite.texture.source) {
+          this.pixiSprite.texture.source.style.addressMode = "clamp-to-edge";
+          this.pixiSprite.texture.source.update();
+        }
+      }
+    }
+
     this.pixiSprite.anchor.set(0.5, 0.5);
     this.pixiSprite.position.set(0, 0);
 
@@ -290,8 +340,6 @@ export class PixiSpriteRenderer {
     const isCaption = (this.sprite as any).type === "Caption";
 
     // Base scale to fit texture into clip dimensions
-    // For width/height in renderTransform, we follow BaseSprite._render logic (not currently using them for scale)
-    // but they are available if needed.
     const baseScaleX =
       !isCaption && width && width !== 0 ? Math.abs(width) / textureWidth : 1;
     const baseScaleY =
@@ -299,15 +347,61 @@ export class PixiSpriteRenderer {
         ? Math.abs(height) / textureHeight
         : 1;
 
-    if (flip === "horizontal") {
-      this.pixiSprite.scale.x = -baseScaleX;
-      this.pixiSprite.scale.y = baseScaleY;
-    } else if (flip === "vertical") {
-      this.pixiSprite.scale.x = baseScaleX;
-      this.pixiSprite.scale.y = -baseScaleY;
+    if (isMirrored && this.pixiSprite instanceof TilingSprite) {
+      // For TilingSprite, we want to expand the dimensions to cover potential gaps
+      // We essentially want a 3x3 (or bigger) grid centered
+      // TilingSprite logic: width/height is the box size. tileScale is the texture scale. Is it?
+      // Actually TilingSprite inherits from Sprite.
+      // If we scale the TilingSprite, it scales the whole box.
+      // We want the box to be HUGE (to cover rotation gaps), but the texture inside to still be mapped correctly.
+      // Let's make the TilingSprite 5x the size of the original content
+      this.pixiSprite.width = textureWidth * 5;
+      this.pixiSprite.height = textureHeight * 5;
+
+      // Center the texture within the large box
+      // tilePosition is the offset of the texture 0,0 relative to the Sprite 0,0
+      // Since anchor is 0.5, 0.5, the Sprite 0,0 is at the center of the box.
+      // We want the texture center to be at the Sprite 0,0.
+      // Default texture 0,0 is top-left.
+      // We want texture center (w/2, h/2) to line up with Sprite center.
+      // tilePosition = -textureWidth/2 + width/2 ?
+
+      // Actually simpler: Just center the tile position
+      // Pixi TilingSprite: tilePosition (0,0) means texture top-left is at sprite top-left (before anchor).
+      // If we want texture center to be at sprite center:
+      this.pixiSprite.tilePosition.set(
+        (this.pixiSprite.width - textureWidth) / 2,
+        (this.pixiSprite.height - textureHeight) / 2,
+      );
+
+      // And we need to adjust scale so the 'central' tile matches the expected size
+      // We want the central tile to have size 'effectiveWidth' x 'effectiveHeight'
+      // effectively scaling the whole object by baseScale
+      // But we just set width/height to textureWidth * 5.
+
+      // Let's rely on standard scaling for the whole object
+      if (flip === "horizontal") {
+        this.pixiSprite.scale.x = -baseScaleX;
+        this.pixiSprite.scale.y = baseScaleY;
+      } else if (flip === "vertical") {
+        this.pixiSprite.scale.x = baseScaleX;
+        this.pixiSprite.scale.y = -baseScaleY;
+      } else {
+        this.pixiSprite.scale.x = baseScaleX;
+        this.pixiSprite.scale.y = baseScaleY;
+      }
     } else {
-      this.pixiSprite.scale.x = baseScaleX;
-      this.pixiSprite.scale.y = baseScaleY;
+      // Standard Sprite behavior
+      if (flip === "horizontal") {
+        this.pixiSprite.scale.x = -baseScaleX;
+        this.pixiSprite.scale.y = baseScaleY;
+      } else if (flip === "vertical") {
+        this.pixiSprite.scale.x = baseScaleX;
+        this.pixiSprite.scale.y = -baseScaleY;
+      } else {
+        this.pixiSprite.scale.x = baseScaleX;
+        this.pixiSprite.scale.y = baseScaleY;
+      }
     }
 
     this.applyStyle();
@@ -577,7 +671,7 @@ export class PixiSpriteRenderer {
     }
   }
 
-  getSprite(): Sprite | null {
+  getSprite(): Sprite | TilingSprite | null {
     return this.pixiSprite;
   }
 
