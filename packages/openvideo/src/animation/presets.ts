@@ -4,19 +4,22 @@ import { GsapAnimation } from "./gsap-animation";
 
 // Animation Presets
 
-// Actually, let's fix the logic in KeyframeAnimation getTransform for multipliers.
-// In the implementation plan, I said: "Animation Layer: Active animations calculate additive offsets (e.g., xOffset: +50px, scaleMultiplier: 1.2x)".
-// So opacity should be a multiplier or additive?
-// If it's a multiplier, base 1.0 * 0.0 = 0.
-// If it's fadeIn, progress 0 should be multiplier 0, progress 1 should be multiplier 1.
+function normalizeParams(params: any): any {
+  if (params && params.presetParams) {
+    return { ...params.presetParams, ...params };
+  }
+  return params;
+}
 
 export const pulse: AnimationFactory = (opts, params) => {
+  const normalized = normalizeParams(params);
   const factor = Math.max(opts.duration / 1e6, 1);
-  const defaultMirror = params?.mirror || 0;
-  if (params && (params["0%"] || params["100%"])) {
+  const defaultMirror = normalized?.mirror || 0;
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
     return new KeyframeAnimation(
-      params,
-      { ...opts, iterCount: factor * 3 },
+      normalized,
+      { ...opts, iterCount: factor * 3, easing },
       "pulse",
     );
   }
@@ -30,7 +33,7 @@ export const pulse: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
       iterCount: factor * 3,
     },
     "pulse",
@@ -38,46 +41,52 @@ export const pulse: AnimationFactory = (opts, params) => {
 };
 
 export const fadeIn: AnimationFactory = (opts, params) => {
+  const normalized = normalizeParams(params);
   // If params has keyframes, use them as-is (allows UI persistence)
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "fadeIn");
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "fadeIn");
   }
   return new KeyframeAnimation(
     {
       "0%": { opacity: defaultOpacity, scale: 0.9, mirror: defaultMirror },
       "100%": { opacity: 1, scale: 1, mirror: defaultMirror },
     },
-    { ...opts, easing: opts.easing || "easeOutQuad" },
+    { ...opts, easing },
     "fadeIn",
   );
 };
 
 export const fadeOut: AnimationFactory = (opts, params) => {
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "fadeOut");
+  const normalized = normalizeParams(params);
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const easing = normalized?.easing || opts.easing || "easeInQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "fadeOut");
   }
   return new KeyframeAnimation(
     {
       "0%": { opacity: 1, mirror: defaultMirror },
       "100%": { opacity: defaultOpacity, mirror: defaultMirror },
     },
-    { ...opts, easing: opts.easing || "easeInQuad" },
+    { ...opts, easing },
     "fadeOut",
   );
 };
 
 export const slideIn: AnimationFactory = (opts, params) => {
+  const normalized = normalizeParams(params);
   // If params has keyframes, use them as-is
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "slideIn");
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const easing = normalized?.easing || opts.easing || "easeOutCubic";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "slideIn");
   }
-  const config = params || { direction: "left" };
+  const config = normalized || { direction: "left" };
   const dist = config.distance || 300;
   const frames: any = {
     "100%": { x: 0, y: 0, opacity: 1, mirror: defaultMirror },
@@ -96,7 +105,7 @@ export const slideIn: AnimationFactory = (opts, params) => {
 
   const anim = new KeyframeAnimation(
     frames,
-    { ...opts, easing: opts.easing || "easeOutCubic" },
+    { ...opts, easing },
     "slideIn",
   );
   (anim as any).presetParams = params;
@@ -104,13 +113,15 @@ export const slideIn: AnimationFactory = (opts, params) => {
 };
 
 export const slideOut: AnimationFactory = (opts, params) => {
+  const normalized = normalizeParams(params);
   // If params has keyframes, use them as-is
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "slideOut");
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const easing = normalized?.easing || opts.easing || "easeInCubic";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "slideOut");
   }
-  const config = params || { direction: "left" };
+  const config = normalized || { direction: "left" };
   const dist = config.distance || 300;
   const frames: any = {
     "0%": { x: 0, y: 0, opacity: 1, mirror: defaultMirror },
@@ -149,7 +160,7 @@ export const slideOut: AnimationFactory = (opts, params) => {
 
   const anim = new KeyframeAnimation(
     frames,
-    { ...opts, easing: opts.easing || "easeInCubic" },
+    { ...opts, easing },
     "slideOut",
   );
   (anim as any).presetParams = params;
@@ -157,11 +168,13 @@ export const slideOut: AnimationFactory = (opts, params) => {
 };
 
 export const zoomIn: AnimationFactory = (opts, params) => {
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-  const defaultScale = params?.scale || 0;
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "zoomIn");
+  const normalized = normalizeParams(params);
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const defaultScale = normalized?.scale || 0;
+  const easing = normalized?.easing || opts.easing || "easeOutBack";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "zoomIn");
   }
   return new KeyframeAnimation(
     {
@@ -172,17 +185,19 @@ export const zoomIn: AnimationFactory = (opts, params) => {
       },
       "100%": { scale: 1, opacity: 1, mirror: defaultMirror },
     },
-    { ...opts, easing: opts.easing || "easeOutBack" },
+    { ...opts, easing },
     "zoomIn",
   );
 };
 
 export const zoomOut: AnimationFactory = (opts, params) => {
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-  const defaultScale = params?.scale || 0;
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "zoomOut");
+  const normalized = normalizeParams(params);
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const defaultScale = normalized?.scale || 0;
+  const easing = normalized?.easing || opts.easing || "easeInBack";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "zoomOut");
   }
   return new KeyframeAnimation(
     {
@@ -193,87 +208,104 @@ export const zoomOut: AnimationFactory = (opts, params) => {
         mirror: defaultMirror,
       },
     },
-    { ...opts, easing: opts.easing || "easeInBack" },
+    { ...opts, easing },
     "zoomOut",
   );
 };
 
 export const blurIn: AnimationFactory = (opts, params) => {
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "blurIn");
+  const normalized = normalizeParams(params);
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "blurIn");
   }
   return new KeyframeAnimation(
     {
       "0%": { blur: 20, opacity: defaultOpacity, mirror: defaultMirror },
       "100%": { blur: 0, opacity: 1, mirror: defaultMirror },
     },
-    { ...opts, easing: opts.easing || "easeOutQuad" },
+    { ...opts, easing },
     "blurIn",
   );
 };
 
 export const blurOut: AnimationFactory = (opts, params) => {
-  const defaultMirror = params?.mirror || 0;
-  const defaultOpacity = params?.opacity || 0;
-
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "blurOut");
+  const normalized = normalizeParams(params);
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultOpacity = normalized?.opacity || 0;
+  const easing = normalized?.easing || opts.easing || "easeInQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "blurOut");
   }
   return new KeyframeAnimation(
     {
       "0%": { blur: 0, opacity: 1, mirror: defaultMirror },
       "100%": { blur: 20, opacity: defaultOpacity, mirror: defaultMirror },
     },
-    { ...opts, easing: opts.easing || "easeInQuad" },
+    { ...opts, easing },
     "blurOut",
   );
 };
 
 export const charFadeIn: AnimationFactory = (opts, params) => {
+  const normalized = normalizeParams(params);
   return new GsapAnimation(
     {
       type: "character",
       from: { alpha: 0, scale: 0.5 },
       to: { alpha: 1, scale: 1 },
-      stagger: params?.stagger ?? 0.05,
+      stagger: normalized?.stagger ?? 0.05,
     },
-    { ...opts, easing: opts.easing || "back.out" },
+    {
+      ...opts,
+      easing: normalized?.easing || opts.easing || "back.out",
+    },
     "charFadeIn",
   );
 };
 
 export const charSlideUp: AnimationFactory = (opts, params) => {
+  const normalized = normalizeParams(params);
   return new GsapAnimation(
     {
       type: "character",
       from: { alpha: 0, y: 50 },
       to: { alpha: 1, y: 0 },
-      stagger: params?.stagger ?? 0.05,
+      stagger: normalized?.stagger ?? 0.05,
     },
-    { ...opts, easing: opts.easing || "power2.out" },
+    {
+      ...opts,
+      easing: normalized?.easing || opts.easing || "power2.out",
+    },
     "charSlideUp",
   );
 };
 
 export const charTypewriter: AnimationFactory = (opts, params) => {
+  const normalized = normalizeParams(params);
   return new GsapAnimation(
     {
       type: "character",
       from: { alpha: 0 },
       to: { alpha: 1, duration: 0.001 },
-      stagger: params?.stagger ?? 0.05,
+      stagger: normalized?.stagger ?? 0.05,
     },
-    { ...opts, easing: opts.easing || "none" },
+    {
+      ...opts,
+      easing: normalized?.easing || opts.easing || "none",
+    },
     "charTypewriter",
   );
 };
 
 //custom presets in
 export const blurSlideRightIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "blurSlideRightIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "blurSlideRightIn");
   }
   return new KeyframeAnimation(
     {
@@ -282,15 +314,17 @@ export const blurSlideRightIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "blurSlideRightIn",
   );
 };
 
 export const wobbleZoomIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "wobbleZoomIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "wobbleZoomIn");
   }
   return new KeyframeAnimation(
     {
@@ -301,15 +335,17 @@ export const wobbleZoomIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "wobbleZoomIn",
   );
 };
 
 export const spinZoomIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "spinZoomIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "spinZoomIn");
   }
   return new KeyframeAnimation(
     {
@@ -318,15 +354,17 @@ export const spinZoomIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "spinZoomIn",
   );
 };
 
 export const blurSlideLeftIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "blurSlideLeftIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "blurSlideLeftIn");
   }
   return new KeyframeAnimation(
     {
@@ -335,15 +373,17 @@ export const blurSlideLeftIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "blurSlideLeftIn",
   );
 };
 
 export const blurSlideRightStrongIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "blurSlideRightStrongIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "blurSlideRightStrongIn");
   }
   return new KeyframeAnimation(
     {
@@ -352,15 +392,17 @@ export const blurSlideRightStrongIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "blurSlideRightStrongIn",
   );
 };
 
 export const cinematicZoomSlideIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "cinematicZoomSlideIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "cinematicZoomSlideIn");
   }
   return new KeyframeAnimation(
     {
@@ -371,15 +413,17 @@ export const cinematicZoomSlideIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "cinematicZoomSlideIn",
   );
 };
 
 export const elasticTwistIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "elasticTwistIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "elasticTwistIn");
   }
   return new KeyframeAnimation(
     {
@@ -390,15 +434,17 @@ export const elasticTwistIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "elasticTwistIn",
   );
 };
 
 export const spinFadeIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "spinFadeIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "spinFadeIn");
   }
   return new KeyframeAnimation(
     {
@@ -407,15 +453,17 @@ export const spinFadeIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "spinFadeIn",
   );
 };
 
 export const flashZoomIn: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "flashZoomIn");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "flashZoomIn");
   }
   return new KeyframeAnimation(
     {
@@ -426,7 +474,7 @@ export const flashZoomIn: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "flashZoomIn",
   );
@@ -434,8 +482,10 @@ export const flashZoomIn: AnimationFactory = (opts, params) => {
 
 //custom presets out
 export const tiltSlideRightOut: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "tiltSlideRightOut");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "tiltSlideRightOut");
   }
   return new KeyframeAnimation(
     {
@@ -445,15 +495,17 @@ export const tiltSlideRightOut: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "tiltSlideRightOut",
   );
 };
 
 export const tiltZoomOut: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "tiltZoomOut");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "tiltZoomOut");
   }
   return new KeyframeAnimation(
     {
@@ -462,15 +514,17 @@ export const tiltZoomOut: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "tiltZoomOut",
   );
 };
 
 export const glitchSlideOut: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "glitchSlideOut");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "glitchSlideOut");
   }
   return new KeyframeAnimation(
     {
@@ -481,15 +535,17 @@ export const glitchSlideOut: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "glitchSlideOut",
   );
 };
 
 export const dropBlurOut: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "dropBlurOut");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "dropBlurOut");
   }
   return new KeyframeAnimation(
     {
@@ -498,15 +554,17 @@ export const dropBlurOut: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "dropBlurOut",
   );
 };
 
 export const fallZoomOut: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "fallZoomOut");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "fallZoomOut");
   }
   return new KeyframeAnimation(
     {
@@ -515,15 +573,17 @@ export const fallZoomOut: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "fallZoomOut",
   );
 };
 
 export const zoomSpinOut: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "zoomSpinOut");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "zoomSpinOut");
   }
   return new KeyframeAnimation(
     {
@@ -532,15 +592,17 @@ export const zoomSpinOut: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "zoomSpinOut",
   );
 };
 
 export const dramaticSpinSlideOut: AnimationFactory = (opts, params) => {
-  if (params && (params["0%"] || params["100%"])) {
-    return new KeyframeAnimation(params, opts, "dramaticSpinSlideOut");
+  const normalized = normalizeParams(params);
+  const easing = normalized?.easing || opts.easing || "easeOutQuad";
+  if (normalized && (normalized["0%"] || normalized["100%"])) {
+    return new KeyframeAnimation(normalized, { ...opts, easing }, "dramaticSpinSlideOut");
   }
   return new KeyframeAnimation(
     {
@@ -550,7 +612,7 @@ export const dramaticSpinSlideOut: AnimationFactory = (opts, params) => {
     },
     {
       ...opts,
-      easing: opts.easing || "easeOutQuad",
+      easing,
     },
     "dramaticSpinSlideOut",
   );
@@ -591,9 +653,10 @@ animationRegistry.register("dramaticSpinSlideOut", dramaticSpinSlideOut);
  * Useful for populating the animation editor UI
  */
 export function getPresetTemplate(type: string, params?: any): any {
-  const defaultMirror = params?.mirror || 0;
-  const defaultScale = params?.scale || 0;
-  const defaultOpacity = params?.opacity || 0;
+  const normalized = normalizeParams(params);
+  const defaultMirror = normalized?.mirror || 0;
+  const defaultScale = normalized?.scale || 0;
+  const defaultOpacity = normalized?.opacity || 0;
   switch (type) {
     case "fadeIn":
       return {
@@ -624,8 +687,8 @@ export function getPresetTemplate(type: string, params?: any): any {
         },
       };
     case "slideIn": {
-      const direction = params?.direction || "left";
-      const distance = params?.distance || 300;
+      const direction = normalized?.direction || "left";
+      const distance = normalized?.distance || 300;
       return {
         "0%": {
           x:
@@ -647,8 +710,8 @@ export function getPresetTemplate(type: string, params?: any): any {
       };
     }
     case "slideOut": {
-      const direction = params?.direction || "left";
-      const distance = params?.distance || 300;
+      const direction = normalized?.direction || "left";
+      const distance = normalized?.distance || 300;
       return {
         "0%": { x: 0, y: 0, opacity: 1, mirror: defaultMirror },
         "100%": {
@@ -694,90 +757,90 @@ export function getPresetTemplate(type: string, params?: any): any {
       };
     case "wobbleZoomIn":
       return {
-        "0%": { scale: 1.2, angle: -5, mirror: 1 },
-        "32%": { scale: 1, angle: 0, mirror: 1 },
-        "64%": { scale: 1.2, angle: -5, mirror: 1 },
-        "100%": { scale: 1, angle: 0, mirror: 1 },
+        "0%": { scale: 1.2, angle: -5, mirror: defaultMirror },
+        "32%": { scale: 1, angle: 0, mirror: defaultMirror },
+        "64%": { scale: 1.2, angle: -5, mirror: defaultMirror },
+        "100%": { scale: 1, angle: 0, mirror: defaultMirror },
       };
     case "spinZoomIn":
       return {
-        "0%": { blur: 5, angle: 45, scale: 2, mirror: 1 },
-        "100%": { blur: 0, angle: 0, scale: 1, mirror: 1 },
+        "0%": { blur: 5, angle: 45, scale: 2, mirror: defaultMirror },
+        "100%": { blur: 0, angle: 0, scale: 1, mirror: defaultMirror },
       };
     case "blurSlideLeftIn":
       return {
-        "0%": { x: -200, blur: 10, mirror: 1 },
-        "100%": { x: 0, blur: 0, mirror: 1 },
+        "0%": { x: -200, blur: 10, mirror: defaultMirror },
+        "100%": { x: 0, blur: 0, mirror: defaultMirror },
       };
     case "blurSlideRightStrongIn":
       return {
-        "0%": { x: 200, blur: 10, mirror: 1 },
-        "100%": { x: 0, blur: 0, mirror: 1 },
+        "0%": { x: 200, blur: 10, mirror: defaultMirror },
+        "100%": { x: 0, blur: 0, mirror: defaultMirror },
       };
     case "cinematicZoomSlideIn":
       return {
-        "0%": { scale: 0.6, blur: 30, x: 200, mirror: 1 },
-        "30%": { scale: 0.8, blur: 20, x: 50, mirror: 1 },
-        "60%": { scale: 0.9, blur: 10, x: 0, mirror: 1 },
-        "100%": { scale: 1, blur: 0, x: 0, mirror: 1 },
+        "0%": { scale: 0.6, blur: 30, x: 200, mirror: defaultMirror },
+        "30%": { scale: 0.8, blur: 20, x: 50, mirror: defaultMirror },
+        "60%": { scale: 0.9, blur: 10, x: 0, mirror: defaultMirror },
+        "100%": { scale: 1, blur: 0, x: 0, mirror: defaultMirror },
       };
     case "elasticTwistIn":
       return {
-        "0%": { scale: 1.4, blur: 20, angle: 10, mirror: 1 },
-        "40%": { scale: 1, blur: 0, angle: 0, mirror: 1 },
-        "60%": { scale: 1.3, blur: 0, angle: -10, mirror: 1 },
-        "100%": { scale: 1, blur: 0, angle: 0, mirror: 1 },
+        "0%": { scale: 1.4, blur: 20, angle: 10, mirror: defaultMirror },
+        "40%": { scale: 1, blur: 0, angle: 0, mirror: defaultMirror },
+        "60%": { scale: 1.3, blur: 0, angle: -10, mirror: defaultMirror },
+        "100%": { scale: 1, blur: 0, angle: 0, mirror: defaultMirror },
       };
     case "spinFadeIn":
       return {
-        "0%": { blur: 40, angle: 80, mirror: 1 },
-        "100%": { blur: 0, angle: 0, mirror: 1 },
+        "0%": { blur: 40, angle: 80, mirror: defaultMirror },
+        "100%": { blur: 0, angle: 0, mirror: defaultMirror },
       };
     case "flashZoomIn":
       return {
-        "0%": { scale: 1, brightness: 3, mirror: 1 },
-        "40%": { scale: 1, brightness: 3, mirror: 1 },
-        "80%": { scale: 1.5, brightness: 3, mirror: 1 },
-        "100%": { scale: 1, brightness: 1, mirror: 1 },
+        "0%": { scale: 1, brightness: 3, mirror: defaultMirror },
+        "40%": { scale: 1, brightness: 3, mirror: defaultMirror },
+        "80%": { scale: 1.5, brightness: 3, mirror: defaultMirror },
+        "100%": { scale: 1, brightness: 1, mirror: defaultMirror },
       };
     case "tiltSlideRightOut":
       return {
-        "0%": { angle: 0, x: 0, mirror: 1 },
-        "70%": { angle: 7, x: 0, mirror: 1 },
-        "100%": { angle: 10, x: 200, mirror: 1 },
+        "0%": { angle: 0, x: 0, mirror: defaultMirror },
+        "70%": { angle: 7, x: 0, mirror: defaultMirror },
+        "100%": { angle: 10, x: 200, mirror: defaultMirror },
       };
     case "tiltZoomOut":
       return {
-        "0%": { angle: 0, scale: 1, mirror: 1 },
-        "100%": { angle: -10, scale: 1.2, mirror: 1 },
+        "0%": { angle: 0, scale: 1, mirror: defaultMirror },
+        "100%": { angle: -10, scale: 1.2, mirror: defaultMirror },
       };
     case "glitchSlideOut":
       return {
-        "0%": { x: 0, angle: 0, mirror: 1 },
-        "30%": { x: 100, angle: -5, mirror: 1 },
-        "70%": { x: 100, angle: -20, mirror: 1 },
-        "100%": { x: -100, angle: -20, mirror: 1 },
+        "0%": { x: 0, angle: 0, mirror: defaultMirror },
+        "30%": { x: 100, angle: -5, mirror: defaultMirror },
+        "70%": { x: 100, angle: -20, mirror: defaultMirror },
+        "100%": { x: -100, angle: -20, mirror: defaultMirror },
       };
     case "dropBlurOut":
       return {
-        "0%": { y: 0, blur: 0, mirror: 1 },
-        "100%": { y: 200, blur: 20, mirror: 1 },
+        "0%": { y: 0, blur: 0, mirror: defaultMirror },
+        "100%": { y: 200, blur: 20, mirror: defaultMirror },
       };
     case "fallZoomOut":
       return {
-        "0%": { y: 0, scale: 1, mirror: 1 },
-        "100%": { y: 250, scale: 1.5, mirror: 1 },
+        "0%": { y: 0, scale: 1, mirror: defaultMirror },
+        "100%": { y: 250, scale: 1.5, mirror: defaultMirror },
       };
     case "zoomSpinOut":
       return {
-        "0%": { scale: 1, angle: 0, mirror: 1 },
-        "100%": { scale: 2, angle: 10, mirror: 1 },
+        "0%": { scale: 1, angle: 0, mirror: defaultMirror },
+        "100%": { scale: 2, angle: 10, mirror: defaultMirror },
       };
     case "dramaticSpinSlideOut":
       return {
-        "0%": { x: 0, angle: 0, blur: 0, mirror: 1 },
-        "40%": { x: -200, angle: 10, blur: 5, mirror: 1 },
-        "100%": { x: -200, angle: 60, blur: 20, mirror: 1 },
+        "0%": { x: 0, angle: 0, blur: 0, mirror: defaultMirror },
+        "40%": { x: -200, angle: 10, blur: 5, mirror: defaultMirror },
+        "100%": { x: -200, angle: 60, blur: 20, mirror: defaultMirror },
       };
     case "custom":
     default:
