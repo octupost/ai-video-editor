@@ -109,7 +109,14 @@ export class KeyframeAnimation implements IAnimation {
     const segmentProgress =
       (progress - startFrame.progress) /
       (endFrame.progress - startFrame.progress);
-    const easedProgress = getEasing(endFrame.easing)(segmentProgress);
+    const easingSource = endFrame.easing ?? this.options.easing ?? "linear";
+
+    const easingFn =
+      typeof easingSource === "function"
+        ? easingSource
+        : getEasing(easingSource);
+
+    const easedProgress = easingFn(segmentProgress);
 
     const transform: AnimationTransform = {};
     const props = new Set([
