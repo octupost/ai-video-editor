@@ -43,6 +43,11 @@ export interface IClip<T extends BaseSpriteEvents = BaseSpriteEvents>
   readonly type: string;
 
   /**
+   * Name of this clip
+   */
+  name: string;
+
+  /**
    * Source URL or identifier for this clip
    */
   src: string;
@@ -140,6 +145,29 @@ export interface IClip<T extends BaseSpriteEvents = BaseSpriteEvents>
    * Center the clip within the scene dimensions
    */
   centerInScene(sceneWidth: number, sceneHeight: number): void;
+
+  /**
+   * Add a modular animation to the clip
+   * @param name Preset name or 'keyframes'
+   * @param opts Animation options (duration, delay, etc.)
+   * @param params Preset-specific parameters or KeyframeData
+   */
+  addAnimation(name: string, opts: any, params?: any): string;
+
+  /**
+   * Remove an animation by ID
+   */
+  removeAnimation(id: string): void;
+
+  /**
+   * Clear all modular animations
+   */
+  clearAnimations(): void;
+
+  /**
+   * List of active animations
+   */
+  readonly animations: any[];
 }
 
 /**

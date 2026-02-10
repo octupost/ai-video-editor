@@ -2,7 +2,8 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  /* config options here */
+  serverExternalPackages: ['express', '@genkit-ai/core', 'genkit'],
+  transpilePackages: ['openvideo'],
 };
 
 export default nextConfig;

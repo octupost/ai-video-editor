@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "openvideo": ["../packages/openvideo/src/index.ts"]
     },
     "strictPropertyInitialization": false
   },

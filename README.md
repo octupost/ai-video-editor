@@ -1,22 +1,26 @@
 <p align="center">
   <a href="https://github.com/openvideodev/openvideo">
-    <img width="150px" height="150px" src="https://cdn.scenify.io/combo-logo-www.png"/>
+    <img width="150px" height="150px" src="https://cdn.scenify.io/openvideo-logo.png"/>
   </a>
 </p>
-<h1 align="center">OpenVideo SDK</h1>
+<h1 align="center">OpenVideo</h1>
 
 <div align="center">
+  
   
 A high-performance video rendering and processing library for the web, built with WebCodecs and PixiJS.
 
 <p align="center">
     <a href="https://openvideo.dev/">OpenVideo</a>
     ·  
-    <a href="https://discord.gg/openvideo">Discord</a>
+    <a href="https://discord.gg/SCfMrQx8kr">Discord</a>
     ·  
     <a href="https://docs.openvideo.dev">Docs</a>
 </p>
 </div>
+
+[![](https://cdn.scenify.io/openvideo-editor.png)](https://github.com/openvideodev/openvideo)
+
 
 
 ## Features
@@ -78,7 +82,7 @@ studio.play();
 
 ## Contact
 
-For inquiries, support, or custom solutions, reach out to us at [hello@openvideo.dev](mailto:hello@openvideo.dev).
+For inquiries, support, or custom solutions, reach out to us at [cloud@designcombo.dev](mailto:cloud@designcombo.dev).
 
 ## License
 
