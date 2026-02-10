@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStudioStore } from '@/stores/studio-store';
 import { Log } from 'openvideo';
-import { Upload, Search, Film, Trash2 } from 'lucide-react';
+import { Upload, Search } from 'lucide-react';
 import { uploadFile } from '@/lib/upload-utils';
 import { useProjectId } from '@/contexts/project-context';
 import { addMediaToCanvas } from '@/lib/editor-utils';
@@ -51,7 +51,7 @@ interface VisualAsset {
 function AssetCard({
   asset,
   onAdd,
-  onDelete,
+  onDelete: _onDelete,
 }: {
   asset: VisualAsset;
   onAdd: (asset: VisualAsset) => void;
@@ -59,7 +59,7 @@ function AssetCard({
 }) {
   return (
     <div
-      className="group relative aspect-square rounded-md overflow-hidden bg-secondary/50 cursor-pointer border border-transparent hover:border-primary/50 transition-all"
+      className="flex flex-col gap-1.5 group cursor-pointer"
       onClick={() => onAdd(asset)}
     >
       {asset.type === 'image' ? (
@@ -74,28 +74,8 @@ function AssetCard({
             src={asset.url}
             className="w-full h-full object-cover pointer-events-none"
           />
-          <Film className="absolute text-white/70 drop-shadow-md" size={24} />
         </div>
       )}
-
-      {/* Delete button */}
-      <button
-        type="button"
-        className="absolute top-1 right-1 p-1 rounded bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete(asset.id);
-        }}
-      >
-        <Trash2 size={12} className="text-white" />
-      </button>
-
-      {/* Name overlay */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <p className="text-[10px] text-white truncate font-medium">
-          {asset.name}
-        </p>
-      </div>
     </div>
   );
 }
@@ -310,8 +290,7 @@ export default function PanelUploads() {
             </span>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] gap-x-3 gap-y-4">
               {filteredAssets.map((asset) => (
                 <AssetCard
                   key={asset.id}
@@ -321,11 +300,6 @@ export default function PanelUploads() {
                 />
               ))}
             </div>
-            <p className="text-[10px] text-muted-foreground text-center mt-3 mb-2">
-              {uploads.length} upload{uploads.length !== 1 ? 's' : ''}
-              {searchQuery && ` (showing ${filteredAssets.length})`}
-            </p>
-          </>
         )}
       </ScrollArea>
       <div className="h-2 bg-background"></div>

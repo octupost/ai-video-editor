@@ -79,7 +79,7 @@ export const AudioItem = ({
       </Button>
 
       <div
-        onClick={() => onAdd(item.url)}
+        onClick={() => onAdd(item.url, item.text)}
         className="flex flex-col min-w-0 flex-1 cursor-pointer"
       >
         <span className="text-xs font-medium truncate mb-0.5 text-zinc-300">

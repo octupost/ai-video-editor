@@ -1,4 +1,9 @@
-import EventEmitter from '../event-emitter';
+import EventEmitter from "../event-emitter";
+import {
+  IAnimation,
+  AnimationTransform,
+  animationRegistry,
+} from "../animation";
 type IRectBaseProps = any;
 interface IAnimationOpts {
   duration: number;
@@ -11,7 +16,7 @@ type TAnimateProps = IRectBaseProps & { opacity: number };
 export type TAnimationKeyFrame = Array<[number, Partial<TAnimateProps>]>;
 
 type TKeyFrameOpts = Partial<
-  Record<`${number}%` | 'from' | 'to', Partial<TAnimateProps>>
+  Record<`${number}%` | "from" | "to", Partial<TAnimateProps>>
 >;
 
 export interface BaseSpriteEvents {
@@ -40,7 +45,11 @@ export abstract class BaseSprite<
   /**
    * Unique identifier for the sprite/clip
    */
-  id = '';
+  id = "";
+  /**
+   * Name of the sprite/clip
+   */
+  name = "";
 
   /**
    * Control display time range of clips, commonly used in editing scenario timeline (track) module
@@ -86,7 +95,7 @@ export abstract class BaseSprite<
   set left(v: number) {
     const changed = this._left !== v;
     this._left = v;
-    if (changed) this.emit('propsChange', { left: v });
+    if (changed) this.emit("propsChange", { left: v });
   }
 
   protected _top = 0;
@@ -99,7 +108,7 @@ export abstract class BaseSprite<
   set top(v: number) {
     const changed = this._top !== v;
     this._top = v;
-    if (changed) this.emit('propsChange', { top: v });
+    if (changed) this.emit("propsChange", { top: v });
   }
 
   protected _width = 0;
@@ -112,7 +121,7 @@ export abstract class BaseSprite<
   set width(v: number) {
     const changed = this._width !== v;
     this._width = v;
-    if (changed) this.emit('propsChange', { width: v });
+    if (changed) this.emit("propsChange", { width: v });
   }
 
   protected _height = 0;
@@ -125,7 +134,7 @@ export abstract class BaseSprite<
   set height(v: number) {
     const changed = this._height !== v;
     this._height = v;
-    if (changed) this.emit('propsChange', { height: v });
+    if (changed) this.emit("propsChange", { height: v });
   }
 
   private _angle = 0;
@@ -138,7 +147,7 @@ export abstract class BaseSprite<
   set angle(v: number) {
     const changed = this._angle !== v;
     this._angle = v;
-    if (changed) this.emit('propsChange', { angle: v });
+    if (changed) this.emit("propsChange", { angle: v });
   }
 
   /**
@@ -162,7 +171,7 @@ export abstract class BaseSprite<
   set zIndex(v: number) {
     const changed = this._zIndex !== v;
     this._zIndex = v;
-    if (changed) this.emit('propsChange', { zIndex: v });
+    if (changed) this.emit("propsChange", { zIndex: v });
   }
 
   private _opacity = 1;
@@ -175,7 +184,7 @@ export abstract class BaseSprite<
   set opacity(v: number) {
     const changed = this._opacity !== v;
     this._opacity = v;
-    if (changed) this.emit('propsChange', { opacity: v } as any);
+    if (changed) this.emit("propsChange", { opacity: v } as any);
   }
 
   private _volume = 1;
@@ -188,13 +197,13 @@ export abstract class BaseSprite<
   set volume(v: number) {
     const changed = this._volume !== v;
     this._volume = v;
-    if (changed) this.emit('propsChange', { volume: v } as any);
+    if (changed) this.emit("propsChange", { volume: v } as any);
   }
 
   /**
    * Flip clip horizontally or vertically
    */
-  flip: 'horizontal' | 'vertical' | null = null;
+  flip: "horizontal" | "vertical" | null = null;
 
   effects: Array<{
     id: string;
@@ -223,32 +232,60 @@ export abstract class BaseSprite<
   private animatOpts: Required<IAnimationOpts> | null = null;
 
   /**
+   * List of active animations
+   */
+  public animations: IAnimation[] = [];
+
+  /**
+   * Current transform offsets/multipliers from animations
+   * Resets every frame in animate()
+   */
+  public renderTransform: AnimationTransform = {
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    scale: 1,
+    opacity: 1,
+    angle: 0,
+    blur: 0,
+    brightness: 1,
+    mirror: 0,
+  };
+
+  /**
    * @see {@link IClip.ready}
    * For clips, this should be Promise<IClipMeta>, but for BaseSprite it's just Promise<void>
    */
-  ready: Promise<any> = Promise.resolve();
-
   protected _render(
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   ): void {
     const { center } = this;
     ctx.setTransform(
       // Horizontal scale, skew
-      this.flip === 'horizontal' ? -1 : 1,
+      this.flip === "horizontal" ? -1 : 1,
       0,
       // Vertical skew, scale
       0,
-      this.flip === 'vertical' ? -1 : 1,
+      this.flip === "vertical" ? -1 : 1,
       // Coordinate origin offset x y
       center.x,
-      center.y
+      center.y,
     );
-    // Convert degrees to radians for Canvas API
-    const angleInRadians = (this.angle * Math.PI) / 180;
-    // For any flip direction, rotation angle becomes negative to sync with control points
-    ctx.rotate((this.flip == null ? 1 : -1) * angleInRadians);
 
-    ctx.globalAlpha = this.opacity;
+    ctx.globalAlpha =
+      this.opacity *
+      (this.renderTransform.opacity ?? 1) *
+      (this.renderTransform.brightness ?? 1);
+
+    const x = this.renderTransform.x ?? 0;
+    const y = this.renderTransform.y ?? 0;
+    const angleOffset = this.renderTransform.angle ?? 0;
+    const scale = this.renderTransform.scale ?? 1;
+
+    ctx.translate(x, y);
+    ctx.scale(scale, scale);
+    ctx.rotate(((this.flip == null ? 1 : -1) * (angleOffset * Math.PI)) / 180);
   }
 
   /**
@@ -270,8 +307,8 @@ export abstract class BaseSprite<
   setAnimation(keyFrame: TKeyFrameOpts, opts: IAnimationOpts): void {
     this.animatKeyFrame = Object.entries(keyFrame).map(([k, val]) => {
       const numK = { from: 0, to: 100 }[k] ?? Number(k.slice(0, -1));
-      if (Number.isNaN(numK) || numK > 100 || numK < 0) {
-        throw Error('keyFrame must between 0~100');
+      if (isNaN(numK) || numK > 100 || numK < 0) {
+        throw Error("keyFrame must between 0~100");
       }
       return [numK / 100, val];
     }) as TAnimationKeyFrame;
@@ -285,42 +322,129 @@ export abstract class BaseSprite<
   /**
    * If current sprite has animation set, set sprite's animation properties to state at specified time
    */
-  animate(time: number): void {
+  animate(time: number, target?: any): void {
+    // Reset render transforms
+    this.renderTransform = {
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      scale: 1,
+      opacity: 1,
+      angle: 0,
+      blur: 0,
+      brightness: 1,
+      mirror: 0,
+    };
+
+    // 1. Process new modular animations
+    for (const anim of this.animations) {
+      const transform = anim.getTransform(time);
+      if (transform.x !== undefined) this.renderTransform.x! += transform.x;
+      if (transform.y !== undefined) this.renderTransform.y! += transform.y;
+      if (transform.width !== undefined)
+        this.renderTransform.width! += transform.width;
+      if (transform.height !== undefined)
+        this.renderTransform.height! += transform.height;
+      if (transform.angle !== undefined)
+        this.renderTransform.angle! += transform.angle;
+      if (transform.blur !== undefined)
+        this.renderTransform.blur! += transform.blur;
+      if (transform.scale !== undefined)
+        this.renderTransform.scale! *= transform.scale;
+      if (transform.opacity !== undefined)
+        this.renderTransform.opacity! *= transform.opacity;
+      if (transform.brightness !== undefined)
+        this.renderTransform.brightness! *= transform.brightness;
+      if (transform.mirror !== undefined)
+        this.renderTransform.mirror = Math.max(
+          this.renderTransform.mirror || 0,
+          transform.mirror,
+        );
+
+      if (target && anim.apply) {
+        anim.apply(target, time);
+      }
+    }
+
+    // 2. Process legacy keyframe animation (for backward compatibility)
     if (
       this.animatKeyFrame == null ||
       this.animatOpts == null ||
       time < this.animatOpts.delay
     )
       return;
+
     const updateProps = linearTimeFn(
       time,
       this.animatKeyFrame,
-      this.animatOpts
+      this.animatOpts,
     );
     // Only update properties that are actually in the animation keyframes
     // This ensures manual property settings (like opacity) are preserved if not animated
     for (const k in updateProps) {
       switch (k) {
-        case 'opacity':
+        case "opacity":
           this.opacity = updateProps[k] as number;
           break;
-        case 'x':
+        case "x":
           this.left = updateProps[k] as number;
           break;
-        case 'y':
+        case "y":
           this.top = updateProps[k] as number;
           break;
-        case 'w':
+        case "w":
           this.width = updateProps[k] as number;
           break;
-        case 'h':
+        case "h":
           this.height = updateProps[k] as number;
           break;
-        case 'angle':
+        case "angle":
           this.angle = updateProps[k] as number;
           break;
       }
     }
+  }
+
+  /**
+   * Add a modular animation to the clip
+   * @param name Preset name or 'keyframes'
+   * @param opts Animation options (duration, delay, etc.)
+   * @param params Preset-specific parameters or KeyframeData
+   */
+  addAnimation(name: string, opts: any, params?: any): string {
+    const anim = animationRegistry.create(name, opts, params);
+    this.animations.push(anim);
+    return anim.id;
+  }
+
+  /**
+   * Remove an animation by ID
+   */
+  removeAnimation(id: string): void {
+    this.animations = this.animations.filter((a) => a.id !== id);
+  }
+
+  /**
+   * Clear all modular animations
+   */
+  clearAnimations(): void {
+    this.animations = [];
+  }
+
+  /**
+   * Update an existing animation by ID
+   * @param id Animation ID to update
+   * @param type Animation type (preset name or 'keyframes')
+   * @param opts Animation options
+   * @param params Preset-specific parameters or KeyframeData
+   */
+  updateAnimation(id: string, type: string, opts: any, params?: any): void {
+    const index = this.animations.findIndex((a) => a.id === id);
+    if (index === -1) return;
+
+    const newAnim = animationRegistry.create(type, { ...opts, id }, params);
+    this.animations[index] = newAnim;
   }
 
   /**
@@ -345,8 +469,9 @@ export abstract class BaseSprite<
     target.playbackRate = this.playbackRate;
     target.trim = { ...this.trim };
     target.style = JSON.parse(JSON.stringify(this.style || {}));
+    target.animations = [...this.animations];
     // Copy src if target is a BaseClip
-    if ('src' in this && 'src' in target) {
+    if ("src" in this && "src" in target) {
       (target as any).src = (this as any).src;
     }
   }
@@ -356,7 +481,7 @@ export abstract class BaseSprite<
    */
   update(updates: Partial<this>) {
     Object.assign(this, updates);
-    this.emit('propsChange', updates as any);
+    this.emit("propsChange", updates as any);
   }
 
   protected destroy() {
@@ -367,7 +492,7 @@ export abstract class BaseSprite<
 export function linearTimeFn(
   time: number,
   keyFrame: TAnimationKeyFrame,
-  opts: Required<IAnimationOpts>
+  opts: Required<IAnimationOpts>,
 ): Partial<TAnimateProps> {
   const offsetTime = time - opts.delay;
   const t = offsetTime % opts.duration;
@@ -392,7 +517,7 @@ export function linearTimeFn(
   for (const prop in nextFrame) {
     if (!Object.hasOwn(nextFrame, prop)) continue;
     // Skip symbol keys - only process string keys
-    if (typeof prop !== 'string') continue;
+    if (typeof prop !== "string") continue;
     const p = prop as Extract<keyof TAnimateProps, string>;
     if (startFrame[p] == null) continue;
     result[p] = (nextFrame[p] - startFrame[p]) * stateProcess + startFrame[p];
