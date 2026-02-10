@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import {
+  IconChevronDown,
+  IconChevronUp,
+  IconFileText,
   IconLayoutGrid,
   IconLoader2,
   IconMicrophone,
@@ -13,7 +16,8 @@ import {
   IconVolume,
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
-import { SceneCard } from './scene-card';
+import { SceneCard, VoiceoverPlayButton } from './scene-card';
+import { StatusBadge } from './status-badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -23,6 +27,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Tooltip,
   TooltipContent,
@@ -39,6 +49,7 @@ import {
 import type {
   GridImage,
   GridImageWithScenes,
+  Scene,
   Storyboard,
 } from '@/lib/supabase/workflow-service';
 import { GridImageReview } from './grid-image-review';
@@ -181,6 +192,86 @@ const VIDEO_MODELS = {
 
 type VideoModelKey = keyof typeof VIDEO_MODELS;
 
+function ScriptViewRow({
+  scene,
+  playingVoiceoverId,
+  setPlayingVoiceoverId,
+  onSave,
+}: {
+  scene: Scene;
+  playingVoiceoverId: string | null;
+  setPlayingVoiceoverId: (id: string | null) => void;
+  onSave: (sceneId: string, newText: string) => Promise<void>;
+}) {
+  const voiceover = scene.voiceovers?.[0] ?? null;
+  const isPlaying = voiceover ? playingVoiceoverId === voiceover.id : false;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+
+  const handleStartEdit = () => {
+    setEditText(voiceover?.text ?? '');
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    setIsEditing(false);
+    const trimmed = editText.trim();
+    if (trimmed === (voiceover?.text ?? '').trim()) return;
+    await onSave(scene.id, trimmed);
+  };
+
+  return (
+    <div className="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-secondary/30 transition-colors">
+      <span className="text-[10px] font-medium text-muted-foreground w-5 flex-shrink-0 pt-0.5 text-right">
+        {scene.order + 1}.
+      </span>
+      {isEditing ? (
+        <Textarea
+          autoFocus
+          value={editText}
+          onChange={(e) => setEditText(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setIsEditing(false);
+          }}
+          className="text-[11px] min-h-[40px] resize-none p-1.5 bg-background/50 border-blue-400/30 focus-visible:border-blue-400/50 flex-1"
+          placeholder="Voiceover text..."
+        />
+      ) : (
+        <p
+          className="text-[11px] text-foreground/80 leading-relaxed flex-1 min-w-0 cursor-pointer hover:text-foreground hover:bg-secondary/30 rounded px-1 -mx-1 transition-colors"
+          onClick={handleStartEdit}
+          title="Click to edit"
+        >
+          {voiceover?.text || (
+            <span className="italic text-muted-foreground">No voiceover</span>
+          )}
+        </p>
+      )}
+      <div className="flex-shrink-0 pt-0.5">
+        {voiceover?.status === 'processing' && (
+          <IconLoader2 size={10} className="animate-spin text-blue-400" />
+        )}
+        {voiceover?.status === 'success' && voiceover?.audio_url && (
+          <VoiceoverPlayButton
+            voiceover={voiceover}
+            isPlaying={isPlaying}
+            onToggle={() =>
+              setPlayingVoiceoverId(isPlaying ? null : voiceover.id)
+            }
+          />
+        )}
+        {voiceover?.status === 'pending' && (
+          <StatusBadge status="pending" size="sm" />
+        )}
+        {voiceover?.status === 'failed' && (
+          <StatusBadge status="failed" size="sm" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface StoryboardCardsProps {
   projectId: string;
   storyboardId?: string | null;
@@ -219,6 +310,7 @@ export function StoryboardCards({
   const [playingVoiceoverId, setPlayingVoiceoverId] = useState<string | null>(
     null
   );
+  const [isScriptViewOpen, setIsScriptViewOpen] = useState(false);
   const { studio } = useStudioStore();
   const {
     previewUrls,
@@ -402,6 +494,21 @@ export function StoryboardCards({
       s.first_frames?.[0]?.video_status === 'success' &&
       s.first_frames?.[0]?.video_url
   );
+
+  const handleSaveVoiceoverText = async (sceneId: string, newText: string) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('voiceovers')
+      .update({ text: newText })
+      .eq('scene_id', sceneId);
+
+    if (error) {
+      console.error('Failed to save voiceover text:', error);
+      toast.error('Failed to save voiceover text');
+      throw error;
+    }
+    refresh();
+  };
 
   const handleSaveVisualPrompt = async (sceneId: string, newPrompt: string) => {
     const supabase = createClient();
@@ -590,9 +697,10 @@ export function StoryboardCards({
     );
   }
 
-  // Grid image review: show when grid is generated but not yet split
+  // Grid image review: show when grid is generated but not yet split into scenes
   if (
     gridImage?.status === 'generated' &&
+    sortedScenes.length === 0 &&
     storyboard &&
     'plan' in storyboard &&
     storyboard.plan
@@ -879,6 +987,43 @@ export function StoryboardCards({
         </div>
       )}
 
+      {/* Script View - Collapsible voiceover list */}
+      <Collapsible open={isScriptViewOpen} onOpenChange={setIsScriptViewOpen}>
+        <CollapsibleTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-between h-8 text-xs text-muted-foreground hover:text-foreground"
+          >
+            <span className="flex items-center gap-1.5">
+              <IconFileText className="size-3.5" />
+              Script View
+              <span className="text-[10px] text-muted-foreground/60">
+                ({sortedScenes.length} scenes)
+              </span>
+            </span>
+            {isScriptViewOpen ? (
+              <IconChevronUp className="size-3" />
+            ) : (
+              <IconChevronDown className="size-3" />
+            )}
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="flex flex-col gap-1 py-2 px-1 bg-secondary/10 rounded-md max-h-[400px] overflow-y-auto">
+            {sortedScenes.map((scene) => (
+              <ScriptViewRow
+                key={scene.id}
+                scene={scene}
+                playingVoiceoverId={playingVoiceoverId}
+                setPlayingVoiceoverId={setPlayingVoiceoverId}
+                onSave={handleSaveVoiceoverText}
+              />
+            ))}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
       {/* Scene Cards - 2 column grid */}
       <div className="grid grid-cols-2 gap-2">
         {sortedScenes.map((scene) => (
@@ -892,6 +1037,7 @@ export function StoryboardCards({
             setPlayingVoiceoverId={setPlayingVoiceoverId}
             onRegenerate={handleRegenerateScene}
             onSaveVisualPrompt={handleSaveVisualPrompt}
+            onSaveVoiceoverText={handleSaveVoiceoverText}
           />
         ))}
       </div>

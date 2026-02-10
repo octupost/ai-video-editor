@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   getLatestStoryboardWithScenes,
   getLatestStoryboard,
@@ -67,6 +67,7 @@ export function useWorkflow(
   >(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const hasFetchedRef = useRef(false);
 
   // Derive gridImage from storyboard for backward compatibility
   const gridImage = useMemo((): GridImageWithScenes | GridImage | null => {
@@ -85,7 +86,10 @@ export function useWorkflow(
       return;
     }
 
-    setLoading(true);
+    // Only show loading spinner on initial fetch, not on refreshes
+    if (!hasFetchedRef.current) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -95,6 +99,7 @@ export function useWorkflow(
         includeScenes
       );
       setStoryboard(data);
+      hasFetchedRef.current = true;
     } catch (err) {
       setError(
         err instanceof Error ? err : new Error('Failed to fetch workflow')

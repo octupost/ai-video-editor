@@ -42,6 +42,7 @@ interface SceneCardProps {
     newVisualPrompt: string
   ) => Promise<void>;
   onSaveVisualPrompt?: (sceneId: string, newPrompt: string) => Promise<void>;
+  onSaveVoiceoverText?: (sceneId: string, newText: string) => Promise<void>;
 }
 
 interface SceneThumbnailProps {
@@ -126,7 +127,7 @@ interface VoiceoverPlayButtonProps {
   onToggle: () => void;
 }
 
-function VoiceoverPlayButton({
+export function VoiceoverPlayButton({
   voiceover,
   isPlaying,
   onToggle,
@@ -183,6 +184,7 @@ interface ExpandedContentProps {
   setPlayingVoiceoverId?: (id: string | null) => void;
   sceneId: string;
   onSaveVisualPrompt?: (sceneId: string, newPrompt: string) => Promise<void>;
+  onSaveVoiceoverText?: (sceneId: string, newText: string) => Promise<void>;
 }
 
 function ExpandedContent({
@@ -193,11 +195,32 @@ function ExpandedContent({
   setPlayingVoiceoverId,
   sceneId,
   onSaveVisualPrompt,
+  onSaveVoiceoverText,
 }: ExpandedContentProps) {
   const isPlaying = voiceover ? playingVoiceoverId === voiceover.id : false;
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
   const [editedPrompt, setEditedPrompt] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditingVoiceover, setIsEditingVoiceover] = useState(false);
+  const [editedVoiceover, setEditedVoiceover] = useState('');
+  const [isSavingVoiceover, setIsSavingVoiceover] = useState(false);
+
+  const handleSaveVoiceover = async () => {
+    const trimmed = editedVoiceover.trim();
+    setIsEditingVoiceover(false);
+
+    if (trimmed === (displayVoiceover || '').trim()) return;
+    if (!onSaveVoiceoverText) return;
+
+    setIsSavingVoiceover(true);
+    try {
+      await onSaveVoiceoverText(sceneId, trimmed);
+    } catch (err) {
+      console.error('Failed to save voiceover:', err);
+    } finally {
+      setIsSavingVoiceover(false);
+    }
+  };
 
   const handleSavePrompt = async () => {
     const trimmed = editedPrompt.trim();
@@ -259,12 +282,42 @@ function ExpandedContent({
             Voiceover
           </span>
           {renderVoiceoverStatus()}
-        </div>
-        <p className="text-[11px] text-foreground/80 leading-relaxed pl-5">
-          {displayVoiceover || (
-            <span className="italic text-muted-foreground">No voiceover</span>
+          {isSavingVoiceover && (
+            <IconLoader2 size={10} className="animate-spin text-blue-400" />
           )}
-        </p>
+        </div>
+        {isEditingVoiceover ? (
+          <div className="pl-5" onClick={(e) => e.stopPropagation()}>
+            <Textarea
+              autoFocus
+              value={editedVoiceover}
+              onChange={(e) => setEditedVoiceover(e.target.value)}
+              onBlur={handleSaveVoiceover}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setIsEditingVoiceover(false);
+                }
+              }}
+              className="text-[11px] min-h-[40px] resize-none p-1.5 bg-background/50 border-blue-400/30 focus-visible:border-blue-400/50"
+              placeholder="Voiceover text..."
+            />
+          </div>
+        ) : (
+          <p
+            className={`text-[11px] text-foreground/80 leading-relaxed pl-5 ${onSaveVoiceoverText ? 'cursor-pointer hover:text-foreground hover:bg-secondary/30 rounded transition-colors' : ''}`}
+            onClick={(e) => {
+              if (!onSaveVoiceoverText) return;
+              e.stopPropagation();
+              setEditedVoiceover(displayVoiceover || '');
+              setIsEditingVoiceover(true);
+            }}
+            title={onSaveVoiceoverText ? 'Click to edit' : undefined}
+          >
+            {displayVoiceover || (
+              <span className="italic text-muted-foreground">No voiceover</span>
+            )}
+          </p>
+        )}
       </div>
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1.5">
@@ -329,6 +382,7 @@ export function SceneCard({
   setPlayingVoiceoverId,
   onRegenerate,
   onSaveVisualPrompt,
+  onSaveVoiceoverText,
 }: SceneCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -583,6 +637,7 @@ export function SceneCard({
               setPlayingVoiceoverId={setPlayingVoiceoverId}
               sceneId={scene.id}
               onSaveVisualPrompt={onSaveVisualPrompt}
+              onSaveVoiceoverText={onSaveVoiceoverText}
             />
           )}
         </>
