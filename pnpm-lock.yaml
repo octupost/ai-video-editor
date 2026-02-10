@@ -105,8 +105,8 @@ importers:
         specifier: ^1.8.3
         version: 1.8.4
       '@openrouter/ai-sdk-provider':
-        specifier: ^2.1.1
-        version: 2.1.1(ai@6.0.68(zod@4.3.6))(zod@4.3.6)
+        specifier: ^2.2.1
+        version: 2.2.1(ai@6.0.68(zod@4.3.6))(zod@4.3.6)
       '@radix-ui/react-avatar':
         specifier: ^1.1.11
         version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.8))(@types/react@19.2.8)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -1313,8 +1313,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@openrouter/ai-sdk-provider@2.1.1':
-    resolution: {integrity: sha512-UypPbVnSExxmG/4Zg0usRiit3auvQVrjUXSyEhm0sZ9GQnW/d8p/bKgCk2neh1W5YyRSo7PNQvCrAEBHZnqQkQ==}
+  '@openrouter/ai-sdk-provider@2.2.1':
+    resolution: {integrity: sha512-VjTSNTDIymAJsyIWw4+qPCMuezCS1kJCQwrPjszaNI+ZIo8PbIHTWNc2Y5pYO+ymYbOXKEvedFZxXsEkytOJSA==}
     engines: {node: '>=18'}
     peerDependencies:
       ai: ^6.0.0
@@ -6361,7 +6361,7 @@ snapshots:
   '@next/swc-win32-x64-msvc@16.1.1':
     optional: true
 
-  '@openrouter/ai-sdk-provider@2.1.1(ai@6.0.68(zod@4.3.6))(zod@4.3.6)':
+  '@openrouter/ai-sdk-provider@2.2.1(ai@6.0.68(zod@4.3.6))(zod@4.3.6)':
     dependencies:
       ai: 6.0.68(zod@4.3.6)
       zod: 4.3.6

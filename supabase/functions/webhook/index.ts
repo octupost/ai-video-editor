@@ -3,7 +3,6 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { createLogger, type Logger } from '../_shared/logger.ts';
 import * as musicMetadata from 'npm:music-metadata@10';
 
-const FAL_API_KEY = Deno.env.get('FAL_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -95,15 +94,15 @@ async function handleGenGridImage(
   log: Logger
 ): Promise<Response> {
   const grid_image_id = params.get('grid_image_id')!;
+  const storyboard_id = params.get('storyboard_id')!;
+  const rows = parseInt(params.get('rows') || '0', 10);
+  const cols = parseInt(params.get('cols') || '0', 10);
   const width = parseInt(params.get('width') || '1920', 10);
   const height = parseInt(params.get('height') || '1080', 10);
-  const rows = parseInt(params.get('rows') || '2', 10);
-  const cols = parseInt(params.get('cols') || '2', 10);
 
   log.info('Processing GenGridImage', {
     grid_image_id,
     dimensions: `${width}x${height}`,
-    grid: `${rows}x${cols}`,
     fal_status: falPayload.status,
   });
 
@@ -162,100 +161,63 @@ async function handleGenGridImage(
     has_prompt: !!prompt,
   });
 
-  // Step 1: Update grid_images with success and URL
-  log.startTiming('db_update_success');
+  // Step 1: Validate grid dimensions from params
+  if (rows < 2 || cols < 2 || rows !== cols + 1) {
+    log.error('Invalid grid dimensions from params', { rows, cols });
+
+    await supabase
+      .from('grid_images')
+      .update({
+        status: 'failed',
+        url: gridImageUrl,
+        error_message: `Invalid grid dimensions: ${rows}x${cols}`,
+      })
+      .eq('id', grid_image_id);
+
+    return new Response(
+      JSON.stringify({ success: false, error: 'Invalid grid dimensions' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  log.info('Grid dimensions from plan', { rows, cols });
+
+  // Step 2: Update grid_images with 'generated' status (awaiting user review)
+  log.startTiming('db_update_generated');
   await supabase
     .from('grid_images')
     .update({
-      status: 'success',
+      status: 'generated',
       url: gridImageUrl,
-      prompt: prompt || null,
     })
     .eq('id', grid_image_id);
   log.db('UPDATE', 'grid_images', {
     id: grid_image_id,
-    status: 'success',
-    time_ms: log.endTiming('db_update_success'),
+    status: 'generated',
+    rows,
+    cols,
+    time_ms: log.endTiming('db_update_generated'),
   });
 
-  // Step 2: Send split request to ComfyUI
-  const splitWebhookParams = new URLSearchParams({
-    step: 'SplitGridImage',
-    grid_image_id: grid_image_id,
+  // Step 3: Update storyboard plan_status to 'grid_ready' for user review
+  log.startTiming('db_update_plan_status');
+  await supabase
+    .from('storyboards')
+    .update({ plan_status: 'grid_ready' })
+    .eq('id', storyboard_id);
+  log.db('UPDATE', 'storyboards', {
+    id: storyboard_id,
+    plan_status: 'grid_ready',
+    time_ms: log.endTiming('db_update_plan_status'),
   });
-  const splitWebhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${splitWebhookParams.toString()}`;
 
-  const falUrl = new URL('https://queue.fal.run/comfy/octupost/splitgridimage');
-  falUrl.searchParams.set('fal_webhook', splitWebhookUrl);
+  // Scene creation and split request are now triggered by user approval
+  // via the approve-grid-split edge function
 
-  try {
-    log.api('ComfyUI', 'splitgridimage', { rows, cols, width, height });
-    log.startTiming('split_request');
-
-    const splitResponse = await fetch(falUrl.toString(), {
-      method: 'POST',
-      headers: {
-        Authorization: `Key ${FAL_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        loadimage_1: gridImageUrl,
-        rows: rows,
-        cols: cols,
-        width: width,
-        height: height,
-      }),
-    });
-
-    if (!splitResponse.ok) {
-      const errorText = await splitResponse.text();
-      log.error('Split request failed', {
-        status: splitResponse.status,
-        error: errorText,
-        time_ms: log.endTiming('split_request'),
-      });
-      throw new Error(`Split request failed: ${splitResponse.status}`);
-    }
-
-    const splitResult = await splitResponse.json();
-    log.success('Split request sent', {
-      request_id: splitResult.request_id,
-      time_ms: log.endTiming('split_request'),
-    });
-
-    // Save split_request_id to grid_images for tracking
-    await supabase
-      .from('grid_images')
-      .update({ split_request_id: splitResult.request_id })
-      .eq('id', grid_image_id);
-  } catch (splitError) {
-    log.error('Failed to send split request', {
-      error:
-        splitError instanceof Error ? splitError.message : String(splitError),
-    });
-
-    // Mark all first_frames as failed
-    log.startTiming('mark_frames_failed');
-    const { data: scenes } = await supabase
-      .from('scenes')
-      .select('id')
-      .eq('grid_image_id', grid_image_id);
-
-    if (scenes) {
-      for (const scene of scenes) {
-        await supabase
-          .from('first_frames')
-          .update({ status: 'failed', error_message: 'internal_error' })
-          .eq('scene_id', scene.id);
-      }
-      log.warn('Marked first_frames as failed', {
-        scenes_affected: scenes.length,
-        time_ms: log.endTiming('mark_frames_failed'),
-      });
-    }
-  }
-
-  log.summary('success', { grid_image_id, next_step: 'SplitGridImage' });
+  log.summary('success', { grid_image_id, next_step: 'AwaitingUserReview' });
   return new Response(JSON.stringify({ success: true, step: 'GenGridImage' }), {
     headers: { 'Content-Type': 'application/json' },
   });

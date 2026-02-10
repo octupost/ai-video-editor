@@ -11,8 +11,11 @@ import {
   IconPlayerPause,
   IconLoader2,
   IconVideo,
+  IconPencil,
 } from '@tabler/icons-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import { StatusBadge } from './status-badge';
 import { useStudioStore } from '@/stores/studio-store';
 import {
@@ -33,6 +36,12 @@ interface SceneCardProps {
   onSelectionChange?: (selected: boolean) => void;
   playingVoiceoverId?: string | null;
   setPlayingVoiceoverId?: (id: string | null) => void;
+  onRegenerate?: (
+    sceneId: string,
+    newVoiceoverText: string,
+    newVisualPrompt: string
+  ) => Promise<void>;
+  onSaveVisualPrompt?: (sceneId: string, newPrompt: string) => Promise<void>;
 }
 
 interface SceneThumbnailProps {
@@ -172,6 +181,8 @@ interface ExpandedContentProps {
   displayVisualPrompt: string | null | undefined;
   playingVoiceoverId?: string | null;
   setPlayingVoiceoverId?: (id: string | null) => void;
+  sceneId: string;
+  onSaveVisualPrompt?: (sceneId: string, newPrompt: string) => Promise<void>;
 }
 
 function ExpandedContent({
@@ -180,8 +191,30 @@ function ExpandedContent({
   displayVisualPrompt,
   playingVoiceoverId,
   setPlayingVoiceoverId,
+  sceneId,
+  onSaveVisualPrompt,
 }: ExpandedContentProps) {
   const isPlaying = voiceover ? playingVoiceoverId === voiceover.id : false;
+  const [isEditingPrompt, setIsEditingPrompt] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSavePrompt = async () => {
+    const trimmed = editedPrompt.trim();
+    setIsEditingPrompt(false);
+
+    if (trimmed === (displayVisualPrompt || '').trim()) return;
+    if (!onSaveVisualPrompt) return;
+
+    setIsSaving(true);
+    try {
+      await onSaveVisualPrompt(sceneId, trimmed);
+    } catch (err) {
+      console.error('Failed to save visual prompt:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleTogglePlay = () => {
     if (!voiceover || !setPlayingVoiceoverId) return;
@@ -239,14 +272,44 @@ function ExpandedContent({
           <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
             Visual
           </span>
-        </div>
-        <p className="text-[11px] text-foreground/60 leading-relaxed pl-5">
-          {displayVisualPrompt || (
-            <span className="italic text-muted-foreground">
-              No visual prompt
-            </span>
+          {isSaving && (
+            <IconLoader2 size={10} className="animate-spin text-purple-400" />
           )}
-        </p>
+        </div>
+        {isEditingPrompt ? (
+          <div className="pl-5" onClick={(e) => e.stopPropagation()}>
+            <Textarea
+              autoFocus
+              value={editedPrompt}
+              onChange={(e) => setEditedPrompt(e.target.value)}
+              onBlur={handleSavePrompt}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  setIsEditingPrompt(false);
+                }
+              }}
+              className="text-[11px] min-h-[40px] resize-none p-1.5 bg-background/50 border-purple-400/30 focus-visible:border-purple-400/50"
+              placeholder="Visual prompt..."
+            />
+          </div>
+        ) : (
+          <p
+            className={`text-[11px] text-foreground/60 leading-relaxed pl-5 ${onSaveVisualPrompt ? 'cursor-pointer hover:text-foreground/80 hover:bg-secondary/30 rounded transition-colors' : ''}`}
+            onClick={(e) => {
+              if (!onSaveVisualPrompt) return;
+              e.stopPropagation();
+              setEditedPrompt(displayVisualPrompt || '');
+              setIsEditingPrompt(true);
+            }}
+            title={onSaveVisualPrompt ? 'Click to edit' : undefined}
+          >
+            {displayVisualPrompt || (
+              <span className="italic text-muted-foreground">
+                No visual prompt
+              </span>
+            )}
+          </p>
+        )}
       </div>
       <div className="flex justify-center">
         <IconChevronDown
@@ -264,8 +327,14 @@ export function SceneCard({
   onSelectionChange,
   playingVoiceoverId,
   setPlayingVoiceoverId,
+  onRegenerate,
+  onSaveVisualPrompt,
 }: SceneCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedVoiceover, setEditedVoiceover] = useState('');
+  const [editedVisualPrompt, setEditedVisualPrompt] = useState('');
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const { studio } = useStudioStore();
   const firstFrame = scene.first_frames?.[0] ?? null;
   const voiceover = scene.voiceovers?.[0] ?? null;
@@ -276,6 +345,31 @@ export function SceneCard({
     null;
   const displayVoiceover = voiceover?.text;
   const displayVisualPrompt = firstFrame?.visual_prompt;
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditedVoiceover(displayVoiceover ?? '');
+    setEditedVisualPrompt(displayVisualPrompt ?? '');
+    setIsEditing(true);
+    setExpanded(true);
+  };
+
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditing(false);
+  };
+
+  const handleRegenerate = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRegenerate) return;
+    setIsRegenerating(true);
+    try {
+      await onRegenerate(scene.id, editedVoiceover, editedVisualPrompt);
+      setIsEditing(false);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   const handleAddToCanvas = async () => {
     if (!studio || !firstFrame?.video_url) return;
@@ -370,20 +464,29 @@ export function SceneCard({
           ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
           : ''
       }`}
-      onClick={() => setExpanded(!expanded)}
+      onClick={() => !isEditing && setExpanded(!expanded)}
     >
-      {showSelection && (
-        <div
-          className="flex justify-end mb-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={(checked) => onSelectionChange(checked === true)}
-            className="data-[state=checked]:bg-primary"
-          />
-        </div>
-      )}
+      <div className="flex justify-between items-center mb-1">
+        {showSelection && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={(checked) => onSelectionChange(checked === true)}
+              className="data-[state=checked]:bg-primary"
+            />
+          </div>
+        )}
+        {onRegenerate && !isEditing && (
+          <button
+            type="button"
+            onClick={handleStartEdit}
+            className="ml-auto p-0.5 rounded hover:bg-secondary/80 transition-colors"
+            title="Edit & Regenerate"
+          >
+            <IconPencil size={14} className="text-muted-foreground" />
+          </button>
+        )}
+      </div>
       <SceneThumbnail
         imageUrl={imageUrl}
         sceneOrder={scene.order}
@@ -391,30 +494,98 @@ export function SceneCard({
         onAddToCanvas={hasVideo ? handleAddToCanvas : undefined}
       />
 
-      {!expanded && (
-        <div className="mt-2 flex items-center gap-1.5">
-          <IconMicrophone size={10} className="text-blue-400 flex-shrink-0" />
-          <p className="text-[10px] text-foreground/70 truncate flex-1">
-            {voiceoverPreview || (
-              <span className="italic text-muted-foreground">No voiceover</span>
-            )}
-          </p>
-          {renderCollapsedVoiceoverStatus()}
-          <IconChevronDown
-            size={12}
-            className="text-muted-foreground flex-shrink-0"
-          />
+      {isEditing ? (
+        <div
+          className="mt-2 flex flex-col gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <IconMicrophone size={12} className="text-blue-400" />
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
+                Voiceover
+              </span>
+            </div>
+            <Textarea
+              value={editedVoiceover}
+              onChange={(e) => setEditedVoiceover(e.target.value)}
+              className="text-[11px] min-h-[60px] resize-none"
+              placeholder="Voiceover text..."
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-1.5">
+              <IconEye size={12} className="text-purple-400" />
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
+                Visual Prompt
+              </span>
+            </div>
+            <Textarea
+              value={editedVisualPrompt}
+              onChange={(e) => setEditedVisualPrompt(e.target.value)}
+              className="text-[11px] min-h-[60px] resize-none"
+              placeholder="Visual prompt..."
+            />
+          </div>
+          <div className="flex items-center gap-1.5 justify-end">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={handleCancelEdit}
+              disabled={isRegenerating}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-xs"
+              onClick={handleRegenerate}
+              disabled={isRegenerating}
+            >
+              {isRegenerating ? (
+                <IconLoader2 size={12} className="animate-spin mr-1" />
+              ) : null}
+              Regenerate
+            </Button>
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {!expanded && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <IconMicrophone
+                size={10}
+                className="text-blue-400 flex-shrink-0"
+              />
+              <p className="text-[10px] text-foreground/70 truncate flex-1">
+                {voiceoverPreview || (
+                  <span className="italic text-muted-foreground">
+                    No voiceover
+                  </span>
+                )}
+              </p>
+              {renderCollapsedVoiceoverStatus()}
+              <IconChevronDown
+                size={12}
+                className="text-muted-foreground flex-shrink-0"
+              />
+            </div>
+          )}
 
-      {expanded && (
-        <ExpandedContent
-          voiceover={voiceover}
-          displayVoiceover={displayVoiceover}
-          displayVisualPrompt={displayVisualPrompt}
-          playingVoiceoverId={playingVoiceoverId}
-          setPlayingVoiceoverId={setPlayingVoiceoverId}
-        />
+          {expanded && (
+            <ExpandedContent
+              voiceover={voiceover}
+              displayVoiceover={displayVoiceover}
+              displayVisualPrompt={displayVisualPrompt}
+              playingVoiceoverId={playingVoiceoverId}
+              setPlayingVoiceoverId={setPlayingVoiceoverId}
+              sceneId={scene.id}
+              onSaveVisualPrompt={onSaveVisualPrompt}
+            />
+          )}
+        </>
       )}
 
       <SceneErrors firstFrame={firstFrame} />

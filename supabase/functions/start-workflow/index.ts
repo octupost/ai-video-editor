@@ -39,10 +39,11 @@ function errorResponse(error: string, status = 500): Response {
 }
 
 interface WorkflowInput {
+  storyboard_id: string;
   project_id: string;
-  grid_image_prompt: string;
   rows: number;
   cols: number;
+  grid_image_prompt: string;
   voiceover_list: string[];
   visual_prompt_list: string[];
   sfx_prompt_list?: string[];
@@ -54,22 +55,21 @@ interface WorkflowInput {
 
 function validateInput(input: WorkflowInput): string | null {
   const {
+    storyboard_id,
     project_id,
-    grid_image_prompt,
     rows,
     cols,
+    grid_image_prompt,
     voiceover_list,
     visual_prompt_list,
-    sfx_prompt_list,
     voiceover,
     aspect_ratio,
   } = input;
 
   if (
+    !storyboard_id ||
     !project_id ||
     !grid_image_prompt ||
-    !rows ||
-    !cols ||
     !voiceover_list ||
     !visual_prompt_list ||
     !voiceover ||
@@ -78,16 +78,21 @@ function validateInput(input: WorkflowInput): string | null {
     return 'Missing required fields';
   }
 
-  const numberOfScenes = rows * cols;
-  if (
-    voiceover_list.length !== numberOfScenes ||
-    visual_prompt_list.length !== numberOfScenes
-  ) {
-    return 'voiceover_list and visual_prompt_list must match rows * cols';
+  // Validate rows/cols
+  if (!rows || !cols || rows < 2 || rows > 8 || cols < 2 || cols > 8) {
+    return 'rows and cols must be integers between 2 and 8';
+  }
+  if (rows !== cols + 1) {
+    return 'rows must equal cols + 1';
   }
 
-  if (sfx_prompt_list && sfx_prompt_list.length !== numberOfScenes) {
-    return 'sfx_prompt_list must match rows * cols';
+  // voiceover_list and visual_prompt_list must match grid dimensions
+  const expectedScenes = rows * cols;
+  if (voiceover_list.length !== expectedScenes) {
+    return `voiceover_list length (${voiceover_list.length}) must equal rows*cols (${expectedScenes})`;
+  }
+  if (visual_prompt_list.length !== expectedScenes) {
+    return `visual_prompt_list length (${visual_prompt_list.length}) must equal rows*cols (${expectedScenes})`;
   }
 
   return null;
@@ -140,57 +145,6 @@ async function sendFalRequest(
   return { requestId: falResult.request_id, error: null };
 }
 
-type SupabaseClient = ReturnType<typeof createClient>;
-
-async function createScenes(
-  supabase: SupabaseClient,
-  gridImageId: string,
-  numberOfScenes: number,
-  visualPromptList: string[],
-  voiceoverList: string[],
-  sfxPromptList: string[] | undefined,
-  log: ReturnType<typeof createLogger>
-): Promise<string[]> {
-  log.info('Creating scenes', { count: numberOfScenes });
-  log.startTiming('create_scenes');
-
-  const createdScenes: string[] = [];
-  for (let i = 0; i < numberOfScenes; i++) {
-    const { data: scene, error: sceneError } = await supabase
-      .from('scenes')
-      .insert({ grid_image_id: gridImageId, order: i })
-      .select()
-      .single();
-
-    if (sceneError || !scene) {
-      log.warn('Failed to insert scene', {
-        index: i,
-        error: sceneError?.message,
-      });
-      continue;
-    }
-
-    createdScenes.push(scene.id);
-    await supabase.from('first_frames').insert({
-      scene_id: scene.id,
-      visual_prompt: visualPromptList[i],
-      sfx_prompt: sfxPromptList?.[i] ?? null,
-      status: 'processing',
-    });
-    await supabase.from('voiceovers').insert({
-      scene_id: scene.id,
-      text: voiceoverList[i],
-      status: 'success',
-    });
-  }
-
-  log.success('Scenes created', {
-    count: createdScenes.length,
-    time_ms: log.endTiming('create_scenes'),
-  });
-  return createdScenes;
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return corsResponse();
@@ -203,20 +157,8 @@ Deno.serve(async (req: Request) => {
     log.info('Request received', { method: req.method });
 
     const input: WorkflowInput = await req.json();
-    const {
-      project_id,
-      grid_image_prompt,
-      rows,
-      cols,
-      voiceover_list,
-      visual_prompt_list,
-      sfx_prompt_list,
-      width,
-      height,
-      voiceover,
-      aspect_ratio,
-    } = input;
-    const numberOfScenes = rows * cols;
+    const { storyboard_id, rows, cols, grid_image_prompt, width, height } =
+      input;
 
     const validationError = validateInput(input);
     if (validationError) {
@@ -225,37 +167,18 @@ Deno.serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Create storyboard record
-    const { data: storyboard, error: storyboardError } = await supabase
-      .from('storyboards')
-      .insert({ project_id, voiceover, aspect_ratio })
-      .select()
-      .single();
+    log.info('Using existing storyboard', { id: storyboard_id });
 
-    if (storyboardError || !storyboard) {
-      log.error('Failed to insert storyboard', {
-        error: storyboardError?.message,
-      });
-      return errorResponse('Failed to create storyboard record');
-    }
-
-    const storyboard_id = storyboard.id;
-    log.success('storyboard created', { id: storyboard_id });
-
-    // Create grid_images record
-    const cellWidth = Math.floor(4096 / cols);
-    const cellHeight = Math.floor(4096 / rows);
-
+    // Create grid_images record with rows/cols from plan
     const { data: gridImage, error: gridInsertError } = await supabase
       .from('grid_images')
       .insert({
         storyboard_id,
-        rows,
-        cols,
-        cell_width: cellWidth,
-        cell_height: cellHeight,
         prompt: grid_image_prompt,
         status: 'pending',
+        detected_rows: rows,
+        detected_cols: cols,
+        dimension_detection_status: 'success',
       })
       .select()
       .single();
@@ -274,10 +197,11 @@ Deno.serve(async (req: Request) => {
     const webhookParams = new URLSearchParams({
       step: 'GenGridImage',
       grid_image_id,
-      width: width.toString(),
-      height: height.toString(),
+      storyboard_id,
       rows: rows.toString(),
       cols: cols.toString(),
+      width: width.toString(),
+      height: height.toString(),
     });
     const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
     const falUrl = new URL(
@@ -308,22 +232,12 @@ Deno.serve(async (req: Request) => {
       .update({ status: 'processing', request_id: requestId })
       .eq('id', grid_image_id);
 
-    // Create scenes
-    const createdScenes = await createScenes(
-      supabase,
-      grid_image_id,
-      numberOfScenes,
-      visual_prompt_list,
-      voiceover_list,
-      sfx_prompt_list,
-      log
-    );
+    // Scenes will be created in webhook after grid dimension detection
 
     log.summary('success', {
       storyboard_id,
       grid_image_id,
       request_id: requestId,
-      scenes_created: createdScenes.length,
     });
 
     return jsonResponse({
@@ -331,7 +245,6 @@ Deno.serve(async (req: Request) => {
       storyboard_id,
       grid_image_id,
       request_id: requestId,
-      scenes_created: createdScenes.length,
     });
   } catch (error) {
     log.error('Unexpected error', {

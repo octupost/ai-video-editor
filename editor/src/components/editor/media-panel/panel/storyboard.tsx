@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   IconCheck,
   IconChevronDown,
+  IconChevronUp,
   IconLayoutGrid,
   IconLoader2,
   IconPlus,
@@ -18,6 +19,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 
 import {
   Select,
@@ -47,7 +53,7 @@ type AspectRatio = (typeof ASPECT_RATIOS)[number]['value'];
 
 const STORYBOARD_MODELS = [
   { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro' },
-  { value: 'anthropic/claude-opus-4.5', label: 'Claude Opus 4.5' },
+  { value: 'anthropic/claude-opus-4.6', label: 'Claude Opus 4.6' },
   { value: 'openai/gpt-5.2-pro', label: 'GPT 5.2 Pro' },
 ] as const;
 
@@ -122,7 +128,7 @@ export default function PanelStoryboard() {
 
       // Check for existing draft
       const draft = await getDraftStoryboard(projectId);
-      if (draft && draft.plan) {
+      if (draft?.plan) {
         // Restore draft state
         setDraftPlan(draft.plan);
         setDraftStoryboardId(draft.id);
@@ -240,9 +246,7 @@ export default function PanelStoryboard() {
 
       const data = await response.json();
       console.log('[Storyboard] Plan generated:', {
-        rows: data.rows,
-        cols: data.cols,
-        scenes: data.rows * data.cols,
+        scenes: data.voiceover_list.length,
         storyboard_id: data.storyboard_id,
       });
 
@@ -464,6 +468,26 @@ export default function PanelStoryboard() {
             isApproving={isApprovingDraft}
             error={draftError}
           />
+        )}
+
+        {/* Plan (read-only) - show when viewing a storyboard that has a plan */}
+        {viewMode === 'view' && selectedStoryboard?.plan && (
+          <Collapsible>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-between h-8 text-xs text-muted-foreground hover:text-foreground mb-2 group"
+              >
+                Plan ({selectedStoryboard.plan.voiceover_list.length} scenes)
+                <IconChevronDown className="size-3 group-data-[state=open]:hidden" />
+                <IconChevronUp className="size-3 hidden group-data-[state=open]:block" />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <DraftPlanEditor plan={selectedStoryboard.plan} readOnly />
+            </CollapsibleContent>
+          </Collapsible>
         )}
 
         {/* Scene Cards - show only when viewing a selected storyboard */}

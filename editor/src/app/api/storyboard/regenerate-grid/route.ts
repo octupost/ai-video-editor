@@ -22,12 +22,12 @@ export async function POST(req: NextRequest) {
 
     if (!storyboardId) {
       return NextResponse.json(
-        { error: 'Storyboard ID is required' },
+        { error: 'storyboardId is required' },
         { status: 400 }
       );
     }
 
-    // Fetch the draft storyboard
+    // Fetch storyboard, validate plan_status === 'grid_ready'
     const { data: storyboard, error: fetchError } = await supabase
       .from('storyboards')
       .select('*')
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (storyboard.plan_status !== 'draft') {
+    if (storyboard.plan_status !== 'grid_ready') {
       return NextResponse.json(
-        { error: 'Storyboard is not in draft status' },
+        { error: 'Storyboard is not in grid_ready status' },
         { status: 400 }
       );
     }
@@ -55,7 +55,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update status to 'generating'
+    // Delete old grid_images records (no scenes attached yet)
+    const { error: deleteError } = await supabase
+      .from('grid_images')
+      .delete()
+      .eq('storyboard_id', storyboardId);
+
+    if (deleteError) {
+      console.error('Failed to delete old grid images:', deleteError);
+      return NextResponse.json(
+        { error: 'Failed to clean up old grid images' },
+        { status: 500 }
+      );
+    }
+
+    // Set plan_status back to 'generating'
     const { error: updateError } = await supabase
       .from('storyboards')
       .update({ plan_status: 'generating' })
@@ -73,7 +87,7 @@ export async function POST(req: NextRequest) {
     const dimensions =
       ASPECT_RATIOS[storyboard.aspect_ratio] || ASPECT_RATIOS['9:16'];
 
-    // Get a fresh session for the edge function call
+    // Get fresh session for edge function call
     const {
       data: { session },
       error: sessionError,
@@ -83,7 +97,7 @@ export async function POST(req: NextRequest) {
       // Revert status on auth failure
       await supabase
         .from('storyboards')
-        .update({ plan_status: 'draft' })
+        .update({ plan_status: 'grid_ready' })
         .eq('id', storyboardId);
       return NextResponse.json(
         { error: 'Authentication failed' },
@@ -91,26 +105,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Call start-workflow edge function with storyboard_id
-    const workflowBody = {
-      storyboard_id: storyboardId,
-      project_id: storyboard.project_id,
-      rows: storyboard.plan.rows,
-      cols: storyboard.plan.cols,
-      grid_image_prompt: storyboard.plan.grid_image_prompt,
-      voiceover_list: storyboard.plan.voiceover_list,
-      visual_prompt_list: storyboard.plan.visual_flow,
-      width: dimensions.width,
-      height: dimensions.height,
-      voiceover: storyboard.voiceover,
-      aspect_ratio: storyboard.aspect_ratio,
-    };
-
+    // Re-invoke start-workflow with same plan data
     const { data: fnData, error: fnError } = await supabase.functions.invoke(
       'start-workflow',
       {
         headers: { Authorization: `Bearer ${session.access_token}` },
-        body: workflowBody,
+        body: {
+          storyboard_id: storyboardId,
+          project_id: storyboard.project_id,
+          rows: storyboard.plan.rows,
+          cols: storyboard.plan.cols,
+          grid_image_prompt: storyboard.plan.grid_image_prompt,
+          voiceover_list: storyboard.plan.voiceover_list,
+          visual_prompt_list: storyboard.plan.visual_flow,
+          width: dimensions.width,
+          height: dimensions.height,
+          voiceover: storyboard.voiceover,
+          aspect_ratio: storyboard.aspect_ratio,
+        },
       }
     );
 
@@ -119,10 +131,10 @@ export async function POST(req: NextRequest) {
       // Revert status on failure
       await supabase
         .from('storyboards')
-        .update({ plan_status: 'draft' })
+        .update({ plan_status: 'grid_ready' })
         .eq('id', storyboardId);
       return NextResponse.json(
-        { error: 'Failed to start workflow' },
+        { error: 'Failed to start regeneration' },
         { status: 500 }
       );
     }
@@ -132,16 +144,13 @@ export async function POST(req: NextRequest) {
       // Revert status on failure
       await supabase
         .from('storyboards')
-        .update({ plan_status: 'draft' })
+        .update({ plan_status: 'grid_ready' })
         .eq('id', storyboardId);
       return NextResponse.json(
-        { error: fnData.error || 'Workflow failed' },
+        { error: fnData.error || 'Regeneration failed' },
         { status: 500 }
       );
     }
-
-    // Status stays as 'generating' — the webhook will set it to 'grid_ready'
-    // when the grid image is generated, allowing user to review before splitting
 
     return NextResponse.json({
       success: true,
@@ -149,7 +158,7 @@ export async function POST(req: NextRequest) {
       grid_image_id: fnData?.grid_image_id,
     });
   } catch (error) {
-    console.error('Approve storyboard error:', error);
+    console.error('Regenerate grid error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

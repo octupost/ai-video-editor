@@ -3,7 +3,12 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 // Types for workflow data
 
-export type PlanStatus = 'draft' | 'approved' | 'generating' | null;
+export type PlanStatus =
+  | 'draft'
+  | 'approved'
+  | 'generating'
+  | 'grid_ready'
+  | null;
 
 export interface StoryboardPlan {
   rows: number;
@@ -26,16 +31,15 @@ export interface Storyboard {
 export interface GridImage {
   id: string;
   storyboard_id: string;
-  rows: number;
-  cols: number;
-  cell_width: number;
-  cell_height: number;
   url: string | null;
   prompt: string | null;
-  status: 'pending' | 'processing' | 'success' | 'failed';
+  status: 'pending' | 'processing' | 'generated' | 'success' | 'failed';
   request_id: string | null;
   error_message: string | null;
   created_at: string;
+  detected_rows: number | null;
+  detected_cols: number | null;
+  dimension_detection_status: 'success' | 'failed' | null;
 }
 
 export interface FirstFrame {

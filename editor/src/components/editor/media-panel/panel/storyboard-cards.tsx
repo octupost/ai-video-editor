@@ -36,7 +36,12 @@ import {
   addSceneToTimeline,
   findCompatibleTrack,
 } from '@/lib/scene-timeline-utils';
-import type { GridImageWithScenes } from '@/lib/supabase/workflow-service';
+import type {
+  GridImage,
+  GridImageWithScenes,
+  Storyboard,
+} from '@/lib/supabase/workflow-service';
+import { GridImageReview } from './grid-image-review';
 
 const VOICES = [
   {
@@ -398,6 +403,110 @@ export function StoryboardCards({
       s.first_frames?.[0]?.video_url
   );
 
+  const handleSaveVisualPrompt = async (sceneId: string, newPrompt: string) => {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('first_frames')
+      .update({ visual_prompt: newPrompt })
+      .eq('scene_id', sceneId);
+
+    if (error) {
+      console.error('Failed to save visual prompt:', error);
+      toast.error('Failed to save visual prompt');
+      throw error;
+    }
+  };
+
+  const handleRegenerateScene = async (
+    sceneId: string,
+    newVoiceoverText: string,
+    newVisualPrompt: string
+  ) => {
+    const supabase = createClient();
+
+    // Update voiceover text and reset status
+    const { error: voiceoverError } = await supabase
+      .from('voiceovers')
+      .update({
+        text: newVoiceoverText,
+        status: 'pending',
+        audio_url: null,
+        duration: null,
+      })
+      .eq('scene_id', sceneId);
+
+    if (voiceoverError) {
+      toast.error('Failed to update voiceover text');
+      throw voiceoverError;
+    }
+
+    // Update visual prompt and reset video status
+    const { error: frameError } = await supabase
+      .from('first_frames')
+      .update({
+        visual_prompt: newVisualPrompt,
+        video_status: null,
+        video_url: null,
+        video_request_id: null,
+        video_error_message: null,
+      })
+      .eq('scene_id', sceneId);
+
+    if (frameError) {
+      toast.error('Failed to update visual prompt');
+      throw frameError;
+    }
+
+    // Trigger TTS regeneration
+    const { error: ttsError } = await supabase.functions.invoke(
+      'generate-tts',
+      {
+        body: {
+          scene_ids: [sceneId],
+          voice: selectedVoice,
+          model: ttsModel,
+        },
+      }
+    );
+
+    if (ttsError) {
+      console.error('TTS generation failed:', ttsError);
+      toast.error('Failed to start voiceover generation');
+    }
+
+    // Trigger video regeneration only if the scene has an enhanced image
+    const scene = sortedScenes.find((s) => s.id === sceneId);
+    const finalUrl = scene?.first_frames?.[0]?.final_url;
+    if (finalUrl) {
+      const { error: videoError } = await supabase.functions.invoke(
+        'generate-video',
+        {
+          body: {
+            scene_ids: [sceneId],
+            resolution: videoResolution,
+            model: videoModel,
+            aspect_ratio:
+              storyboard && 'aspect_ratio' in storyboard
+                ? storyboard.aspect_ratio
+                : '16:9',
+          },
+        }
+      );
+
+      if (videoError) {
+        console.error('Video generation failed:', videoError);
+        toast.error('Failed to start video generation');
+      }
+    } else {
+      toast.info(
+        'Video generation skipped — enhance the image first to generate video.'
+      );
+    }
+
+    toast.success('Scene regeneration started');
+    refresh();
+  };
+
   const handleAddAllToTimeline = async () => {
     if (!studio || selectedScenesWithVideo.length === 0) return;
 
@@ -478,6 +587,23 @@ export function StoryboardCards({
       <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
         {error.message}
       </div>
+    );
+  }
+
+  // Grid image review: show when grid is generated but not yet split
+  if (
+    gridImage?.status === 'generated' &&
+    storyboard &&
+    'plan' in storyboard &&
+    storyboard.plan
+  ) {
+    return (
+      <GridImageReview
+        gridImage={gridImage as GridImage}
+        storyboard={storyboard as Storyboard}
+        onApproveComplete={() => refresh()}
+        onRegenerateComplete={() => refresh()}
+      />
     );
   }
 
@@ -764,6 +890,8 @@ export function StoryboardCards({
             onSelectionChange={(selected) => toggleScene(scene.id, selected)}
             playingVoiceoverId={playingVoiceoverId}
             setPlayingVoiceoverId={setPlayingVoiceoverId}
+            onRegenerate={handleRegenerateScene}
+            onSaveVisualPrompt={handleSaveVisualPrompt}
           />
         ))}
       </div>
