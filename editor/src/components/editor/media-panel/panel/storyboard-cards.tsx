@@ -32,6 +32,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Tooltip,
@@ -306,6 +307,7 @@ export function StoryboardCards({
   const [isGeneratingSfx, setIsGeneratingSfx] = useState(false);
   const [isAddingToTimeline, setIsAddingToTimeline] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('pNInz6obpgDQGcFmaJgB');
+  const [customVoiceId, setCustomVoiceId] = useState('');
   const [ttsModel, setTtsModel] = useState<TTSModelKey>('turbo-v2.5');
   const [playingVoiceoverId, setPlayingVoiceoverId] = useState<string | null>(
     null
@@ -373,7 +375,7 @@ export function StoryboardCards({
       const { data, error } = await supabase.functions.invoke('generate-tts', {
         body: {
           scene_ids: Array.from(selectedSceneIds),
-          voice: selectedVoice,
+          voice: customVoiceId.trim() || selectedVoice,
           model: ttsModel,
         },
       });
@@ -570,7 +572,7 @@ export function StoryboardCards({
       {
         body: {
           scene_ids: [sceneId],
-          voice: selectedVoice,
+          voice: customVoiceId.trim() || selectedVoice,
           model: ttsModel,
         },
       }
@@ -782,6 +784,12 @@ export function StoryboardCards({
                 ))}
               </SelectContent>
             </Select>
+            <Input
+              value={customVoiceId}
+              onChange={(e) => setCustomVoiceId(e.target.value)}
+              placeholder="Custom voice ID"
+              className="h-8 w-[120px] text-xs"
+            />
             <Select
               value={ttsModel}
               onValueChange={(v) => setTtsModel(v as TTSModelKey)}

@@ -7,6 +7,7 @@ import type { TimelineCanvas } from './timeline';
 import { generateUUID } from '@/utils/id';
 import { clipToJSON, type IClip as StudioClip } from 'openvideo';
 import { toast } from 'sonner';
+import { useMediaPanelStore } from '@/components/editor/media-panel/store';
 
 interface TimelineStudioSyncProps {
   timelineCanvas?: TimelineCanvas | null;
@@ -630,20 +631,30 @@ export const TimelineStudioSync = ({
     }) => {
       if (!studio) return;
 
-      const selectedTransitionKey =
-        useStudioStore.getState().selectedTransitionKey;
+      const selectedTransitionKeys =
+        useStudioStore.getState().selectedTransitionKeys;
 
-      if (!selectedTransitionKey) {
-        toast.error('Select a transition type first');
+      if (selectedTransitionKeys.length === 0) {
+        // Store the clip IDs so the transition panel can use them
+        useStudioStore
+          .getState()
+          .setPendingTransitionClipIds({ fromClipId, toClipId });
+        // Open the transitions panel
+        useMediaPanelStore.getState().setActiveTab('transitions');
+        toast.info('Select a transition type');
         return;
       }
 
-      await studio.addTransition(
-        selectedTransitionKey,
-        2_000_000,
-        fromClipId,
-        toClipId
-      );
+      const randomKey =
+        selectedTransitionKeys[
+          Math.floor(Math.random() * selectedTransitionKeys.length)
+        ];
+      try {
+        await studio.addTransition(randomKey, 2_000_000, fromClipId, toClipId);
+      } catch (error) {
+        console.error('Failed to add transition:', error);
+        toast.error('Failed to add transition');
+      }
     };
 
     const handleSelectionDelete = async () => {
