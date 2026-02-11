@@ -162,7 +162,7 @@ async function handleGenGridImage(
   });
 
   // Step 1: Validate grid dimensions from params
-  if (rows < 2 || cols < 2 || rows !== cols + 1) {
+  if (rows < 2 || cols < 2 || (rows !== cols && rows !== cols + 1)) {
     log.error('Invalid grid dimensions from params', { rows, cols });
 
     await supabase

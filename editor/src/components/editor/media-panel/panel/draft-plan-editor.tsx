@@ -42,7 +42,8 @@ export function DraftPlanEditor({
   const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set());
   const [isGridPromptOpen, setIsGridPromptOpen] = useState(false);
 
-  const sceneCount = plan.voiceover_list.length;
+  const LANGUAGES = { en: 'English', tr: 'Turkish', ar: 'Arabic' } as const;
+  const sceneCount = plan.voiceover_list?.en?.length ?? 0;
 
   const toggleSceneExpanded = (index: number) => {
     const newExpanded = new Set(expandedScenes);
@@ -54,9 +55,16 @@ export function DraftPlanEditor({
     setExpandedScenes(newExpanded);
   };
 
-  const handleVoiceoverChange = (index: number, value: string) => {
-    const newList = [...plan.voiceover_list];
-    newList[index] = value;
+  const handleVoiceoverChange = (
+    index: number,
+    language: keyof typeof LANGUAGES,
+    value: string
+  ) => {
+    const newList = {
+      ...plan.voiceover_list,
+      [language]: [...plan.voiceover_list[language]],
+    };
+    newList[language][index] = value;
     onPlanChange({ ...plan, voiceover_list: newList });
   };
 
@@ -124,8 +132,9 @@ export function DraftPlanEditor({
             <span className="text-xs font-medium text-muted-foreground">
               Scenes
             </span>
-            {plan.voiceover_list.map((voiceover, index) => {
+            {(plan.voiceover_list?.en ?? []).map((_, index) => {
               const isExpanded = expandedScenes.has(index);
+              const enText = plan.voiceover_list.en[index] || '';
               return (
                 <div
                   key={index}
@@ -141,8 +150,8 @@ export function DraftPlanEditor({
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                        {voiceover.slice(0, 30)}
-                        {voiceover.length > 30 ? '...' : ''}
+                        {enText.slice(0, 30)}
+                        {enText.length > 30 ? '...' : ''}
                       </span>
                       {isExpanded ? (
                         <IconChevronUp className="size-3" />
@@ -154,20 +163,24 @@ export function DraftPlanEditor({
 
                   {isExpanded && (
                     <div className="p-2 pt-0 flex flex-col gap-2 border-t border-border/30">
-                      <div>
-                        <label className="text-xs text-muted-foreground block mb-1">
-                          Voiceover
-                        </label>
-                        <Textarea
-                          value={voiceover}
-                          onChange={(e) =>
-                            handleVoiceoverChange(index, e.target.value)
-                          }
-                          readOnly={readOnly}
-                          className="text-xs min-h-[60px]"
-                          placeholder="Voiceover text for this scene..."
-                        />
-                      </div>
+                      {(
+                        Object.keys(LANGUAGES) as (keyof typeof LANGUAGES)[]
+                      ).map((lang) => (
+                        <div key={lang}>
+                          <label className="text-xs text-muted-foreground block mb-1">
+                            {LANGUAGES[lang]}
+                          </label>
+                          <Textarea
+                            value={plan.voiceover_list[lang][index] || ''}
+                            onChange={(e) =>
+                              handleVoiceoverChange(index, lang, e.target.value)
+                            }
+                            readOnly={readOnly}
+                            className="text-xs min-h-[60px]"
+                            placeholder={`${LANGUAGES[lang]} voiceover...`}
+                          />
+                        </div>
+                      ))}
                       <div>
                         <label className="text-xs text-muted-foreground block mb-1">
                           Visual Prompt

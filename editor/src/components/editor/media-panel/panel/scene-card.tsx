@@ -43,6 +43,7 @@ interface SceneCardProps {
   ) => Promise<void>;
   onSaveVisualPrompt?: (sceneId: string, newPrompt: string) => Promise<void>;
   onSaveVoiceoverText?: (sceneId: string, newText: string) => Promise<void>;
+  selectedLanguage?: 'en' | 'tr' | 'ar';
 }
 
 interface SceneThumbnailProps {
@@ -383,6 +384,7 @@ export function SceneCard({
   onRegenerate,
   onSaveVisualPrompt,
   onSaveVoiceoverText,
+  selectedLanguage = 'en',
 }: SceneCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -391,7 +393,8 @@ export function SceneCard({
   const [isRegenerating, setIsRegenerating] = useState(false);
   const { studio } = useStudioStore();
   const firstFrame = scene.first_frames?.[0] ?? null;
-  const voiceover = scene.voiceovers?.[0] ?? null;
+  const voiceover =
+    scene.voiceovers?.find((v) => v.language === selectedLanguage) ?? null;
   const imageUrl =
     firstFrame?.final_url ??
     firstFrame?.url ??

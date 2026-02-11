@@ -86,7 +86,8 @@ export async function POST(req: NextRequest) {
     // If rows/cols changed, adjust voiceover_list and visual_flow
     const plan = { ...storyboard.plan };
     const newSceneCount = rows * cols;
-    const oldSceneCount = plan.voiceover_list.length;
+    const languages = ['en', 'tr', 'ar'] as const;
+    const oldSceneCount = plan.voiceover_list.en.length;
 
     if (
       newSceneCount !== oldSceneCount ||
@@ -97,14 +98,24 @@ export async function POST(req: NextRequest) {
       plan.cols = cols;
 
       if (newSceneCount < oldSceneCount) {
-        plan.voiceover_list = plan.voiceover_list.slice(0, newSceneCount);
+        for (const lang of languages) {
+          plan.voiceover_list[lang] = plan.voiceover_list[lang].slice(
+            0,
+            newSceneCount
+          );
+        }
         plan.visual_flow = plan.visual_flow.slice(0, newSceneCount);
       } else if (newSceneCount > oldSceneCount) {
-        const lastVo =
-          plan.voiceover_list[plan.voiceover_list.length - 1] || '';
+        for (const lang of languages) {
+          const lastVo =
+            plan.voiceover_list[lang][plan.voiceover_list[lang].length - 1] ||
+            '';
+          while (plan.voiceover_list[lang].length < newSceneCount) {
+            plan.voiceover_list[lang].push(lastVo);
+          }
+        }
         const lastVf = plan.visual_flow[plan.visual_flow.length - 1] || '';
-        while (plan.voiceover_list.length < newSceneCount) {
-          plan.voiceover_list.push(lastVo);
+        while (plan.visual_flow.length < newSceneCount) {
           plan.visual_flow.push(lastVf);
         }
       }
@@ -128,25 +139,23 @@ export async function POST(req: NextRequest) {
     const dimensions =
       ASPECT_RATIOS[storyboard.aspect_ratio] || ASPECT_RATIOS['9:16'];
 
-    // Get fresh session for edge function call
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.refreshSession();
-
-    if (sessionError || !session) {
-      return NextResponse.json(
-        { error: 'Authentication failed' },
-        { status: 401 }
-      );
-    }
-
     // Call approve-grid-split edge function
-    const { data: fnData, error: fnError } = await supabase.functions.invoke(
-      'approve-grid-split',
+    // User is already verified by getUser() above. We use the anon key as the
+    // bearer token because Supabase Auth issues ES256 JWTs which the edge
+    // function gateway cannot verify (it expects HS256).
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+    const fnResponse = await fetch(
+      `${supabaseUrl}/functions/v1/approve-grid-split`,
       {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify({
           storyboard_id: storyboardId,
           grid_image_id: gridImageId,
           grid_image_url: gridImage.url,
@@ -156,17 +165,20 @@ export async function POST(req: NextRequest) {
           height: dimensions.height,
           voiceover_list: plan.voiceover_list,
           visual_prompt_list: plan.visual_flow,
-        },
+        }),
       }
     );
 
-    if (fnError) {
-      console.error('Edge function error:', fnError);
+    if (!fnResponse.ok) {
+      const errorBody = await fnResponse.text();
+      console.error('Edge function error:', fnResponse.status, errorBody);
       return NextResponse.json(
         { error: 'Failed to start split workflow' },
         { status: 500 }
       );
     }
+
+    const fnData = await fnResponse.json();
 
     if (fnData && fnData.success === false) {
       console.error('Split workflow returned failure:', fnData);

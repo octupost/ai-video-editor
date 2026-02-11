@@ -44,7 +44,7 @@ interface WorkflowInput {
   rows: number;
   cols: number;
   grid_image_prompt: string;
-  voiceover_list: string[];
+  voiceover_list: { en: string[]; tr: string[]; ar: string[] };
   visual_prompt_list: string[];
   sfx_prompt_list?: string[];
   width: number;
@@ -82,14 +82,20 @@ function validateInput(input: WorkflowInput): string | null {
   if (!rows || !cols || rows < 2 || rows > 8 || cols < 2 || cols > 8) {
     return 'rows and cols must be integers between 2 and 8';
   }
-  if (rows !== cols + 1) {
-    return 'rows must equal cols + 1';
+  if (rows !== cols && rows !== cols + 1) {
+    return 'rows must equal cols or cols + 1';
   }
 
   // voiceover_list and visual_prompt_list must match grid dimensions
   const expectedScenes = rows * cols;
-  if (voiceover_list.length !== expectedScenes) {
-    return `voiceover_list length (${voiceover_list.length}) must equal rows*cols (${expectedScenes})`;
+  const languages = ['en', 'tr', 'ar'] as const;
+  for (const lang of languages) {
+    if (
+      !voiceover_list[lang] ||
+      voiceover_list[lang].length !== expectedScenes
+    ) {
+      return `voiceover_list.${lang} length (${voiceover_list[lang]?.length}) must equal rows*cols (${expectedScenes})`;
+    }
   }
   if (visual_prompt_list.length !== expectedScenes) {
     return `visual_prompt_list length (${visual_prompt_list.length}) must equal rows*cols (${expectedScenes})`;

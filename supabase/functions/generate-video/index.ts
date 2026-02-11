@@ -163,13 +163,17 @@ async function getVideoContext(
     return null;
   }
 
-  const voiceover = scene.voiceovers?.[0];
-  if (!voiceover?.duration) {
+  const maxDuration = Math.max(
+    ...(scene.voiceovers || []).map(
+      (v: { duration?: number }) => v.duration ?? 0
+    )
+  );
+  if (maxDuration === 0) {
     log.warn('No voiceover duration found', { scene_id: sceneId });
     return null;
   }
 
-  const raw = Math.ceil(voiceover.duration);
+  const raw = Math.ceil(maxDuration);
   const durationInt = bucketDuration(raw);
 
   return {

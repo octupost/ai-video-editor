@@ -49,6 +49,8 @@ interface GenerateTTSInput {
   scene_ids: string[];
   voice?: string;
   model?: 'turbo-v2.5' | 'multilingual-v2';
+  language?: string;
+  speed?: number;
 }
 
 interface SceneContext {
@@ -64,6 +66,7 @@ type SupabaseClient = ReturnType<typeof createClient>;
 async function getSceneContext(
   supabase: SupabaseClient,
   sceneId: string,
+  language: string,
   log: ReturnType<typeof createLogger>
 ): Promise<SceneContext | null> {
   // Fetch the scene with its voiceover and grid_image_id
@@ -73,7 +76,7 @@ async function getSceneContext(
       id,
       order,
       grid_image_id,
-      voiceovers (id, text)
+      voiceovers (id, text, language)
     `)
     .eq('id', sceneId)
     .single();
@@ -86,9 +89,14 @@ async function getSceneContext(
     return null;
   }
 
-  const voiceover = scene.voiceovers?.[0];
+  const voiceover = scene.voiceovers?.find(
+    (v: { language: string }) => v.language === language
+  );
   if (!voiceover) {
-    log.error('No voiceover found for scene', { scene_id: sceneId });
+    log.error('No voiceover found for scene/language', {
+      scene_id: sceneId,
+      language,
+    });
     return null;
   }
 
@@ -98,7 +106,7 @@ async function getSceneContext(
     .select(`
       id,
       order,
-      voiceovers (text)
+      voiceovers (text, language)
     `)
     .eq('grid_image_id', scene.grid_image_id)
     .order('order', { ascending: true });
@@ -117,19 +125,30 @@ async function getSceneContext(
   }
 
   // Find current scene index
-  const currentIndex = allScenes.findIndex((s) => s.id === sceneId);
+  const currentIndex = allScenes.findIndex(
+    (s: { id: string }) => s.id === sceneId
+  );
 
-  // Get previous and next scene texts
+  // Get previous and next scene texts (filtered by same language)
   const previousScene = currentIndex > 0 ? allScenes[currentIndex - 1] : null;
   const nextScene =
     currentIndex < allScenes.length - 1 ? allScenes[currentIndex + 1] : null;
+
+  const previous_text =
+    previousScene?.voiceovers?.find(
+      (v: { language: string }) => v.language === language
+    )?.text || null;
+  const next_text =
+    nextScene?.voiceovers?.find(
+      (v: { language: string }) => v.language === language
+    )?.text || null;
 
   return {
     voiceover_id: voiceover.id,
     scene_id: sceneId,
     text: voiceover.text || '',
-    previous_text: previousScene?.voiceovers?.[0]?.text || null,
-    next_text: nextScene?.voiceovers?.[0]?.text || null,
+    previous_text,
+    next_text,
   };
 }
 
@@ -137,6 +156,7 @@ async function sendTTSRequest(
   context: SceneContext,
   voice: string,
   endpoint: string,
+  speed: number,
   log: ReturnType<typeof createLogger>
 ): Promise<{ requestId: string | null; error: string | null }> {
   const webhookParams = new URLSearchParams({
@@ -167,7 +187,7 @@ async function sendTTSRequest(
         voice,
         stability: 0.5,
         similarity_boost: 0.75,
-        speed: 1.0,
+        speed,
         previous_text: context.previous_text,
         next_text: context.next_text,
       }),
@@ -222,7 +242,10 @@ Deno.serve(async (req: Request) => {
       scene_ids,
       voice = 'pNInz6obpgDQGcFmaJgB',
       model = DEFAULT_TTS_MODEL,
+      language = 'en',
+      speed: rawSpeed = 1.0,
     } = input;
+    const speed = Math.min(1.5, Math.max(0.7, rawSpeed));
 
     if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
       log.error('Invalid input', { scene_ids });
@@ -264,7 +287,7 @@ Deno.serve(async (req: Request) => {
 
       // Get scene context with previous/next text
       log.startTiming(`get_context_${i}`);
-      const context = await getSceneContext(supabase, sceneId, log);
+      const context = await getSceneContext(supabase, sceneId, language, log);
       log.info('Scene context fetched', {
         scene_id: sceneId,
         has_context: !!context,
@@ -310,6 +333,7 @@ Deno.serve(async (req: Request) => {
         context,
         voice,
         endpoint,
+        speed,
         log
       );
 

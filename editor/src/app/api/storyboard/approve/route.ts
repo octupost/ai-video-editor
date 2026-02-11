@@ -73,25 +73,11 @@ export async function POST(req: NextRequest) {
     const dimensions =
       ASPECT_RATIOS[storyboard.aspect_ratio] || ASPECT_RATIOS['9:16'];
 
-    // Get a fresh session for the edge function call
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.refreshSession();
-
-    if (sessionError || !session) {
-      // Revert status on auth failure
-      await supabase
-        .from('storyboards')
-        .update({ plan_status: 'draft' })
-        .eq('id', storyboardId);
-      return NextResponse.json(
-        { error: 'Authentication failed' },
-        { status: 401 }
-      );
-    }
-
     // Call start-workflow edge function with storyboard_id
+    // User is already verified by getUser() above. We use the anon key as the
+    // bearer token because Supabase Auth issues ES256 JWTs which the edge
+    // function gateway cannot verify (it expects HS256). The edge function
+    // itself uses the service role key for all DB operations.
     const workflowBody = {
       storyboard_id: storyboardId,
       project_id: storyboard.project_id,
@@ -106,16 +92,25 @@ export async function POST(req: NextRequest) {
       aspect_ratio: storyboard.aspect_ratio,
     };
 
-    const { data: fnData, error: fnError } = await supabase.functions.invoke(
-      'start-workflow',
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+    const fnResponse = await fetch(
+      `${supabaseUrl}/functions/v1/start-workflow`,
       {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: workflowBody,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${supabaseAnonKey}`,
+        },
+        body: JSON.stringify(workflowBody),
       }
     );
 
-    if (fnError) {
-      console.error('Edge function error:', fnError);
+    if (!fnResponse.ok) {
+      const errorBody = await fnResponse.text();
+      console.error('Edge function error:', fnResponse.status, errorBody);
       // Revert status on failure
       await supabase
         .from('storyboards')
@@ -126,6 +121,8 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    const fnData = await fnResponse.json();
 
     if (fnData && fnData.success === false) {
       console.error('Workflow returned failure:', fnData);

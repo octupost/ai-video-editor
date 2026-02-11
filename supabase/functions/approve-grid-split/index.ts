@@ -46,7 +46,7 @@ interface ApproveGridInput {
   cols: number;
   width: number;
   height: number;
-  voiceover_list: string[];
+  voiceover_list: { en: string[]; tr: string[]; ar: string[] };
   visual_prompt_list: string[];
 }
 
@@ -87,11 +87,14 @@ Deno.serve(async (req: Request) => {
     }
 
     const expectedScenes = rows * cols;
-    if (voiceover_list.length !== expectedScenes) {
-      return errorResponse(
-        `voiceover_list length (${voiceover_list.length}) must equal rows*cols (${expectedScenes})`,
-        400
-      );
+    const languages = ['en', 'tr', 'ar'] as const;
+    for (const lang of languages) {
+      if (voiceover_list[lang].length !== expectedScenes) {
+        return errorResponse(
+          `voiceover_list.${lang} length (${voiceover_list[lang].length}) must equal rows*cols (${expectedScenes})`,
+          400
+        );
+      }
     }
     if (visual_prompt_list.length !== expectedScenes) {
       return errorResponse(
@@ -127,11 +130,14 @@ Deno.serve(async (req: Request) => {
         status: 'processing',
       });
 
-      await supabase.from('voiceovers').insert({
-        scene_id: scene.id,
-        text: voiceover_list[i],
-        status: 'success',
-      });
+      for (const lang of languages) {
+        await supabase.from('voiceovers').insert({
+          scene_id: scene.id,
+          text: voiceover_list[lang][i],
+          language: lang,
+          status: 'success',
+        });
+      }
     }
 
     log.success('Scenes created', {

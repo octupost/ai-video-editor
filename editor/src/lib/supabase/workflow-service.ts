@@ -14,7 +14,7 @@ export interface StoryboardPlan {
   rows: number;
   cols: number;
   grid_image_prompt: string;
-  voiceover_list: string[];
+  voiceover_list: { en: string[]; tr: string[]; ar: string[] };
   visual_flow: string[];
 }
 
@@ -72,6 +72,7 @@ export interface Voiceover {
   status: 'pending' | 'processing' | 'success' | 'failed';
   created_at: string;
   audio_url?: string | null;
+  language: string;
 }
 
 export interface Scene {

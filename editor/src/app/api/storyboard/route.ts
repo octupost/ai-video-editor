@@ -12,7 +12,11 @@ const storyboardSchema = z.object({
   rows: z.number(),
   cols: z.number(),
   grid_image_prompt: z.string(),
-  voiceover_list: z.array(z.string()),
+  voiceover_list: z.object({
+    en: z.array(z.string()),
+    tr: z.array(z.string()),
+    ar: z.array(z.string()),
+  }),
   visual_flow: z.array(z.string()),
 });
 
@@ -20,34 +24,33 @@ const SYSTEM_PROMPT = `You are a professional storyboard generator for video pro
 
 ## Rules:
 
-### 1. Voiceover Splitting
-- Split the script into segments of roughly 5-15 words each (targeting 2-6 seconds of speech per segment)
-- The number of segments determines the grid size
-
-### 2. Grid Size Selection
-- Count your voiceover segments, then pick the smallest grid that fits from this list: 3x2(6), 4x3(12), 5x4(20), 6x5(30), 7x6(42), 8x7(56)
+### 1. Voiceover Splitting and Grid Image Planning
+- Split the script into segments (targeting 4-6 seconds of speech per segment) also considering the grid constraint below. Each segment will correspond to one cell in the storyboard grid.
+- Count your voiceover segments, then pick the smallest grid that fits from this list: 
+2x2(4), 3x2(6), 3x3(9), 4x3(12), 4x4(16), 5x4(20), 5x5(25), 6x5(30), 6x6(36), 7x6(42), 7x7(49), 8x7(56), 8x8(64)
 - The number of cells MUST exactly equal the number of voiceover segments and visual_flow entries
-
-### 3. Grid Image Prompt
 - One single image containing all scenes as cells in a grid
 - Each cell represents the first frame of that scene
 - Label cells as Cell_R1C1, Cell_R1C2, Cell_R2C1, etc.
 - Describe EVERY cell with full visual details including faces when people are shown
+- The grid images shouldn't have any text.
 - Format: "[style], grid with thin 2px black dividing lines. Cell_R1C1: [full description], Cell_R1C2: [full description], ..."
 
-### 4. Visual Flow (Image-to-Video Prompts)
+### 2. Visual Flow (Image-to-Video Prompts)
 - One prompt per cell describing how to animate that static frame into video
 - Reference what is visible in the first frame and describe the action/movement from there
 - DO NOT use character names — describe by appearance/role instead (e.g. "elderly man with grey beard" not "John")
 - Each prompt must include that there is no speech, only sound effects
 
-### 5. Real References
+### 3. Real References
 - If the voiceover mentions real people, brands, landmarks, or locations, use their actual names and recognizable features in both grid_image_prompt and visual_flow
 - Only use generic descriptions for fictional or unspecified subjects
 
-### 6. Language Matching
-- Detect the voiceover language
-- grid_image_prompt and visual_flow must be in the SAME language as the voiceover
+### 4. Voiceover Translations
+- After splitting, translate each segment into English, Turkish, and Arabic
+- Return voiceover_list as: { "en": [...], "tr": [...], "ar": [...] }
+- Each array must have the same number of segments
+- Use natural, fluent translations that a native speaker would say, not literal word-for-word translations
 
 ## Output:
 Return ONLY valid JSON:
@@ -55,7 +58,7 @@ Return ONLY valid JSON:
   "rows": <number>,
   "cols": <number>,
   "grid_image_prompt": "<string>",
-  "voiceover_list": ["<string>", ...],
+  "voiceover_list": { "en": ["<string>", ...], "tr": ["<string>", ...], "ar": ["<string>", ...] },
   "visual_flow": ["<string>", ...]
 }
 
@@ -145,11 +148,11 @@ Generate the storyboard.`;
       );
     }
 
-    // Validate grid constraint: rows must equal cols + 1
-    if (object.rows !== object.cols + 1) {
+    // Validate grid constraint: rows must equal cols or cols + 1
+    if (object.rows !== object.cols && object.rows !== object.cols + 1) {
       return NextResponse.json(
         {
-          error: `LLM returned invalid grid: ${object.rows}x${object.cols}. rows must equal cols + 1.`,
+          error: `LLM returned invalid grid: ${object.rows}x${object.cols}. rows must equal cols or cols + 1.`,
         },
         { status: 500 }
       );
@@ -157,13 +160,16 @@ Generate the storyboard.`;
 
     // Validate array lengths match grid dimensions
     const expectedScenes = object.rows * object.cols;
+    const { en, tr, ar } = object.voiceover_list;
     if (
-      object.voiceover_list.length !== expectedScenes ||
+      en.length !== expectedScenes ||
+      tr.length !== expectedScenes ||
+      ar.length !== expectedScenes ||
       object.visual_flow.length !== expectedScenes
     ) {
       return NextResponse.json(
         {
-          error: `Scene count mismatch: grid is ${object.rows}x${object.cols}=${expectedScenes} but voiceover_list has ${object.voiceover_list.length} and visual_flow has ${object.visual_flow.length} items`,
+          error: `Scene count mismatch: grid is ${object.rows}x${object.cols}=${expectedScenes} but voiceover_list has en=${en.length}, tr=${tr.length}, ar=${ar.length} and visual_flow has ${object.visual_flow.length} items`,
         },
         { status: 500 }
       );
@@ -291,11 +297,11 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Validate grid constraint: rows must equal cols + 1
-    if (plan.rows !== plan.cols + 1) {
+    // Validate grid constraint: rows must equal cols or cols + 1
+    if (plan.rows !== plan.cols && plan.rows !== plan.cols + 1) {
       return NextResponse.json(
         {
-          error: `Invalid grid: ${plan.rows}x${plan.cols}. rows must equal cols + 1.`,
+          error: `Invalid grid: ${plan.rows}x${plan.cols}. rows must equal cols or cols + 1.`,
         },
         { status: 400 }
       );
@@ -305,12 +311,14 @@ export async function PATCH(req: NextRequest) {
     const expectedScenes = plan.rows * plan.cols;
     const { voiceover_list, visual_flow } = plan;
     if (
-      voiceover_list.length !== expectedScenes ||
+      voiceover_list.en.length !== expectedScenes ||
+      voiceover_list.tr.length !== expectedScenes ||
+      voiceover_list.ar.length !== expectedScenes ||
       visual_flow.length !== expectedScenes
     ) {
       return NextResponse.json(
         {
-          error: `Scene count mismatch: grid is ${plan.rows}x${plan.cols}=${expectedScenes} but voiceover_list has ${voiceover_list.length} and visual_flow has ${visual_flow.length} items`,
+          error: `Scene count mismatch: grid is ${plan.rows}x${plan.cols}=${expectedScenes} but voiceover_list has en=${voiceover_list.en.length}, tr=${voiceover_list.tr.length}, ar=${voiceover_list.ar.length} and visual_flow has ${visual_flow.length} items`,
         },
         { status: 400 }
       );

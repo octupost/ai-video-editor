@@ -541,14 +541,19 @@ export default function PanelStoryboard() {
             /* Create Mode - Editable form */
             <div className="p-4 flex flex-col gap-3">
               {/* Voiceover Text Input */}
-              <Textarea
-                placeholder="Enter your voiceover script..."
-                className="resize-none text-sm min-h-[80px] max-h-[200px] overflow-y-auto"
-                value={formVoiceover}
-                onChange={(e) => setFormVoiceover(e.target.value)}
-              />
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Voiceover Script
+                </span>
+                <Textarea
+                  placeholder="Enter your voiceover script..."
+                  className="resize-none text-sm min-h-[80px] max-h-[200px] overflow-y-auto"
+                  value={formVoiceover}
+                  onChange={(e) => setFormVoiceover(e.target.value)}
+                />
+              </div>
 
-              {/* Controls Row: Dropdowns + Generate Button */}
+              {/* Controls Row: Dropdowns */}
               <div className="flex items-center gap-2">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -573,7 +578,7 @@ export default function PanelStoryboard() {
                   value={formModel}
                   onValueChange={(v) => setFormModel(v as StoryboardModel)}
                 >
-                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                  <SelectTrigger className="h-8 flex-1 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -584,20 +589,21 @@ export default function PanelStoryboard() {
                     ))}
                   </SelectContent>
                 </Select>
-
-                <Button
-                  className="h-8 rounded-full text-sm flex-1"
-                  size="sm"
-                  onClick={handleGenerate}
-                  disabled={loading || !formVoiceover.trim()}
-                >
-                  {loading ? (
-                    <IconLoader2 className="size-4 animate-spin" />
-                  ) : (
-                    'Generate'
-                  )}
-                </Button>
               </div>
+
+              {/* Generate Button */}
+              <Button
+                className="h-9 rounded-full text-sm w-full"
+                size="sm"
+                onClick={handleGenerate}
+                disabled={loading || !formVoiceover.trim()}
+              >
+                {loading ? (
+                  <IconLoader2 className="size-4 animate-spin" />
+                ) : (
+                  'Generate Storyboard'
+                )}
+              </Button>
             </div>
           )}
         </div>

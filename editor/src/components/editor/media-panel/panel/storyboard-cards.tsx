@@ -33,6 +33,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Tooltip,
@@ -198,13 +199,16 @@ function ScriptViewRow({
   playingVoiceoverId,
   setPlayingVoiceoverId,
   onSave,
+  selectedLanguage,
 }: {
   scene: Scene;
   playingVoiceoverId: string | null;
   setPlayingVoiceoverId: (id: string | null) => void;
   onSave: (sceneId: string, newText: string) => Promise<void>;
+  selectedLanguage: 'en' | 'tr' | 'ar';
 }) {
-  const voiceover = scene.voiceovers?.[0] ?? null;
+  const voiceover =
+    scene.voiceovers?.find((v) => v.language === selectedLanguage) ?? null;
   const isPlaying = voiceover ? playingVoiceoverId === voiceover.id : false;
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState('');
@@ -306,13 +310,23 @@ export function StoryboardCards({
   >('720p');
   const [isGeneratingSfx, setIsGeneratingSfx] = useState(false);
   const [isAddingToTimeline, setIsAddingToTimeline] = useState(false);
-  const [selectedVoice, setSelectedVoice] = useState('pNInz6obpgDQGcFmaJgB');
-  const [customVoiceId, setCustomVoiceId] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState<'en' | 'tr' | 'ar'>(
+    'en'
+  );
+  const [voiceConfig, setVoiceConfig] = useState({
+    en: { voice: 'pNInz6obpgDQGcFmaJgB', customVoiceId: '' },
+    tr: { voice: 'pNInz6obpgDQGcFmaJgB', customVoiceId: '' },
+    ar: { voice: 'pNInz6obpgDQGcFmaJgB', customVoiceId: '' },
+  });
   const [ttsModel, setTtsModel] = useState<TTSModelKey>('turbo-v2.5');
+  const [ttsSpeed, setTtsSpeed] = useState(1.0);
   const [playingVoiceoverId, setPlayingVoiceoverId] = useState<string | null>(
     null
   );
   const [isScriptViewOpen, setIsScriptViewOpen] = useState(false);
+  const [isAudioOpen, setIsAudioOpen] = useState(true);
+  const [isVisualOpen, setIsVisualOpen] = useState(false);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
   const { studio } = useStudioStore();
   const {
     previewUrls,
@@ -375,8 +389,12 @@ export function StoryboardCards({
       const { data, error } = await supabase.functions.invoke('generate-tts', {
         body: {
           scene_ids: Array.from(selectedSceneIds),
-          voice: customVoiceId.trim() || selectedVoice,
+          voice:
+            voiceConfig[selectedLanguage].customVoiceId.trim() ||
+            voiceConfig[selectedLanguage].voice,
           model: ttsModel,
+          language: selectedLanguage,
+          speed: ttsSpeed,
         },
       });
 
@@ -498,11 +516,16 @@ export function StoryboardCards({
   );
 
   const handleSaveVoiceoverText = async (sceneId: string, newText: string) => {
+    const scene = sortedScenes.find((s) => s.id === sceneId);
+    const voiceover = scene?.voiceovers?.find(
+      (v) => v.language === selectedLanguage
+    );
+    if (!voiceover) return;
     const supabase = createClient();
     const { error } = await supabase
       .from('voiceovers')
       .update({ text: newText })
-      .eq('scene_id', sceneId);
+      .eq('id', voiceover.id);
 
     if (error) {
       console.error('Failed to save voiceover text:', error);
@@ -533,7 +556,12 @@ export function StoryboardCards({
   ) => {
     const supabase = createClient();
 
-    // Update voiceover text and reset status
+    // Update voiceover text and reset status (for selected language only)
+    const scene = sortedScenes.find((s) => s.id === sceneId);
+    const voiceover = scene?.voiceovers?.find(
+      (v) => v.language === selectedLanguage
+    );
+    if (!voiceover) return;
     const { error: voiceoverError } = await supabase
       .from('voiceovers')
       .update({
@@ -542,7 +570,7 @@ export function StoryboardCards({
         audio_url: null,
         duration: null,
       })
-      .eq('scene_id', sceneId);
+      .eq('id', voiceover.id);
 
     if (voiceoverError) {
       toast.error('Failed to update voiceover text');
@@ -572,8 +600,12 @@ export function StoryboardCards({
       {
         body: {
           scene_ids: [sceneId],
-          voice: customVoiceId.trim() || selectedVoice,
+          voice:
+            voiceConfig[selectedLanguage].customVoiceId.trim() ||
+            voiceConfig[selectedLanguage].voice,
           model: ttsModel,
+          language: selectedLanguage,
+          speed: ttsSpeed,
         },
       }
     );
@@ -584,7 +616,6 @@ export function StoryboardCards({
     }
 
     // Trigger video regeneration only if the scene has an enhanced image
-    const scene = sortedScenes.find((s) => s.id === sceneId);
     const finalUrl = scene?.first_frames?.[0]?.final_url;
     if (finalUrl) {
       const { error: videoError } = await supabase.functions.invoke(
@@ -650,7 +681,9 @@ export function StoryboardCards({
 
       for (const scene of scenesToAdd) {
         const firstFrame = scene.first_frames[0];
-        const voiceover = scene.voiceovers?.[0];
+        const voiceover = scene.voiceovers?.find(
+          (v) => v.language === selectedLanguage
+        );
 
         const result = await addSceneToTimeline(
           studio,
@@ -756,233 +789,386 @@ export function StoryboardCards({
           )}
         </div>
 
-        {/* Row 2: Actions (scrollable) */}
-        <div
-          className="flex items-center gap-1.5 px-2 py-1.5 bg-secondary/20 rounded-md overflow-x-auto"
-          style={{ scrollbarWidth: 'none' }}
-        >
-          {/* Audio group */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Select
-              value={selectedVoice}
-              onValueChange={(value) => {
-                stopPreview();
-                setSelectedVoice(value);
-              }}
+        {/* Audio Section */}
+        <Collapsible open={isAudioOpen} onOpenChange={setIsAudioOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-2 py-2 bg-secondary/20 rounded-md hover:bg-secondary/30 transition-colors"
             >
-              <SelectTrigger className="h-8 w-[130px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VOICES.map((v) => (
-                  <SelectItem key={v.value} value={v.value}>
-                    <span>{v.label}</span>
-                    <span className="ml-1 text-muted-foreground">
-                      {v.description}
-                    </span>
-                  </SelectItem>
+              <span className="flex items-center gap-1.5">
+                <IconMicrophone className="size-3.5 text-blue-400" />
+                <span className="text-xs font-medium">Audio</span>
+              </span>
+              {isAudioOpen ? (
+                <IconChevronUp className="size-3 text-muted-foreground" />
+              ) : (
+                <IconChevronDown className="size-3 text-muted-foreground" />
+              )}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-2 py-2 flex flex-col gap-2">
+              {/* Language tabs */}
+              <div className="flex items-center rounded-md border border-border/50 overflow-hidden w-fit">
+                {(['en', 'tr', 'ar'] as const).map((lang) => (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => setSelectedLanguage(lang)}
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      selectedLanguage === lang
+                        ? 'bg-primary text-primary-foreground'
+                        : 'hover:bg-secondary/50 text-muted-foreground'
+                    }`}
+                  >
+                    {lang.toUpperCase()}
+                  </button>
                 ))}
-              </SelectContent>
-            </Select>
-            <Input
-              value={customVoiceId}
-              onChange={(e) => setCustomVoiceId(e.target.value)}
-              placeholder="Custom voice ID"
-              className="h-8 w-[120px] text-xs"
-            />
-            <Select
-              value={ttsModel}
-              onValueChange={(v) => setTtsModel(v as TTSModelKey)}
-            >
-              <SelectTrigger className="h-8 w-[130px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(TTS_MODELS) as TTSModelKey[]).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    <span>{TTS_MODELS[key].label}</span>
-                    <span className="ml-1 text-muted-foreground">
-                      {TTS_MODELS[key].description}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Tooltip>
-              <TooltipTrigger asChild>
+              </div>
+
+              {/* Voice select */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Voice
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <Select
+                    value={voiceConfig[selectedLanguage].voice}
+                    onValueChange={(value) => {
+                      stopPreview();
+                      setVoiceConfig((prev) => ({
+                        ...prev,
+                        [selectedLanguage]: {
+                          ...prev[selectedLanguage],
+                          voice: value,
+                        },
+                      }));
+                    }}
+                  >
+                    <SelectTrigger className="h-8 flex-1 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VOICES.map((v) => (
+                        <SelectItem key={v.value} value={v.value}>
+                          <span>{v.label}</span>
+                          <span className="ml-1 text-muted-foreground">
+                            {v.description}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 flex-shrink-0"
+                        disabled={
+                          !previewUrls.has(voiceConfig[selectedLanguage].voice)
+                        }
+                        onClick={() =>
+                          togglePreview(voiceConfig[selectedLanguage].voice)
+                        }
+                      >
+                        {previewPlayingId ===
+                        voiceConfig[selectedLanguage].voice ? (
+                          <IconPlayerPause className="size-3.5" />
+                        ) : (
+                          <IconPlayerPlay className="size-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {previewPlayingId === voiceConfig[selectedLanguage].voice
+                        ? 'Stop preview'
+                        : 'Preview voice'}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
+
+              {/* Custom Voice ID */}
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Custom Voice ID
+                </span>
+                <Input
+                  value={voiceConfig[selectedLanguage].customVoiceId}
+                  onChange={(e) =>
+                    setVoiceConfig((prev) => ({
+                      ...prev,
+                      [selectedLanguage]: {
+                        ...prev[selectedLanguage],
+                        customVoiceId: e.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="Paste ElevenLabs voice ID..."
+                  className="h-8 text-xs"
+                />
+              </div>
+
+              {/* TTS Model + Speed */}
+              <div className="flex items-end gap-2">
+                <div className="flex flex-col gap-1 flex-1">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    TTS Model
+                  </span>
+                  <Select
+                    value={ttsModel}
+                    onValueChange={(v) => setTtsModel(v as TTSModelKey)}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(TTS_MODELS) as TTSModelKey[]).map((key) => (
+                        <SelectItem key={key} value={key}>
+                          <span>{TTS_MODELS[key].label}</span>
+                          <span className="ml-1 text-muted-foreground">
+                            {TTS_MODELS[key].description}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1 w-[100px]">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Speed {ttsSpeed.toFixed(1)}x
+                  </span>
+                  <Slider
+                    value={[ttsSpeed]}
+                    onValueChange={([v]) => setTtsSpeed(v)}
+                    min={0.7}
+                    max={1.5}
+                    step={0.05}
+                    className="py-2"
+                  />
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-1.5 pt-1">
                 <Button
                   size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0"
-                  disabled={!previewUrls.has(selectedVoice)}
-                  onClick={() => togglePreview(selectedVoice)}
+                  variant="default"
+                  disabled={selectedSceneIds.size === 0 || isGenerating}
+                  onClick={handleGenerateVoiceovers}
+                  className="h-9 text-xs flex-1"
                 >
-                  {previewPlayingId === selectedVoice ? (
-                    <IconPlayerPause className="size-3.5" />
+                  {isGenerating ? (
+                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
                   ) : (
-                    <IconPlayerPlay className="size-3.5" />
+                    <IconMicrophone className="size-3.5 mr-1" />
                   )}
+                  Generate Voiceover
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {previewPlayingId === selectedVoice
-                  ? 'Stop preview'
-                  : 'Preview voice'}
-              </TooltipContent>
-            </Tooltip>
-            <Button
-              size="sm"
-              variant="default"
-              disabled={selectedSceneIds.size === 0 || isGenerating}
-              onClick={handleGenerateVoiceovers}
-              className="h-8 text-xs"
-            >
-              {isGenerating ? (
-                <IconLoader2 className="size-3.5 animate-spin mr-1" />
-              ) : (
-                <IconMicrophone className="size-3.5 mr-1" />
-              )}
-              Voiceover
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={
-                selectedScenesWithVideoForSfx.length === 0 || isGeneratingSfx
-              }
-              onClick={handleGenerateSfx}
-              className="h-8 text-xs"
-              title={
-                selectedScenesWithVideoForSfx.length === 0
-                  ? 'Select scenes with generated videos'
-                  : `Add SFX to ${selectedScenesWithVideoForSfx.length} scene(s)`
-              }
-            >
-              {isGeneratingSfx ? (
-                <IconLoader2 className="size-3.5 animate-spin mr-1" />
-              ) : (
-                <IconVolume className="size-3.5 mr-1" />
-              )}
-              SFX
-            </Button>
-          </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={
+                    selectedScenesWithVideoForSfx.length === 0 ||
+                    isGeneratingSfx
+                  }
+                  onClick={handleGenerateSfx}
+                  className="h-9 text-xs"
+                  title={
+                    selectedScenesWithVideoForSfx.length === 0
+                      ? 'Select scenes with generated videos'
+                      : `Add SFX to ${selectedScenesWithVideoForSfx.length} scene(s)`
+                  }
+                >
+                  {isGeneratingSfx ? (
+                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                  ) : (
+                    <IconVolume className="size-3.5 mr-1" />
+                  )}
+                  SFX
+                </Button>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
-          {/* Divider */}
-          <div className="h-5 border-l border-border/40 flex-shrink-0" />
-
-          {/* Visual group */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Select
-              value={enhanceModel}
-              onValueChange={(v) =>
-                setEnhanceModel(v as keyof typeof ENHANCE_MODELS)
-              }
+        {/* Visual Section */}
+        <Collapsible open={isVisualOpen} onOpenChange={setIsVisualOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-2 py-2 bg-secondary/20 rounded-md hover:bg-secondary/30 transition-colors"
             >
-              <SelectTrigger className="h-8 w-[100px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(
-                  Object.keys(ENHANCE_MODELS) as (keyof typeof ENHANCE_MODELS)[]
-                ).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {ENHANCE_MODELS[key].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={selectedSceneIds.size === 0 || isEnhancing}
-              onClick={handleEnhanceImages}
-              className="h-8 text-xs"
-            >
-              {isEnhancing ? (
-                <IconLoader2 className="size-3.5 animate-spin mr-1" />
+              <span className="flex items-center gap-1.5">
+                <IconSparkles className="size-3.5 text-purple-400" />
+                <span className="text-xs font-medium">Visual</span>
+              </span>
+              {isVisualOpen ? (
+                <IconChevronUp className="size-3 text-muted-foreground" />
               ) : (
-                <IconSparkles className="size-3.5 mr-1" />
+                <IconChevronDown className="size-3 text-muted-foreground" />
               )}
-              Enhance
-            </Button>
-          </div>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-2 py-2 flex flex-col gap-2">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Enhance Model
+                </span>
+                <Select
+                  value={enhanceModel}
+                  onValueChange={(v) =>
+                    setEnhanceModel(v as keyof typeof ENHANCE_MODELS)
+                  }
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.keys(
+                        ENHANCE_MODELS
+                      ) as (keyof typeof ENHANCE_MODELS)[]
+                    ).map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {ENHANCE_MODELS[key].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={selectedSceneIds.size === 0 || isEnhancing}
+                onClick={handleEnhanceImages}
+                className="h-9 text-xs w-full"
+              >
+                {isEnhancing ? (
+                  <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                ) : (
+                  <IconSparkles className="size-3.5 mr-1" />
+                )}
+                Enhance Images
+              </Button>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
 
-          {/* Divider */}
-          <div className="h-5 border-l border-border/40 flex-shrink-0" />
+        {/* Video Section */}
+        <Collapsible open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between px-2 py-2 bg-secondary/20 rounded-md hover:bg-secondary/30 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <IconVideo className="size-3.5 text-cyan-400" />
+                <span className="text-xs font-medium">Video</span>
+              </span>
+              {isVideoOpen ? (
+                <IconChevronUp className="size-3 text-muted-foreground" />
+              ) : (
+                <IconChevronDown className="size-3 text-muted-foreground" />
+              )}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-2 py-2 flex flex-col gap-2">
+              {/* Video model + Resolution */}
+              <div className="flex items-end gap-2">
+                <div className="flex flex-col gap-1 flex-1">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Model
+                  </span>
+                  <Select
+                    value={videoModel}
+                    onValueChange={(value: string) =>
+                      setVideoModel(value as VideoModelKey)
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(VIDEO_MODELS) as VideoModelKey[]).map(
+                        (key) => (
+                          <SelectItem key={key} value={key}>
+                            {VIDEO_MODELS[key].label}
+                          </SelectItem>
+                        )
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1 w-[80px]">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Resolution
+                  </span>
+                  <Select
+                    value={videoResolution}
+                    onValueChange={(value: '480p' | '720p' | '1080p') =>
+                      setVideoResolution(value)
+                    }
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VIDEO_MODELS[videoModel].resolutions.map((res) => (
+                        <SelectItem key={res} value={res}>
+                          {res}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          {/* Output group */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Select
-              value={videoModel}
-              onValueChange={(value: string) =>
-                setVideoModel(value as VideoModelKey)
-              }
-            >
-              <SelectTrigger className="h-8 w-[150px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(VIDEO_MODELS) as VideoModelKey[]).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {VIDEO_MODELS[key].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={videoResolution}
-              onValueChange={(value: '480p' | '720p' | '1080p') =>
-                setVideoResolution(value)
-              }
-            >
-              <SelectTrigger className="h-8 w-[70px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {VIDEO_MODELS[videoModel].resolutions.map((res) => (
-                  <SelectItem key={res} value={res}>
-                    {res}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={selectedSceneIds.size === 0 || isGeneratingVideo}
-              onClick={handleGenerateVideo}
-              className="h-8 text-xs"
-            >
-              {isGeneratingVideo ? (
-                <IconLoader2 className="size-3.5 animate-spin mr-1" />
-              ) : (
-                <IconVideo className="size-3.5 mr-1" />
-              )}
-              Video
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={
-                selectedScenesWithVideo.length === 0 || isAddingToTimeline
-              }
-              onClick={handleAddAllToTimeline}
-              className="h-8 text-xs"
-              title={
-                selectedScenesWithVideo.length === 0
-                  ? 'Select scenes with generated videos'
-                  : `Add ${selectedScenesWithVideo.length} scene(s) to timeline`
-              }
-            >
-              {isAddingToTimeline ? (
-                <IconLoader2 className="size-3.5 animate-spin mr-1" />
-              ) : (
-                <IconPlayerTrackNext className="size-3.5 mr-1" />
-              )}
-              Timeline
-            </Button>
-          </div>
-        </div>
+              {/* Action buttons */}
+              <div className="flex items-center gap-1.5 pt-1">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={selectedSceneIds.size === 0 || isGeneratingVideo}
+                  onClick={handleGenerateVideo}
+                  className="h-9 text-xs flex-1"
+                >
+                  {isGeneratingVideo ? (
+                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                  ) : (
+                    <IconVideo className="size-3.5 mr-1" />
+                  )}
+                  Generate Video
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    selectedScenesWithVideo.length === 0 || isAddingToTimeline
+                  }
+                  onClick={handleAddAllToTimeline}
+                  className="h-9 text-xs"
+                  title={
+                    selectedScenesWithVideo.length === 0
+                      ? 'Select scenes with generated videos'
+                      : `Add ${selectedScenesWithVideo.length} scene(s) to timeline`
+                  }
+                >
+                  {isAddingToTimeline ? (
+                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                  ) : (
+                    <IconPlayerTrackNext className="size-3.5 mr-1" />
+                  )}
+                  Timeline
+                </Button>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
 
       {/* Overall Status */}
@@ -1026,6 +1212,7 @@ export function StoryboardCards({
                 playingVoiceoverId={playingVoiceoverId}
                 setPlayingVoiceoverId={setPlayingVoiceoverId}
                 onSave={handleSaveVoiceoverText}
+                selectedLanguage={selectedLanguage}
               />
             ))}
           </div>
@@ -1046,6 +1233,7 @@ export function StoryboardCards({
             onRegenerate={handleRegenerateScene}
             onSaveVisualPrompt={handleSaveVisualPrompt}
             onSaveVoiceoverText={handleSaveVoiceoverText}
+            selectedLanguage={selectedLanguage}
           />
         ))}
       </div>

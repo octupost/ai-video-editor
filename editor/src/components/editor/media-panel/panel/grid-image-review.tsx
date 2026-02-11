@@ -31,11 +31,11 @@ export function GridImageReview({
   const [isApproving, setIsApproving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
-  const originalSceneCount = plan.voiceover_list.length;
+  const originalSceneCount = plan.rows * plan.cols;
   const newSceneCount = rows * cols;
   const sceneCountChanged = newSceneCount !== originalSceneCount;
 
-  const isValidGrid = rows === cols + 1;
+  const isValidGrid = rows === cols || rows === cols + 1;
   const isValidRange = rows >= 2 && rows <= 8 && cols >= 2 && cols <= 8;
   const canApprove =
     isValidGrid && isValidRange && !isApproving && !isRegenerating;
@@ -148,7 +148,7 @@ export function GridImageReview({
         {!isValidGrid && (
           <div className="flex items-center gap-1 text-xs text-destructive">
             <IconAlertTriangle size={14} />
-            Rows must equal cols + 1
+            Rows must equal cols or cols + 1
           </div>
         )}
         {!isValidRange && (
