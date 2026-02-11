@@ -9,8 +9,8 @@ const openrouter = createOpenRouter({
 });
 
 const storyboardSchema = z.object({
-  rows: z.number().int(),
-  cols: z.number().int(),
+  rows: z.number(),
+  cols: z.number(),
   grid_image_prompt: z.string(),
   voiceover_list: z.array(z.string()),
   visual_flow: z.array(z.string()),
