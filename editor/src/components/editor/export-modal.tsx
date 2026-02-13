@@ -73,7 +73,8 @@ export function ExportModal({ open, onOpenChange }: ExportModalProps) {
           clipJSON.type === 'Text' ||
           clipJSON.type === 'Caption' ||
           clipJSON.type === 'Effect' ||
-          clipJSON.type === 'Transition'
+          clipJSON.type === 'Transition' ||
+          clipJSON.type === 'Audio'
         ) {
           return true;
         }

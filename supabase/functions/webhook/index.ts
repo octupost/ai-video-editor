@@ -430,6 +430,97 @@ function getAudio(payload: FalWebhookPayload): FalAudioOutput | undefined {
   return undefined;
 }
 
+async function handleOutpaintImage(
+  supabase: ReturnType<typeof createClient>,
+  falPayload: FalWebhookPayload,
+  params: URLSearchParams,
+  log: Logger
+): Promise<Response> {
+  const first_frame_id = params.get('first_frame_id')!;
+
+  log.info('Processing OutpaintImage', {
+    first_frame_id,
+    fal_status: falPayload.status,
+  });
+
+  log.startTiming('extract_images');
+  const images = getImages(falPayload);
+  const extractTime = log.endTiming('extract_images');
+
+  log.info('Image extraction', {
+    count: images?.length || 0,
+    has_url: !!images?.[0]?.url,
+    time_ms: extractTime,
+  });
+
+  // Check if outpaint failed
+  if (falPayload.status === 'ERROR' || !images?.[0]?.url) {
+    log.error('Image outpaint failed', {
+      fal_error: falPayload.error,
+      has_images: !!images,
+    });
+
+    log.startTiming('db_update_failed');
+    await supabase
+      .from('first_frames')
+      .update({
+        image_edit_status: 'failed',
+        image_edit_error_message: 'generation_error',
+      })
+      .eq('id', first_frame_id);
+    log.db('UPDATE', 'first_frames', {
+      id: first_frame_id,
+      image_edit_status: 'failed',
+      time_ms: log.endTiming('db_update_failed'),
+    });
+
+    log.summary('error', { first_frame_id, reason: 'outpaint_failed' });
+    return new Response(
+      JSON.stringify({ success: false, error: 'Outpaint failed' }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  }
+
+  const finalUrl = images[0].url;
+
+  log.success('Image outpainted', {
+    final_url: finalUrl,
+  });
+
+  // Update first_frame with success and final_url
+  log.startTiming('db_update_success');
+  await supabase
+    .from('first_frames')
+    .update({
+      image_edit_status: 'success',
+      image_edit_error_message: null,
+      outpainted_url: finalUrl,
+      final_url: finalUrl,
+    })
+    .eq('id', first_frame_id);
+  log.db('UPDATE', 'first_frames', {
+    id: first_frame_id,
+    image_edit_status: 'success',
+    time_ms: log.endTiming('db_update_success'),
+  });
+
+  log.summary('success', { first_frame_id, final_url: finalUrl });
+  return new Response(
+    JSON.stringify({
+      success: true,
+      step: 'OutpaintImage',
+      first_frame_id,
+      final_url: finalUrl,
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+    }
+  );
+}
+
 async function handleEnhanceImage(
   supabase: ReturnType<typeof createClient>,
   falPayload: FalWebhookPayload,
@@ -453,9 +544,9 @@ async function handleEnhanceImage(
     time_ms: extractTime,
   });
 
-  // Check if enhancement failed
+  // Check if enhance failed
   if (falPayload.status === 'ERROR' || !images?.[0]?.url) {
-    log.error('Image enhancement failed', {
+    log.error('Image enhance failed', {
       fal_error: falPayload.error,
       has_images: !!images,
     });
@@ -464,19 +555,19 @@ async function handleEnhanceImage(
     await supabase
       .from('first_frames')
       .update({
-        enhance_status: 'failed',
-        enhance_error_message: 'generation_error',
+        image_edit_status: 'failed',
+        image_edit_error_message: 'generation_error',
       })
       .eq('id', first_frame_id);
     log.db('UPDATE', 'first_frames', {
       id: first_frame_id,
-      enhance_status: 'failed',
+      image_edit_status: 'failed',
       time_ms: log.endTiming('db_update_failed'),
     });
 
-    log.summary('error', { first_frame_id, reason: 'enhancement_failed' });
+    log.summary('error', { first_frame_id, reason: 'enhance_failed' });
     return new Response(
-      JSON.stringify({ success: false, error: 'Enhancement failed' }),
+      JSON.stringify({ success: false, error: 'Enhance failed' }),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -490,18 +581,19 @@ async function handleEnhanceImage(
     final_url: finalUrl,
   });
 
-  // Update first_frame with success and final_url
+  // Update first_frame with success — only update final_url (not outpainted_url)
   log.startTiming('db_update_success');
   await supabase
     .from('first_frames')
     .update({
-      enhance_status: 'success',
+      image_edit_status: 'success',
+      image_edit_error_message: null,
       final_url: finalUrl,
     })
     .eq('id', first_frame_id);
   log.db('UPDATE', 'first_frames', {
     id: first_frame_id,
-    enhance_status: 'success',
+    image_edit_status: 'success',
     time_ms: log.endTiming('db_update_success'),
   });
 
@@ -919,6 +1011,8 @@ Deno.serve(async (req: Request) => {
         return await handleSplitGridImage(supabase, falPayload, params, log);
       case 'GenerateTTS':
         return await handleGenerateTTS(supabase, falPayload, params, log);
+      case 'OutpaintImage':
+        return await handleOutpaintImage(supabase, falPayload, params, log);
       case 'EnhanceImage':
         return await handleEnhanceImage(supabase, falPayload, params, log);
       case 'GenerateVideo':

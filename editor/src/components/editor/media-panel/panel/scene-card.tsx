@@ -11,11 +11,14 @@ import {
   IconPlayerPause,
   IconLoader2,
   IconVideo,
-  IconPencil,
+  IconAlertTriangle,
+  IconMaximize,
+  IconTarget,
 } from '@tabler/icons-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { StatusBadge } from './status-badge';
 import { useStudioStore } from '@/stores/studio-store';
 import {
@@ -36,14 +39,20 @@ interface SceneCardProps {
   onSelectionChange?: (selected: boolean) => void;
   playingVoiceoverId?: string | null;
   setPlayingVoiceoverId?: (id: string | null) => void;
-  onRegenerate?: (
+  onReadScene?: (sceneId: string, newVoiceoverText: string) => Promise<void>;
+  onGenerateSceneVideo?: (
     sceneId: string,
-    newVoiceoverText: string,
     newVisualPrompt: string
   ) => Promise<void>;
   onSaveVisualPrompt?: (sceneId: string, newPrompt: string) => Promise<void>;
   onSaveVoiceoverText?: (sceneId: string, newText: string) => Promise<void>;
   selectedLanguage?: 'en' | 'tr' | 'ar';
+  isRefMode?: boolean;
+  isTarget?: boolean;
+  onSetTarget?: (sceneId: string) => void;
+  aspectRatio?: string;
+  onAddVideoToTimeline?: (sceneId: string) => Promise<void>;
+  onAddVoiceoverToTimeline?: (sceneId: string) => Promise<void>;
 }
 
 interface SceneThumbnailProps {
@@ -51,29 +60,51 @@ interface SceneThumbnailProps {
   sceneOrder: number;
   firstFrame: FirstFrame | null;
   onAddToCanvas?: () => void;
+  onPreviewImage?: () => void;
+  aspectRatio?: string;
 }
+
+const ASPECT_RATIO_CLASSES: Record<string, string> = {
+  '9:16': 'aspect-[9/16]',
+  '16:9': 'aspect-[16/9]',
+  '1:1': 'aspect-square',
+};
 
 function SceneThumbnail({
   imageUrl,
   sceneOrder,
   firstFrame,
   onAddToCanvas,
+  onPreviewImage,
+  aspectRatio,
 }: SceneThumbnailProps) {
-  const isEnhancing = firstFrame?.enhance_status === 'processing';
+  const isOutpainting = firstFrame?.image_edit_status === 'outpainting';
+  const isEnhancing = firstFrame?.image_edit_status === 'enhancing';
+  const isCustomEditing = firstFrame?.image_edit_status === 'editing';
+  const isEditFailed = firstFrame?.image_edit_status === 'failed';
   const isGeneratingVideo = firstFrame?.video_status === 'processing';
   const hasVideo =
     firstFrame?.video_status === 'success' && firstFrame?.video_url;
 
   const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (hasVideo && onAddToCanvas) {
-      e.stopPropagation();
       onAddToCanvas();
+    } else if (imageUrl && onPreviewImage) {
+      onPreviewImage();
+    }
+  };
+
+  const handlePreviewClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (imageUrl && onPreviewImage) {
+      onPreviewImage();
     }
   };
 
   return (
     <div
-      className={`relative aspect-square rounded overflow-hidden bg-background/50 ${hasVideo ? 'cursor-pointer hover:ring-2 hover:ring-primary/50' : ''}`}
+      className={`group/thumb relative ${aspectRatio ? ASPECT_RATIO_CLASSES[aspectRatio] || 'aspect-square' : 'aspect-square'} rounded overflow-hidden bg-background/50 ${imageUrl ? 'cursor-pointer' : ''} ${hasVideo ? 'hover:ring-2 hover:ring-primary/50' : ''}`}
       onClick={handleClick}
     >
       {imageUrl ? (
@@ -84,16 +115,47 @@ function SceneThumbnail({
           className="object-contain"
           unoptimized
         />
+      ) : firstFrame?.status === 'processing' ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+          <IconLoader2 size={20} className="text-blue-400 animate-spin" />
+          <span className="text-[10px] text-blue-300 font-medium">
+            Splitting...
+          </span>
+        </div>
       ) : (
         <div className="w-full h-full flex items-center justify-center">
           <IconPhoto size={16} className="text-muted-foreground/50" />
         </div>
       )}
-      {isEnhancing && (
+      {isOutpainting && (
         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
           <IconLoader2 size={20} className="text-purple-400 animate-spin" />
           <span className="text-[10px] text-purple-300 font-medium">
+            Outpainting...
+          </span>
+        </div>
+      )}
+      {isEnhancing && (
+        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
+          <IconLoader2 size={20} className="text-green-400 animate-spin" />
+          <span className="text-[10px] text-green-300 font-medium">
             Enhancing...
+          </span>
+        </div>
+      )}
+      {isCustomEditing && (
+        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
+          <IconLoader2 size={20} className="text-amber-400 animate-spin" />
+          <span className="text-[10px] text-amber-300 font-medium">
+            Editing...
+          </span>
+        </div>
+      )}
+      {isEditFailed && (
+        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
+          <IconAlertTriangle size={20} className="text-red-400" />
+          <span className="text-[10px] text-red-300 font-medium">
+            Edit Failed
           </span>
         </div>
       )}
@@ -104,6 +166,16 @@ function SceneThumbnail({
             Generating Video...
           </span>
         </div>
+      )}
+      {imageUrl && (
+        <button
+          type="button"
+          onClick={handlePreviewClick}
+          className="absolute bottom-1 right-1 p-0.5 rounded bg-black/60 text-white opacity-0 group-hover/thumb:opacity-100 transition-opacity hover:bg-black/80"
+          title="Preview image"
+        >
+          <IconMaximize size={12} />
+        </button>
       )}
       <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[10px] font-medium text-white">
         {sceneOrder + 1}
@@ -184,8 +256,16 @@ interface ExpandedContentProps {
   playingVoiceoverId?: string | null;
   setPlayingVoiceoverId?: (id: string | null) => void;
   sceneId: string;
+  onReadScene?: (sceneId: string, newVoiceoverText: string) => Promise<void>;
+  onGenerateSceneVideo?: (
+    sceneId: string,
+    newVisualPrompt: string
+  ) => Promise<void>;
   onSaveVisualPrompt?: (sceneId: string, newPrompt: string) => Promise<void>;
   onSaveVoiceoverText?: (sceneId: string, newText: string) => Promise<void>;
+  hasVideo?: boolean;
+  onAddVideoToTimeline?: (sceneId: string) => Promise<void>;
+  onAddVoiceoverToTimeline?: (sceneId: string) => Promise<void>;
 }
 
 function ExpandedContent({
@@ -195,8 +275,13 @@ function ExpandedContent({
   playingVoiceoverId,
   setPlayingVoiceoverId,
   sceneId,
+  onReadScene,
+  onGenerateSceneVideo,
   onSaveVisualPrompt,
   onSaveVoiceoverText,
+  hasVideo,
+  onAddVideoToTimeline,
+  onAddVoiceoverToTimeline,
 }: ExpandedContentProps) {
   const isPlaying = voiceover ? playingVoiceoverId === voiceover.id : false;
   const [isEditingPrompt, setIsEditingPrompt] = useState(false);
@@ -205,6 +290,8 @@ function ExpandedContent({
   const [isEditingVoiceover, setIsEditingVoiceover] = useState(false);
   const [editedVoiceover, setEditedVoiceover] = useState('');
   const [isSavingVoiceover, setIsSavingVoiceover] = useState(false);
+  const [isReadingTts, setIsReadingTts] = useState(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
 
   const handleSaveVoiceover = async () => {
     const trimmed = editedVoiceover.trim();
@@ -288,12 +375,20 @@ function ExpandedContent({
           )}
         </div>
         {isEditingVoiceover ? (
-          <div className="pl-5" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="pl-5 flex flex-col gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Textarea
               autoFocus
               value={editedVoiceover}
               onChange={(e) => setEditedVoiceover(e.target.value)}
-              onBlur={handleSaveVoiceover}
+              onBlur={() => {
+                // Delay to allow button clicks to register before blur saves
+                setTimeout(() => {
+                  if (!isReadingTts) handleSaveVoiceover();
+                }, 150);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   setIsEditingVoiceover(false);
@@ -302,6 +397,31 @@ function ExpandedContent({
               className="text-[11px] min-h-[40px] resize-none p-1.5 bg-background/50 border-blue-400/30 focus-visible:border-blue-400/50"
               placeholder="Voiceover text..."
             />
+            {onReadScene && (
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="default"
+                  className="h-6 text-[10px] px-2"
+                  disabled={isReadingTts}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setIsReadingTts(true);
+                    onReadScene(sceneId, editedVoiceover).finally(() => {
+                      setIsReadingTts(false);
+                      setIsEditingVoiceover(false);
+                    });
+                  }}
+                >
+                  {isReadingTts ? (
+                    <IconLoader2 size={10} className="animate-spin mr-1" />
+                  ) : (
+                    <IconMicrophone size={10} className="mr-1" />
+                  )}
+                  Read
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <p
@@ -331,12 +451,19 @@ function ExpandedContent({
           )}
         </div>
         {isEditingPrompt ? (
-          <div className="pl-5" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="pl-5 flex flex-col gap-1.5"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Textarea
               autoFocus
               value={editedPrompt}
               onChange={(e) => setEditedPrompt(e.target.value)}
-              onBlur={handleSavePrompt}
+              onBlur={() => {
+                setTimeout(() => {
+                  if (!isGeneratingVideo) handleSavePrompt();
+                }, 150);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
                   setIsEditingPrompt(false);
@@ -345,6 +472,31 @@ function ExpandedContent({
               className="text-[11px] min-h-[40px] resize-none p-1.5 bg-background/50 border-purple-400/30 focus-visible:border-purple-400/50"
               placeholder="Visual prompt..."
             />
+            {onGenerateSceneVideo && (
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-6 text-[10px] px-2"
+                  disabled={isGeneratingVideo}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setIsGeneratingVideo(true);
+                    onGenerateSceneVideo(sceneId, editedPrompt).finally(() => {
+                      setIsGeneratingVideo(false);
+                      setIsEditingPrompt(false);
+                    });
+                  }}
+                >
+                  {isGeneratingVideo ? (
+                    <IconLoader2 size={10} className="animate-spin mr-1" />
+                  ) : (
+                    <IconVideo size={10} className="mr-1" />
+                  )}
+                  Generate Video
+                </Button>
+              </div>
+            )}
           </div>
         ) : (
           <p
@@ -365,6 +517,47 @@ function ExpandedContent({
           </p>
         )}
       </div>
+      {/* Timeline actions */}
+      {(hasVideo ||
+        (voiceover?.status === 'success' && voiceover?.audio_url)) && (
+        <div className="flex items-center gap-1.5 pt-1 border-t border-border/20">
+          <span className="text-[9px] text-muted-foreground uppercase tracking-wide flex-shrink-0">
+            Timeline
+          </span>
+          {hasVideo && onAddVideoToTimeline && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-[10px] px-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAddVideoToTimeline(sceneId);
+              }}
+              title="Add video only to timeline"
+            >
+              <IconVideo size={10} className="mr-1" />
+              Video
+            </Button>
+          )}
+          {voiceover?.status === 'success' &&
+            voiceover?.audio_url &&
+            onAddVoiceoverToTimeline && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-[10px] px-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddVoiceoverToTimeline(sceneId);
+                }}
+                title="Add voiceover only to timeline"
+              >
+                <IconMicrophone size={10} className="mr-1" />
+                Voiceover
+              </Button>
+            )}
+        </div>
+      )}
       <div className="flex justify-center">
         <IconChevronDown
           size={12}
@@ -381,16 +574,20 @@ export function SceneCard({
   onSelectionChange,
   playingVoiceoverId,
   setPlayingVoiceoverId,
-  onRegenerate,
+  onReadScene,
+  onGenerateSceneVideo,
   onSaveVisualPrompt,
   onSaveVoiceoverText,
   selectedLanguage = 'en',
+  isRefMode,
+  isTarget,
+  onSetTarget,
+  aspectRatio,
+  onAddVideoToTimeline,
+  onAddVoiceoverToTimeline,
 }: SceneCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedVoiceover, setEditedVoiceover] = useState('');
-  const [editedVisualPrompt, setEditedVisualPrompt] = useState('');
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { studio } = useStudioStore();
   const firstFrame = scene.first_frames?.[0] ?? null;
   const voiceover =
@@ -402,31 +599,6 @@ export function SceneCard({
     null;
   const displayVoiceover = voiceover?.text;
   const displayVisualPrompt = firstFrame?.visual_prompt;
-
-  const handleStartEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditedVoiceover(displayVoiceover ?? '');
-    setEditedVisualPrompt(displayVisualPrompt ?? '');
-    setIsEditing(true);
-    setExpanded(true);
-  };
-
-  const handleCancelEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsEditing(false);
-  };
-
-  const handleRegenerate = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!onRegenerate) return;
-    setIsRegenerating(true);
-    try {
-      await onRegenerate(scene.id, editedVoiceover, editedVisualPrompt);
-      setIsEditing(false);
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
 
   const handleAddToCanvas = async () => {
     if (!studio || !firstFrame?.video_url) return;
@@ -517,11 +689,13 @@ export function SceneCard({
   return (
     <div
       className={`p-2 bg-secondary/30 rounded-md cursor-pointer hover:bg-secondary/50 transition-all ${
-        isSelected
-          ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
-          : ''
+        isTarget
+          ? 'ring-2 ring-amber-500 ring-offset-1 ring-offset-background'
+          : isSelected
+            ? 'ring-2 ring-primary ring-offset-1 ring-offset-background'
+            : ''
       }`}
-      onClick={() => !isEditing && setExpanded(!expanded)}
+      onClick={() => setExpanded(!expanded)}
     >
       <div className="flex justify-between items-center mb-1">
         {showSelection && (
@@ -533,14 +707,20 @@ export function SceneCard({
             />
           </div>
         )}
-        {onRegenerate && !isEditing && (
+        {isRefMode && onSetTarget && (
           <button
             type="button"
-            onClick={handleStartEdit}
-            className="ml-auto p-0.5 rounded hover:bg-secondary/80 transition-colors"
-            title="Edit & Regenerate"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSetTarget(scene.id);
+            }}
+            className={`p-0.5 rounded transition-colors ${isTarget ? 'bg-amber-500/20' : 'hover:bg-secondary/80'}`}
+            title={isTarget ? 'Target scene' : 'Set as target'}
           >
-            <IconPencil size={14} className="text-muted-foreground" />
+            <IconTarget
+              size={14}
+              className={isTarget ? 'text-amber-500' : 'text-muted-foreground'}
+            />
           </button>
         )}
       </div>
@@ -549,110 +729,73 @@ export function SceneCard({
         sceneOrder={scene.order}
         firstFrame={firstFrame}
         onAddToCanvas={hasVideo ? handleAddToCanvas : undefined}
+        onPreviewImage={() => setPreviewOpen(true)}
+        aspectRatio={aspectRatio}
       />
 
-      {isEditing ? (
-        <div
-          className="mt-2 flex flex-col gap-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5">
-              <IconMicrophone size={12} className="text-blue-400" />
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
-                Voiceover
-              </span>
-            </div>
-            <Textarea
-              value={editedVoiceover}
-              onChange={(e) => setEditedVoiceover(e.target.value)}
-              className="text-[11px] min-h-[60px] resize-none"
-              placeholder="Voiceover text..."
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-1.5">
-              <IconEye size={12} className="text-purple-400" />
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
-                Visual Prompt
-              </span>
-            </div>
-            <Textarea
-              value={editedVisualPrompt}
-              onChange={(e) => setEditedVisualPrompt(e.target.value)}
-              className="text-[11px] min-h-[60px] resize-none"
-              placeholder="Visual prompt..."
-            />
-          </div>
-          <div className="flex items-center gap-1.5 justify-end">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 text-xs"
-              onClick={handleCancelEdit}
-              disabled={isRegenerating}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              variant="default"
-              className="h-7 text-xs"
-              onClick={handleRegenerate}
-              disabled={isRegenerating}
-            >
-              {isRegenerating ? (
-                <IconLoader2 size={12} className="animate-spin mr-1" />
-              ) : null}
-              Regenerate
-            </Button>
-          </div>
+      {!expanded && (
+        <div className="mt-2 flex items-center gap-1.5">
+          <IconMicrophone size={10} className="text-blue-400 flex-shrink-0" />
+          <p className="text-[10px] text-foreground/70 truncate flex-1">
+            {voiceoverPreview || (
+              <span className="italic text-muted-foreground">No voiceover</span>
+            )}
+          </p>
+          {renderCollapsedVoiceoverStatus()}
+          <IconChevronDown
+            size={12}
+            className="text-muted-foreground flex-shrink-0"
+          />
         </div>
-      ) : (
-        <>
-          {!expanded && (
-            <div className="mt-2 flex items-center gap-1.5">
-              <IconMicrophone
-                size={10}
-                className="text-blue-400 flex-shrink-0"
-              />
-              <p className="text-[10px] text-foreground/70 truncate flex-1">
-                {voiceoverPreview || (
-                  <span className="italic text-muted-foreground">
-                    No voiceover
-                  </span>
-                )}
-              </p>
-              {renderCollapsedVoiceoverStatus()}
-              <IconChevronDown
-                size={12}
-                className="text-muted-foreground flex-shrink-0"
-              />
-            </div>
-          )}
+      )}
 
-          {expanded && (
-            <ExpandedContent
-              voiceover={voiceover}
-              displayVoiceover={displayVoiceover}
-              displayVisualPrompt={displayVisualPrompt}
-              playingVoiceoverId={playingVoiceoverId}
-              setPlayingVoiceoverId={setPlayingVoiceoverId}
-              sceneId={scene.id}
-              onSaveVisualPrompt={onSaveVisualPrompt}
-              onSaveVoiceoverText={onSaveVoiceoverText}
-            />
-          )}
-        </>
+      {expanded && (
+        <ExpandedContent
+          voiceover={voiceover}
+          displayVoiceover={displayVoiceover}
+          displayVisualPrompt={displayVisualPrompt}
+          playingVoiceoverId={playingVoiceoverId}
+          setPlayingVoiceoverId={setPlayingVoiceoverId}
+          sceneId={scene.id}
+          onReadScene={onReadScene}
+          onGenerateSceneVideo={onGenerateSceneVideo}
+          onSaveVisualPrompt={onSaveVisualPrompt}
+          onSaveVoiceoverText={onSaveVoiceoverText}
+          hasVideo={!!hasVideo}
+          onAddVideoToTimeline={onAddVideoToTimeline}
+          onAddVoiceoverToTimeline={onAddVoiceoverToTimeline}
+        />
       )}
 
       <SceneErrors firstFrame={firstFrame} />
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent
+          className="max-w-[90vw] max-h-[90vh] p-2 sm:p-4 bg-black/90 border-white/10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DialogTitle className="sr-only">
+            Scene {scene.order + 1} Preview
+          </DialogTitle>
+          {imageUrl && (
+            <img
+              src={imageUrl}
+              alt={`Scene ${scene.order + 1}`}
+              className="w-full h-auto max-h-[80vh] object-contain rounded"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function SceneErrors({ firstFrame }: { firstFrame: FirstFrame | null }) {
-  if (!firstFrame?.error_message && !firstFrame?.video_error_message) {
+  if (
+    !firstFrame?.error_message &&
+    !firstFrame?.video_error_message &&
+    !firstFrame?.image_edit_error_message
+  ) {
     return null;
   }
   return (
@@ -660,6 +803,11 @@ function SceneErrors({ firstFrame }: { firstFrame: FirstFrame | null }) {
       {firstFrame.error_message && (
         <div className="mt-1.5 p-1 bg-destructive/10 rounded text-[9px] text-destructive line-clamp-1">
           {firstFrame.error_message}
+        </div>
+      )}
+      {firstFrame.image_edit_error_message && (
+        <div className="mt-1.5 p-1 bg-destructive/10 rounded text-[9px] text-destructive line-clamp-1">
+          Edit: {firstFrame.image_edit_error_message}
         </div>
       )}
       {firstFrame.video_error_message && (

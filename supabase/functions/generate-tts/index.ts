@@ -245,7 +245,7 @@ Deno.serve(async (req: Request) => {
       language = 'en',
       speed: rawSpeed = 1.0,
     } = input;
-    const speed = Math.min(1.5, Math.max(0.7, rawSpeed));
+    const speed = Math.min(1.2, Math.max(0.7, rawSpeed));
 
     if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
       log.error('Invalid input', { scene_ids });

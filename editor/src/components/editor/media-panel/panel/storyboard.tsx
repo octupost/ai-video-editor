@@ -55,6 +55,7 @@ const STORYBOARD_MODELS = [
   { value: 'google/gemini-3-pro-preview', label: 'Gemini 3 Pro' },
   { value: 'anthropic/claude-opus-4.6', label: 'Claude Opus 4.6' },
   { value: 'openai/gpt-5.2-pro', label: 'GPT 5.2 Pro' },
+  { value: 'z-ai/glm-5', label: 'GLM-5' },
 ] as const;
 
 type StoryboardModel = (typeof STORYBOARD_MODELS)[number]['value'];
@@ -126,6 +127,11 @@ export default function PanelStoryboard() {
       const data = await getStoryboardsForProject(projectId);
       setStoryboards(data);
 
+      // Auto-select most recent storyboard if exists
+      if (data.length > 0) {
+        setSelectedStoryboardId(data[0].id);
+      }
+
       // Check for existing draft
       const draft = await getDraftStoryboard(projectId);
       if (draft?.plan) {
@@ -136,9 +142,8 @@ export default function PanelStoryboard() {
         return;
       }
 
-      // Auto-select most recent storyboard if exists
+      // Set view mode based on storyboard existence
       if (data.length > 0) {
-        setSelectedStoryboardId(data[0].id);
         setViewMode('view');
       } else {
         setViewMode('create');
@@ -518,25 +523,33 @@ export default function PanelStoryboard() {
         <div className="flex-none border-t border-border/50">
           {viewMode === 'view' && selectedStoryboard ? (
             /* View Mode - Read-only display of saved storyboard settings */
-            <div className="p-4 flex flex-col gap-3 bg-secondary/10">
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 bg-secondary rounded-md">
-                  {selectedStoryboard.aspect_ratio}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">
-                  Voiceover Script
-                </span>
-                <div className="p-2 bg-background/50 rounded-md text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap">
-                  {selectedStoryboard.voiceover || (
-                    <span className="text-muted-foreground italic">
-                      No voiceover
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <button className="group w-full flex items-center justify-between px-4 py-2 hover:bg-secondary/20 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      Voiceover Script
                     </span>
-                  )}
+                    <span className="text-xs px-2 py-0.5 bg-secondary rounded-md">
+                      {selectedStoryboard.aspect_ratio}
+                    </span>
+                  </div>
+                  <IconChevronDown className="size-3 text-muted-foreground transition-transform duration-200 group-data-[state=open]:hidden" />
+                  <IconChevronUp className="size-3 text-muted-foreground hidden group-data-[state=open]:block" />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="px-4 pb-3">
+                  <div className="p-2 bg-background/50 rounded-md text-sm max-h-[120px] overflow-y-auto whitespace-pre-wrap">
+                    {selectedStoryboard.voiceover || (
+                      <span className="text-muted-foreground italic">
+                        No voiceover
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           ) : (
             /* Create Mode - Editable form */
             <div className="p-4 flex flex-col gap-3">

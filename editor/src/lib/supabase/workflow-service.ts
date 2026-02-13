@@ -53,8 +53,16 @@ export interface FirstFrame {
   error_message: string | null;
   created_at: string;
   final_url: string | null;
-  enhance_status: 'pending' | 'processing' | 'success' | 'failed' | null;
-  enhance_error_message: string | null;
+  image_edit_status:
+    | 'pending'
+    | 'outpainting'
+    | 'enhancing'
+    | 'editing'
+    | 'success'
+    | 'failed'
+    | null;
+  image_edit_error_message: string | null;
+  outpainted_url: string | null;
   video_url: string | null;
   video_status: 'pending' | 'processing' | 'success' | 'failed' | null;
   video_request_id: string | null;

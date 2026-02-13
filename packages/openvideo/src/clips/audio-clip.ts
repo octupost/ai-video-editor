@@ -213,8 +213,8 @@ export class Audio extends BaseClip implements IPlaybackCapable {
     tickRet: T
   ) => Promise<T> = async (_, tickRet) => tickRet;
 
-  // microseconds
-  private timestamp = 0;
+  // microseconds, -1 sentinel so the first tick(0) produces a non-zero delta
+  private timestamp = -1;
   private frameOffset = 0;
   /**
    * Return audio PCM data corresponding to the time difference between last and current moments

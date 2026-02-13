@@ -150,7 +150,7 @@ async function getVideoContext(
   }
 
   if (!firstFrame.final_url) {
-    log.warn('No final_url for first_frame (enhance required)', {
+    log.warn('No final_url for first_frame (outpaint required)', {
       first_frame_id: firstFrame.id,
     });
     return null;
@@ -348,7 +348,7 @@ Deno.serve(async (req: Request) => {
           request_id: null,
           status: 'skipped',
           error:
-            'Prerequisites not met (need enhanced image and voiceover duration)',
+            'Prerequisites not met (need outpainted image and voiceover duration)',
         });
         continue;
       }

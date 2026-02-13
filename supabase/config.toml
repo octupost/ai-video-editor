@@ -1,7 +1,7 @@
 [functions.generate-sfx]
 verify_jwt = false
 
-[functions.enhance-image]
+[functions.edit-image]
 verify_jwt = false
 
 [functions.generate-video]

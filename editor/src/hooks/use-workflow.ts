@@ -51,6 +51,8 @@ interface UseWorkflowResult {
   isComplete: boolean;
   /** Whether the workflow is in progress */
   isProcessing: boolean;
+  /** Whether the grid is being split into scenes (first_frames processing with no url) */
+  isSplitting: boolean;
 }
 
 /**
@@ -186,6 +188,14 @@ export function useWorkflow(
   const isProcessing =
     gridImage?.status === 'pending' || gridImage?.status === 'processing';
 
+  const isSplitting = (() => {
+    if (!gridImage || gridImage.status !== 'generated') return false;
+    if (!('scenes' in gridImage) || !gridImage.scenes?.length) return false;
+    return gridImage.scenes.some((scene) =>
+      scene.first_frames.some((ff) => ff.status === 'processing' && !ff.url)
+    );
+  })();
+
   const isComplete = (() => {
     if (!gridImage) return false;
     if (gridImage.status === 'failed') return true;
@@ -211,6 +221,7 @@ export function useWorkflow(
     refresh: fetchData,
     isComplete,
     isProcessing,
+    isSplitting,
   };
 }
 

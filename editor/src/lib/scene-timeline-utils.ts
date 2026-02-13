@@ -58,7 +58,7 @@ export async function addSceneToTimeline(
   const videoClip = await Video.fromUrl(scene.videoUrl);
   await videoClip.scaleToFit(canvasWidth, canvasHeight);
   videoClip.centerInScene(canvasWidth, canvasHeight);
-  videoClip.volume = 0.3;
+  videoClip.volume = 0.05;
 
   let endTime: number;
   let usedVideoTrackId = videoTrackId;
@@ -68,9 +68,19 @@ export async function addSceneToTimeline(
     const audioClip = await Audio.fromUrl(scene.voiceover.audioUrl);
     const audioDuration = audioClip.duration;
 
-    // Trim video to match voiceover duration
-    videoClip.trim.to = audioDuration;
-    videoClip.duration = audioDuration / videoClip.playbackRate;
+    // Match video duration to voiceover
+    const nativeVideoDuration = videoClip.duration;
+
+    if (nativeVideoDuration < audioDuration) {
+      // Video shorter than voiceover: slow down to fill
+      videoClip.playbackRate = nativeVideoDuration / audioDuration;
+      videoClip.trim.to = nativeVideoDuration;
+    } else {
+      // Video longer than voiceover: trim from end
+      videoClip.trim.to = audioDuration;
+    }
+
+    videoClip.duration = videoClip.trim.to / videoClip.playbackRate;
 
     videoClip.display.from = startTime;
     videoClip.display.to = startTime + videoClip.duration;
@@ -117,6 +127,56 @@ export async function addSceneToTimeline(
   return {
     endTime,
     videoTrackId: usedVideoTrackId,
+    audioTrackId: usedAudioTrackId,
+  };
+}
+
+interface VoiceoverInput {
+  audioUrl: string;
+}
+
+interface AddVoiceoverOptions {
+  startTime: number;
+  audioTrackId?: string;
+}
+
+interface AddVoiceoverResult {
+  endTime: number;
+  audioTrackId?: string;
+}
+
+/**
+ * Add a voiceover-only audio clip to the studio timeline.
+ */
+export async function addVoiceoverToTimeline(
+  studio: Studio,
+  voiceover: VoiceoverInput,
+  options: AddVoiceoverOptions
+): Promise<AddVoiceoverResult> {
+  const { startTime, audioTrackId } = options;
+  let usedAudioTrackId = audioTrackId;
+
+  const audioClip = await Audio.fromUrl(voiceover.audioUrl);
+
+  audioClip.display.from = startTime;
+  audioClip.display.to = startTime + audioClip.duration;
+
+  const endTime = startTime + audioClip.duration;
+
+  await studio.addClip(audioClip, {
+    trackId: usedAudioTrackId,
+    audioSource: voiceover.audioUrl,
+  });
+
+  if (!usedAudioTrackId) {
+    const aTrack = studio.tracks.find(
+      (t) => t.type === 'Audio' && t.clipIds.includes(audioClip.id)
+    );
+    usedAudioTrackId = aTrack?.id;
+  }
+
+  return {
+    endTime,
     audioTrackId: usedAudioTrackId,
   };
 }

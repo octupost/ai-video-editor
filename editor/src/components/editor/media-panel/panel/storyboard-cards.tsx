@@ -8,12 +8,13 @@ import {
   IconLayoutGrid,
   IconLoader2,
   IconMicrophone,
-  IconPlayerPause,
-  IconPlayerPlay,
   IconPlayerTrackNext,
   IconSparkles,
   IconVideo,
   IconVolume,
+  IconFocusCentered,
+  IconArrowBackUp,
+  IconVideoOff,
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { SceneCard, VoiceoverPlayButton } from './scene-card';
@@ -32,20 +33,14 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { useVoicePreview } from '@/hooks/use-voice-preview';
 import { useWorkflow } from '@/hooks/use-workflow';
 import { useStudioStore } from '@/stores/studio-store';
 import { createClient } from '@/lib/supabase/client';
 import {
   addSceneToTimeline,
+  addVoiceoverToTimeline,
   findCompatibleTrack,
 } from '@/lib/scene-timeline-utils';
 import type {
@@ -55,113 +50,129 @@ import type {
   Storyboard,
 } from '@/lib/supabase/workflow-service';
 import { GridImageReview } from './grid-image-review';
+import { useDeleteConfirmation } from '@/contexts/delete-confirmation-context';
 
 const VOICES = [
   {
-    value: 'pNInz6obpgDQGcFmaJgB',
-    label: 'Adam',
-    description: 'American, middle-aged male',
+    value: '75SIZa3vvET95PHhf1yD',
+    label: 'Ahmet (Turkish)',
+    description: 'Deep male voice, Turkish language',
   },
   {
-    value: 'Xb7hH8MSUJpSbSDYk0k2',
-    label: 'Alice',
-    description: 'British, middle-aged female',
+    value: 'NFG5qt843uXKj4pFvR7C',
+    label: 'Adam Stone (English)',
+    description: 'Late night radio host with a smooth, deep voice',
   },
   {
-    value: 'hpp4J3VqNfWAUOO0d1Us',
-    label: 'Bella',
-    description: 'American, middle-aged female',
+    value: 'IES4nrmZdUBHByLBde0P',
+    label: 'Haytham (Arabic)',
+    description: 'Middle aged Arab male voice',
   },
-  {
-    value: 'pqHfZKP75CvOlQylNhV4',
-    label: 'Bill',
-    description: 'American, older male',
-  },
-  {
-    value: 'nPczCjzI2devNBz1zQrb',
-    label: 'Brian',
-    description: 'American, middle-aged male',
-  },
-  {
-    value: 'N2lVS1w4EtoT3dr4eOWO',
-    label: 'Callum',
-    description: 'American, middle-aged male',
-  },
-  {
-    value: 'IKne3meq5aSn9XLyUdCD',
-    label: 'Charlie',
-    description: 'Australian, young male',
-  },
-  {
-    value: 'iP95p4xoKVk53GoZ742B',
-    label: 'Chris',
-    description: 'American, middle-aged male',
-  },
-  {
-    value: 'onwK4e9ZLuTAKqWW03F9',
-    label: 'Daniel',
-    description: 'British, middle-aged male',
-  },
-  {
-    value: 'cjVigY5qzO86Huf0OWal',
-    label: 'Eric',
-    description: 'American, middle-aged male',
-  },
-  {
-    value: 'JBFqnCBsd6RMkjVDRZzb',
-    label: 'George',
-    description: 'British, middle-aged male',
-  },
-  {
-    value: 'SOYHLrjzK2X1ezoPC6cr',
-    label: 'Harry',
-    description: 'American, young male',
-  },
-  {
-    value: 'cgSgspJ2msm6clMCkdW9',
-    label: 'Jessica',
-    description: 'American, young female',
-  },
-  {
-    value: 'FGY2WhTYpPnrIDTdsKH5',
-    label: 'Laura',
-    description: 'American, young female',
-  },
-  {
-    value: 'TX3LPaxmHKxFdv7VOQHJ',
-    label: 'Liam',
-    description: 'American, young male',
-  },
-  {
-    value: 'pFZP5JQG7iQjIQuC4Bku',
-    label: 'Lily',
-    description: 'British, middle-aged female',
-  },
-  {
-    value: 'XrExE9yKIg1WjnnlVkGX',
-    label: 'Matilda',
-    description: 'American, middle-aged female',
-  },
-  {
-    value: 'SAz9YHcvj6GT2YYXdXww',
-    label: 'River',
-    description: 'American, middle-aged neutral',
-  },
-  {
-    value: 'CwhRBWXzGAHq8TQ4Fs17',
-    label: 'Roger',
-    description: 'American, middle-aged male',
-  },
-  {
-    value: 'EXAVITQu4vr4xnSDxMaL',
-    label: 'Sarah',
-    description: 'American, young female',
-  },
-  {
-    value: 'bIHbv24MWmeRgasZH58o',
-    label: 'Will',
-    description: 'American, young male',
-  },
+  // {
+  //   value: "pNInz6obpgDQGcFmaJgB",
+  //   label: "Adam",
+  //   description: "American, middle-aged male",
+  // },
+  // {
+  //   value: "Xb7hH8MSUJpSbSDYk0k2",
+  //   label: "Alice",
+  //   description: "British, middle-aged female",
+  // },
+  // {
+  //   value: "hpp4J3VqNfWAUOO0d1Us",
+  //   label: "Bella",
+  //   description: "American, middle-aged female",
+  // },
+  // {
+  //   value: "pqHfZKP75CvOlQylNhV4",
+  //   label: "Bill",
+  //   description: "American, older male",
+  // },
+  // {
+  //   value: "nPczCjzI2devNBz1zQrb",
+  //   label: "Brian",
+  //   description: "American, middle-aged male",
+  // },
+  // {
+  //   value: "N2lVS1w4EtoT3dr4eOWO",
+  //   label: "Callum",
+  //   description: "American, middle-aged male",
+  // },
+  // {
+  //   value: "IKne3meq5aSn9XLyUdCD",
+  //   label: "Charlie",
+  //   description: "Australian, young male",
+  // },
+  // {
+  //   value: "iP95p4xoKVk53GoZ742B",
+  //   label: "Chris",
+  //   description: "American, middle-aged male",
+  // },
+  // {
+  //   value: "onwK4e9ZLuTAKqWW03F9",
+  //   label: "Daniel",
+  //   description: "British, middle-aged male",
+  // },
+  // {
+  //   value: "cjVigY5qzO86Huf0OWal",
+  //   label: "Eric",
+  //   description: "American, middle-aged male",
+  // },
+  // {
+  //   value: "JBFqnCBsd6RMkjVDRZzb",
+  //   label: "George",
+  //   description: "British, middle-aged male",
+  // },
+  // {
+  //   value: "SOYHLrjzK2X1ezoPC6cr",
+  //   label: "Harry",
+  //   description: "American, young male",
+  // },
+  // {
+  //   value: "cgSgspJ2msm6clMCkdW9",
+  //   label: "Jessica",
+  //   description: "American, young female",
+  // },
+  // {
+  //   value: "FGY2WhTYpPnrIDTdsKH5",
+  //   label: "Laura",
+  //   description: "American, young female",
+  // },
+  // {
+  //   value: "TX3LPaxmHKxFdv7VOQHJ",
+  //   label: "Liam",
+  //   description: "American, young male",
+  // },
+  // {
+  //   value: "pFZP5JQG7iQjIQuC4Bku",
+  //   label: "Lily",
+  //   description: "British, middle-aged female",
+  // },
+  // {
+  //   value: "XrExE9yKIg1WjnnlVkGX",
+  //   label: "Matilda",
+  //   description: "American, middle-aged female",
+  // },
+  // {
+  //   value: "SAz9YHcvj6GT2YYXdXww",
+  //   label: "River",
+  //   description: "American, middle-aged neutral",
+  // },
+  // {
+  //   value: "CwhRBWXzGAHq8TQ4Fs17",
+  //   label: "Roger",
+  //   description: "American, middle-aged male",
+  // },
+  // {
+  //   value: "EXAVITQu4vr4xnSDxMaL",
+  //   label: "Sarah",
+  //   description: "American, young female",
+  // },
+  // {
+  //   value: "bIHbv24MWmeRgasZH58o",
+  //   label: "Will",
+  //   description: "American, young male",
+  // },
 ] as const;
 
 const TTS_MODELS = {
@@ -174,10 +185,12 @@ const TTS_MODELS = {
 
 type TTSModelKey = keyof typeof TTS_MODELS;
 
-const ENHANCE_MODELS = {
+const OUTPAINT_MODELS = {
   kling: { label: 'Kling' },
   banana: { label: 'Banana' },
   fibo: { label: 'Fibo' },
+  grok: { label: 'Grok' },
+  'flux-pro': { label: 'Flux Pro' },
 } as const;
 
 const VIDEO_MODELS = {
@@ -288,20 +301,35 @@ export function StoryboardCards({
   storyboardId,
   refreshTrigger,
 }: StoryboardCardsProps) {
-  const { gridImage, storyboard, loading, error, isProcessing, refresh } =
-    useWorkflow(projectId, {
-      realtime: true,
-      includeScenes: true,
-      storyboardId,
-    });
+  const {
+    gridImage,
+    storyboard,
+    loading,
+    error,
+    isProcessing,
+    isSplitting,
+    refresh,
+  } = useWorkflow(projectId, {
+    realtime: true,
+    includeScenes: true,
+    storyboardId,
+  });
 
+  const { confirm } = useDeleteConfirmation();
   const [selectedSceneIds, setSelectedSceneIds] = useState<Set<string>>(
     new Set()
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isOutpainting, setIsOutpainting] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [enhanceModel, setEnhanceModel] =
-    useState<keyof typeof ENHANCE_MODELS>('kling');
+  const [isCustomEditing, setIsCustomEditing] = useState(false);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [isRefMode, setIsRefMode] = useState(false);
+  const [targetSceneId, setTargetSceneId] = useState<string | null>(null);
+  const [refPrompt, setRefPrompt] = useState('');
+  const [isRefGenerating, setIsRefGenerating] = useState(false);
+  const [outpaintModel, setOutpaintModel] =
+    useState<keyof typeof OUTPAINT_MODELS>('kling');
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [videoModel, setVideoModel] =
     useState<VideoModelKey>('bytedance1.5pro');
@@ -314,9 +342,9 @@ export function StoryboardCards({
     'en'
   );
   const [voiceConfig, setVoiceConfig] = useState({
-    en: { voice: 'pNInz6obpgDQGcFmaJgB', customVoiceId: '' },
-    tr: { voice: 'pNInz6obpgDQGcFmaJgB', customVoiceId: '' },
-    ar: { voice: 'pNInz6obpgDQGcFmaJgB', customVoiceId: '' },
+    en: { voice: 'NFG5qt843uXKj4pFvR7C' },
+    tr: { voice: '75SIZa3vvET95PHhf1yD' },
+    ar: { voice: 'IES4nrmZdUBHByLBde0P' },
   });
   const [ttsModel, setTtsModel] = useState<TTSModelKey>('turbo-v2.5');
   const [ttsSpeed, setTtsSpeed] = useState(1.0);
@@ -328,12 +356,6 @@ export function StoryboardCards({
   const [isVisualOpen, setIsVisualOpen] = useState(false);
   const [isVideoOpen, setIsVideoOpen] = useState(false);
   const { studio } = useStudioStore();
-  const {
-    previewUrls,
-    playingVoiceId: previewPlayingId,
-    togglePreview,
-    stopPreview,
-  } = useVoicePreview();
 
   // Refresh data when refreshTrigger changes (new storyboard generated)
   useEffect(() => {
@@ -389,9 +411,7 @@ export function StoryboardCards({
       const { data, error } = await supabase.functions.invoke('generate-tts', {
         body: {
           scene_ids: Array.from(selectedSceneIds),
-          voice:
-            voiceConfig[selectedLanguage].customVoiceId.trim() ||
-            voiceConfig[selectedLanguage].voice,
+          voice: voiceConfig[selectedLanguage].voice,
           model: ttsModel,
           language: selectedLanguage,
           speed: ttsSpeed,
@@ -413,28 +433,201 @@ export function StoryboardCards({
     }
   };
 
+  const handleOutpaintImages = async () => {
+    if (selectedSceneIds.size === 0) return;
+
+    setIsOutpainting(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke('edit-image', {
+        body: { scene_ids: Array.from(selectedSceneIds), model: outpaintModel },
+      });
+
+      if (error) throw error;
+
+      if (data.summary.queued > 0) {
+        toast.success(
+          `Image outpaint started for ${data.summary.queued} scene(s)`
+        );
+      }
+      if (data.summary.skipped > 0) {
+        toast.warning(
+          `${data.summary.skipped} scene(s) skipped (already processing)`
+        );
+      }
+      if (data.summary.failed > 0) {
+        toast.error(
+          `${data.summary.failed} scene(s) failed to submit for outpainting`
+        );
+      }
+      clearSelection();
+      refresh(); // Fetch updated outpaint statuses
+    } catch (err) {
+      console.error('Failed to outpaint images:', err);
+      toast.error('Failed to outpaint images');
+    } finally {
+      setIsOutpainting(false);
+    }
+  };
+
   const handleEnhanceImages = async () => {
     if (selectedSceneIds.size === 0) return;
 
     setIsEnhancing(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.functions.invoke('enhance-image', {
-        body: { scene_ids: Array.from(selectedSceneIds), model: enhanceModel },
+      const { data, error } = await supabase.functions.invoke('edit-image', {
+        body: {
+          scene_ids: Array.from(selectedSceneIds),
+          model: outpaintModel,
+          action: 'enhance',
+        },
       });
 
       if (error) throw error;
 
-      toast.success(
-        `Image enhancement started for ${data.summary.queued} scene(s)`
-      );
+      if (data.summary.queued > 0) {
+        toast.success(
+          `Image enhance started for ${data.summary.queued} scene(s)`
+        );
+      }
+      if (data.summary.skipped > 0) {
+        toast.warning(
+          `${data.summary.skipped} scene(s) skipped (already processing or no final image)`
+        );
+      }
+      if (data.summary.failed > 0) {
+        toast.error(
+          `${data.summary.failed} scene(s) failed to submit for enhancing`
+        );
+      }
       clearSelection();
-      refresh(); // Fetch updated enhance statuses
+      refresh();
     } catch (err) {
       console.error('Failed to enhance images:', err);
       toast.error('Failed to enhance images');
     } finally {
       setIsEnhancing(false);
+    }
+  };
+
+  const handleCustomEdit = async () => {
+    if (selectedSceneIds.size === 0 || !editPrompt.trim()) return;
+
+    setIsCustomEditing(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke('edit-image', {
+        body: {
+          scene_ids: Array.from(selectedSceneIds),
+          model: outpaintModel,
+          action: 'custom_edit',
+          prompt: editPrompt.trim(),
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.summary.queued > 0) {
+        toast.success(
+          `Custom edit started for ${data.summary.queued} scene(s)`
+        );
+      }
+      if (data.summary.skipped > 0) {
+        toast.warning(
+          `${data.summary.skipped} scene(s) skipped (already processing or no final image)`
+        );
+      }
+      if (data.summary.failed > 0) {
+        toast.error(
+          `${data.summary.failed} scene(s) failed to submit for editing`
+        );
+      }
+      clearSelection();
+      refresh();
+    } catch (err) {
+      console.error('Failed to custom edit images:', err);
+      toast.error('Failed to custom edit images');
+    } finally {
+      setIsCustomEditing(false);
+    }
+  };
+
+  const handleRefToImage = async () => {
+    if (selectedSceneIds.size === 0 || !targetSceneId || !refPrompt.trim())
+      return;
+
+    setIsRefGenerating(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.functions.invoke('edit-image', {
+        body: {
+          scene_ids: Array.from(selectedSceneIds),
+          model: outpaintModel,
+          action: 'ref_to_image',
+          prompt: refPrompt.trim(),
+          target_scene_id: targetSceneId,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        toast.success(
+          `Reference-to-image started (${data.reference_count} references)`
+        );
+      } else {
+        toast.error(data.error || 'Failed to start ref-to-image');
+      }
+      clearSelection();
+      setTargetSceneId(null);
+      setIsRefMode(false);
+      refresh();
+    } catch (err) {
+      console.error('Failed ref-to-image:', err);
+      toast.error('Failed to start ref-to-image');
+    } finally {
+      setIsRefGenerating(false);
+    }
+  };
+
+  const handleResetImages = async () => {
+    if (selectedSceneIds.size === 0) return;
+
+    const confirmed = await confirm({
+      title: 'Reset Images',
+      description:
+        "Reset selected scenes' images back to the original padded version? This will undo any outpainting, enhancing, or custom edits.",
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const supabase = createClient();
+      const firstFrames = sortedScenes
+        .filter((s) => selectedSceneIds.has(s.id))
+        .flatMap((s) => s.first_frames)
+        .filter((ff) => ff.out_padded_url);
+
+      for (const ff of firstFrames) {
+        await supabase
+          .from('first_frames')
+          .update({
+            final_url: ff.out_padded_url,
+            outpainted_url: null,
+            image_edit_status: null,
+            image_edit_error_message: null,
+            image_edit_request_id: null,
+          })
+          .eq('id', ff.id);
+      }
+
+      toast.success(`Reset ${firstFrames.length} image(s) to original`);
+      clearSelection();
+      refresh();
+    } catch (err) {
+      console.error('Failed to reset images:', err);
+      toast.error('Failed to reset images');
     }
   };
 
@@ -471,6 +664,45 @@ export function StoryboardCards({
       toast.error('Failed to generate videos');
     } finally {
       setIsGeneratingVideo(false);
+    }
+  };
+
+  const handleRemoveVideos = async () => {
+    if (selectedScenesWithVideo.length === 0) return;
+
+    const confirmed = await confirm({
+      title: 'Remove Videos',
+      description:
+        'Remove generated videos from the selected scenes? The images will remain intact.',
+    });
+
+    if (!confirmed) return;
+
+    try {
+      const supabase = createClient();
+      const firstFrames = selectedScenesWithVideo.flatMap(
+        (s) => s.first_frames
+      );
+
+      for (const ff of firstFrames) {
+        await supabase
+          .from('first_frames')
+          .update({
+            video_url: null,
+            video_status: null,
+            video_request_id: null,
+            video_error_message: null,
+            video_resolution: null,
+          })
+          .eq('id', ff.id);
+      }
+
+      toast.success(`Removed video from ${firstFrames.length} scene(s)`);
+      clearSelection();
+      refresh();
+    } catch (err) {
+      console.error('Failed to remove videos:', err);
+      toast.error('Failed to remove videos');
     }
   };
 
@@ -549,19 +781,14 @@ export function StoryboardCards({
     }
   };
 
-  const handleRegenerateScene = async (
-    sceneId: string,
-    newVoiceoverText: string,
-    newVisualPrompt: string
-  ) => {
+  const handleReadScene = async (sceneId: string, newVoiceoverText: string) => {
     const supabase = createClient();
-
-    // Update voiceover text and reset status (for selected language only)
     const scene = sortedScenes.find((s) => s.id === sceneId);
     const voiceover = scene?.voiceovers?.find(
       (v) => v.language === selectedLanguage
     );
     if (!voiceover) return;
+
     const { error: voiceoverError } = await supabase
       .from('voiceovers')
       .update({
@@ -577,7 +804,42 @@ export function StoryboardCards({
       throw voiceoverError;
     }
 
-    // Update visual prompt and reset video status
+    const { error: ttsError } = await supabase.functions.invoke(
+      'generate-tts',
+      {
+        body: {
+          scene_ids: [sceneId],
+          voice: voiceConfig[selectedLanguage].voice,
+          model: ttsModel,
+          language: selectedLanguage,
+          speed: ttsSpeed,
+        },
+      }
+    );
+
+    if (ttsError) {
+      console.error('TTS generation failed:', ttsError);
+      toast.error('Failed to start voiceover generation');
+    } else {
+      toast.success('Voiceover generation started');
+    }
+
+    refresh();
+  };
+
+  const handleGenerateSceneVideo = async (
+    sceneId: string,
+    newVisualPrompt: string
+  ) => {
+    const supabase = createClient();
+    const scene = sortedScenes.find((s) => s.id === sceneId);
+
+    const finalUrl = scene?.first_frames?.[0]?.final_url;
+    if (!finalUrl) {
+      toast.error('Cannot generate video — outpaint the image first.');
+      return;
+    }
+
     const { error: frameError } = await supabase
       .from('first_frames')
       .update({
@@ -594,56 +856,28 @@ export function StoryboardCards({
       throw frameError;
     }
 
-    // Trigger TTS regeneration
-    const { error: ttsError } = await supabase.functions.invoke(
-      'generate-tts',
+    const { error: videoError } = await supabase.functions.invoke(
+      'generate-video',
       {
         body: {
           scene_ids: [sceneId],
-          voice:
-            voiceConfig[selectedLanguage].customVoiceId.trim() ||
-            voiceConfig[selectedLanguage].voice,
-          model: ttsModel,
-          language: selectedLanguage,
-          speed: ttsSpeed,
+          resolution: videoResolution,
+          model: videoModel,
+          aspect_ratio:
+            storyboard && 'aspect_ratio' in storyboard
+              ? storyboard.aspect_ratio
+              : '16:9',
         },
       }
     );
 
-    if (ttsError) {
-      console.error('TTS generation failed:', ttsError);
-      toast.error('Failed to start voiceover generation');
-    }
-
-    // Trigger video regeneration only if the scene has an enhanced image
-    const finalUrl = scene?.first_frames?.[0]?.final_url;
-    if (finalUrl) {
-      const { error: videoError } = await supabase.functions.invoke(
-        'generate-video',
-        {
-          body: {
-            scene_ids: [sceneId],
-            resolution: videoResolution,
-            model: videoModel,
-            aspect_ratio:
-              storyboard && 'aspect_ratio' in storyboard
-                ? storyboard.aspect_ratio
-                : '16:9',
-          },
-        }
-      );
-
-      if (videoError) {
-        console.error('Video generation failed:', videoError);
-        toast.error('Failed to start video generation');
-      }
+    if (videoError) {
+      console.error('Video generation failed:', videoError);
+      toast.error('Failed to start video generation');
     } else {
-      toast.info(
-        'Video generation skipped — enhance the image first to generate video.'
-      );
+      toast.success('Video generation started');
     }
 
-    toast.success('Scene regeneration started');
     refresh();
   };
 
@@ -716,6 +950,72 @@ export function StoryboardCards({
     }
   };
 
+  const handleAddVideoToTimeline = async (sceneId: string) => {
+    if (!studio) return;
+    const scene = sortedScenes.find((s) => s.id === sceneId);
+    const firstFrame = scene?.first_frames?.[0];
+    if (!firstFrame?.video_url) return;
+
+    try {
+      const lastClipEnd = studio.clips.reduce((max, c) => {
+        const end =
+          c.display.to > 0 ? c.display.to : c.display.from + c.duration;
+        return end > max ? end : max;
+      }, 0);
+      const estimatedEnd = lastClipEnd + 10;
+      const existingVideoTrack = findCompatibleTrack(
+        studio,
+        'Video',
+        lastClipEnd,
+        estimatedEnd
+      );
+
+      await addSceneToTimeline(
+        studio,
+        { videoUrl: firstFrame.video_url, voiceover: null },
+        { startTime: lastClipEnd, videoTrackId: existingVideoTrack?.id }
+      );
+      toast.success('Video added to timeline');
+    } catch (err) {
+      console.error('Failed to add video to timeline:', err);
+      toast.error('Failed to add video to timeline');
+    }
+  };
+
+  const handleAddVoiceoverToTimeline = async (sceneId: string) => {
+    if (!studio) return;
+    const scene = sortedScenes.find((s) => s.id === sceneId);
+    const voiceover = scene?.voiceovers?.find(
+      (v) => v.language === selectedLanguage
+    );
+    if (!voiceover?.audio_url || voiceover.status !== 'success') return;
+
+    try {
+      const lastClipEnd = studio.clips.reduce((max, c) => {
+        const end =
+          c.display.to > 0 ? c.display.to : c.display.from + c.duration;
+        return end > max ? end : max;
+      }, 0);
+      const estimatedEnd = lastClipEnd + 10;
+      const existingAudioTrack = findCompatibleTrack(
+        studio,
+        'Audio',
+        lastClipEnd,
+        estimatedEnd
+      );
+
+      await addVoiceoverToTimeline(
+        studio,
+        { audioUrl: voiceover.audio_url },
+        { startTime: lastClipEnd, audioTrackId: existingAudioTrack?.id }
+      );
+      toast.success('Voiceover added to timeline');
+    } catch (err) {
+      console.error('Failed to add voiceover to timeline:', err);
+      toast.error('Failed to add voiceover to timeline');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-10">
@@ -747,6 +1047,23 @@ export function StoryboardCards({
         onApproveComplete={() => refresh()}
         onRegenerateComplete={() => refresh()}
       />
+    );
+  }
+
+  // Grid image is being generated — show progress indicator
+  if (
+    gridImage &&
+    (gridImage.status === 'pending' || gridImage.status === 'processing') &&
+    sortedScenes.length === 0
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-3">
+        <IconLoader2 size={32} className="animate-spin text-blue-400" />
+        <span className="text-sm text-center">Generating grid image...</span>
+        <span className="text-xs text-center text-muted-foreground/60">
+          This may take a minute
+        </span>
+      </div>
     );
   }
 
@@ -788,6 +1105,33 @@ export function StoryboardCards({
             </span>
           )}
         </div>
+
+        {/* Add to Timeline */}
+        {selectedSceneIds.size > 0 && (
+          <div className="flex items-center gap-1.5 px-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={
+                selectedScenesWithVideo.length === 0 || isAddingToTimeline
+              }
+              onClick={handleAddAllToTimeline}
+              className="h-8 text-xs flex-1"
+              title={
+                selectedScenesWithVideo.length === 0
+                  ? 'Select scenes with generated videos'
+                  : `Add ${selectedScenesWithVideo.length} scene(s) video + voiceover to timeline`
+              }
+            >
+              {isAddingToTimeline ? (
+                <IconLoader2 className="size-3.5 animate-spin mr-1" />
+              ) : (
+                <IconPlayerTrackNext className="size-3.5 mr-1" />
+              )}
+              Add to Timeline
+            </Button>
+          </div>
+        )}
 
         {/* Audio Section */}
         <Collapsible open={isAudioOpen} onOpenChange={setIsAudioOpen}>
@@ -836,7 +1180,6 @@ export function StoryboardCards({
                   <Select
                     value={voiceConfig[selectedLanguage].voice}
                     onValueChange={(value) => {
-                      stopPreview();
                       setVoiceConfig((prev) => ({
                         ...prev,
                         [selectedLanguage]: {
@@ -860,55 +1203,7 @@ export function StoryboardCards({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                        disabled={
-                          !previewUrls.has(voiceConfig[selectedLanguage].voice)
-                        }
-                        onClick={() =>
-                          togglePreview(voiceConfig[selectedLanguage].voice)
-                        }
-                      >
-                        {previewPlayingId ===
-                        voiceConfig[selectedLanguage].voice ? (
-                          <IconPlayerPause className="size-3.5" />
-                        ) : (
-                          <IconPlayerPlay className="size-3.5" />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {previewPlayingId === voiceConfig[selectedLanguage].voice
-                        ? 'Stop preview'
-                        : 'Preview voice'}
-                    </TooltipContent>
-                  </Tooltip>
                 </div>
-              </div>
-
-              {/* Custom Voice ID */}
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  Custom Voice ID
-                </span>
-                <Input
-                  value={voiceConfig[selectedLanguage].customVoiceId}
-                  onChange={(e) =>
-                    setVoiceConfig((prev) => ({
-                      ...prev,
-                      [selectedLanguage]: {
-                        ...prev[selectedLanguage],
-                        customVoiceId: e.target.value,
-                      },
-                    }))
-                  }
-                  placeholder="Paste ElevenLabs voice ID..."
-                  className="h-8 text-xs"
-                />
               </div>
 
               {/* TTS Model + Speed */}
@@ -936,7 +1231,7 @@ export function StoryboardCards({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex flex-col gap-1 w-[100px]">
+                <div className="flex flex-col gap-1 flex-1">
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
                     Speed {ttsSpeed.toFixed(1)}x
                   </span>
@@ -944,7 +1239,7 @@ export function StoryboardCards({
                     value={[ttsSpeed]}
                     onValueChange={([v]) => setTtsSpeed(v)}
                     min={0.7}
-                    max={1.5}
+                    max={1.2}
                     step={0.05}
                     className="py-2"
                   />
@@ -1016,12 +1311,12 @@ export function StoryboardCards({
             <div className="px-2 py-2 flex flex-col gap-2">
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                  Enhance Model
+                  Outpaint Model
                 </span>
                 <Select
-                  value={enhanceModel}
+                  value={outpaintModel}
                   onValueChange={(v) =>
-                    setEnhanceModel(v as keyof typeof ENHANCE_MODELS)
+                    setOutpaintModel(v as keyof typeof OUTPAINT_MODELS)
                   }
                 >
                   <SelectTrigger className="h-8 text-xs">
@@ -1030,30 +1325,146 @@ export function StoryboardCards({
                   <SelectContent>
                     {(
                       Object.keys(
-                        ENHANCE_MODELS
-                      ) as (keyof typeof ENHANCE_MODELS)[]
+                        OUTPAINT_MODELS
+                      ) as (keyof typeof OUTPAINT_MODELS)[]
                     ).map((key) => (
                       <SelectItem key={key} value={key}>
-                        {ENHANCE_MODELS[key].label}
+                        {OUTPAINT_MODELS[key].label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={selectedSceneIds.size === 0 || isEnhancing}
-                onClick={handleEnhanceImages}
-                className="h-9 text-xs w-full"
-              >
-                {isEnhancing ? (
-                  <IconLoader2 className="size-3.5 animate-spin mr-1" />
-                ) : (
-                  <IconSparkles className="size-3.5 mr-1" />
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={selectedSceneIds.size === 0 || isOutpainting}
+                  onClick={handleOutpaintImages}
+                  className="h-9 text-xs flex-1"
+                >
+                  {isOutpainting ? (
+                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                  ) : (
+                    <IconSparkles className="size-3.5 mr-1" />
+                  )}
+                  Outpaint
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={selectedSceneIds.size === 0 || isEnhancing}
+                  onClick={handleEnhanceImages}
+                  className="h-9 text-xs flex-1"
+                >
+                  {isEnhancing ? (
+                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                  ) : (
+                    <IconSparkles className="size-3.5 mr-1" />
+                  )}
+                  Enhance
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={selectedSceneIds.size === 0}
+                  onClick={handleResetImages}
+                  className="h-9 text-xs flex-1"
+                >
+                  <IconArrowBackUp className="size-3.5 mr-1" />
+                  Reset
+                </Button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                  Custom Edit
+                </span>
+                <Textarea
+                  value={editPrompt}
+                  onChange={(e) => setEditPrompt(e.target.value)}
+                  placeholder="Describe how to edit the image..."
+                  className="text-xs min-h-[60px] resize-none"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    selectedSceneIds.size === 0 ||
+                    isCustomEditing ||
+                    !editPrompt.trim()
+                  }
+                  onClick={handleCustomEdit}
+                  className="h-9 text-xs"
+                >
+                  {isCustomEditing ? (
+                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                  ) : (
+                    <IconSparkles className="size-3.5 mr-1" />
+                  )}
+                  Edit
+                </Button>
+              </div>
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-border/30">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Ref to Image
+                  </span>
+                  <Button
+                    size="sm"
+                    variant={isRefMode ? 'default' : 'ghost'}
+                    onClick={() => {
+                      setIsRefMode(!isRefMode);
+                      if (isRefMode) {
+                        setTargetSceneId(null);
+                      }
+                    }}
+                    className="h-6 text-[10px] px-2"
+                  >
+                    <IconFocusCentered className="size-3 mr-1" />
+                    {isRefMode ? 'Exit Ref Mode' : 'Enter Ref Mode'}
+                  </Button>
+                </div>
+                {isRefMode && (
+                  <>
+                    <p className="text-[10px] text-muted-foreground">
+                      Select reference scenes with checkboxes, then click the
+                      target icon on the scene to replace.
+                    </p>
+                    {targetSceneId && (
+                      <p className="text-[10px] text-amber-400">
+                        Target: Scene{' '}
+                        {sortedScenes.findIndex((s) => s.id === targetSceneId) +
+                          1}
+                      </p>
+                    )}
+                    <Textarea
+                      value={refPrompt}
+                      onChange={(e) => setRefPrompt(e.target.value)}
+                      placeholder="Describe what to generate using the reference images..."
+                      className="text-xs min-h-[60px] resize-none"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={
+                        selectedSceneIds.size === 0 ||
+                        !targetSceneId ||
+                        !refPrompt.trim() ||
+                        isRefGenerating
+                      }
+                      onClick={handleRefToImage}
+                      className="h-9 text-xs"
+                    >
+                      {isRefGenerating ? (
+                        <IconLoader2 className="size-3.5 animate-spin mr-1" />
+                      ) : (
+                        <IconFocusCentered className="size-3.5 mr-1" />
+                      )}
+                      Generate with References
+                    </Button>
+                  </>
                 )}
-                Enhance Images
-              </Button>
+              </div>
             </div>
           </CollapsibleContent>
         </Collapsible>
@@ -1147,23 +1558,17 @@ export function StoryboardCards({
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={
-                    selectedScenesWithVideo.length === 0 || isAddingToTimeline
-                  }
-                  onClick={handleAddAllToTimeline}
+                  disabled={selectedScenesWithVideo.length === 0}
+                  onClick={handleRemoveVideos}
                   className="h-9 text-xs"
                   title={
                     selectedScenesWithVideo.length === 0
                       ? 'Select scenes with generated videos'
-                      : `Add ${selectedScenesWithVideo.length} scene(s) to timeline`
+                      : `Remove video from ${selectedScenesWithVideo.length} scene(s)`
                   }
                 >
-                  {isAddingToTimeline ? (
-                    <IconLoader2 className="size-3.5 animate-spin mr-1" />
-                  ) : (
-                    <IconPlayerTrackNext className="size-3.5 mr-1" />
-                  )}
-                  Timeline
+                  <IconVideoOff className="size-3.5 mr-1" />
+                  Remove
                 </Button>
               </div>
             </div>
@@ -1177,6 +1582,14 @@ export function StoryboardCards({
           <IconLoader2 className="size-4 animate-spin text-blue-500" />
           <span className="text-sm text-blue-500">
             Processing storyboard...
+          </span>
+        </div>
+      )}
+      {isSplitting && (
+        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-md flex items-center gap-2">
+          <IconLoader2 className="size-4 animate-spin text-blue-500" />
+          <span className="text-sm text-blue-500">
+            Splitting grid into scenes...
           </span>
         </div>
       )}
@@ -1230,10 +1643,19 @@ export function StoryboardCards({
             onSelectionChange={(selected) => toggleScene(scene.id, selected)}
             playingVoiceoverId={playingVoiceoverId}
             setPlayingVoiceoverId={setPlayingVoiceoverId}
-            onRegenerate={handleRegenerateScene}
+            onReadScene={handleReadScene}
+            onGenerateSceneVideo={handleGenerateSceneVideo}
             onSaveVisualPrompt={handleSaveVisualPrompt}
             onSaveVoiceoverText={handleSaveVoiceoverText}
             selectedLanguage={selectedLanguage}
+            isRefMode={isRefMode}
+            isTarget={targetSceneId === scene.id}
+            onSetTarget={(id) =>
+              setTargetSceneId(targetSceneId === id ? null : id)
+            }
+            aspectRatio={storyboard?.aspect_ratio}
+            onAddVideoToTimeline={handleAddVideoToTimeline}
+            onAddVoiceoverToTimeline={handleAddVoiceoverToTimeline}
           />
         ))}
       </div>

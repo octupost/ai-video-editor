@@ -82,7 +82,7 @@ export function AudioProperties({ clip }: AudioPropertiesProps) {
         </div>
       </div>
 
-      {/* Speed Section (UI Only) */}
+      {/* Speed Section */}
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
           Speed
@@ -90,19 +90,22 @@ export function AudioProperties({ clip }: AudioPropertiesProps) {
         <div className="flex items-center gap-4">
           <IconGauge className="size-4 text-muted-foreground" />
           <Slider
-            value={[100]}
-            onValueChange={() => {}}
+            value={[Math.round((audioClip.playbackRate ?? 1) * 100)]}
+            onValueChange={(v) => handleUpdate({ playbackRate: v[0] / 100 })}
             min={25}
             max={400}
             step={5}
             className="flex-1"
-            disabled
           />
           <InputGroup className="w-20">
             <InputGroupInput
               type="number"
-              value={100}
-              disabled
+              value={Math.round((audioClip.playbackRate ?? 1) * 100)}
+              onChange={(e) =>
+                handleUpdate({
+                  playbackRate: (parseInt(e.target.value, 10) || 25) / 100,
+                })
+              }
               className="text-sm p-0 text-center"
             />
             <InputGroupAddon align="inline-end" className="p-0 pr-2">

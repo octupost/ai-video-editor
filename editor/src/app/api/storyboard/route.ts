@@ -20,54 +20,71 @@ const storyboardSchema = z.object({
   visual_flow: z.array(z.string()),
 });
 
-const SYSTEM_PROMPT = `You are a professional storyboard generator for video production. Given a voiceover script, generate a realistic storyboard breakdown.
+const contentSchema = z.object({
+  rows: z.number(),
+  cols: z.number(),
+  grid_image_prompt: z.string(),
+  voiceover_list: z.array(z.string()),
+  visual_flow: z.array(z.string()),
+});
 
-## Rules:
+const translationSchema = z.object({
+  en: z.array(z.string()),
+  tr: z.array(z.string()),
+  ar: z.array(z.string()),
+});
 
-### 1. Voiceover Splitting and Grid Image Planning
-- Split the script into segments (targeting 4-6 seconds of speech per segment) also considering the grid constraint below. Each segment will correspond to one cell in the storyboard grid.
-- Count your voiceover segments, then pick the smallest grid that fits from this list: 
-2x2(4), 3x2(6), 3x3(9), 4x3(12), 4x4(16), 5x4(20), 5x5(25), 6x5(30), 6x6(36), 7x6(42), 7x7(49), 8x7(56), 8x8(64)
-- The number of cells MUST exactly equal the number of voiceover segments and visual_flow entries
-- One single image containing all scenes as cells in a grid
-- Each cell represents the first frame of that scene
-- Label cells as Cell_R1C1, Cell_R1C2, Cell_R2C1, etc.
-- Describe EVERY cell with full visual details including faces when people are shown
-- The grid images shouldn't have any text.
-- Format: "[style], grid with thin 2px black dividing lines. Cell_R1C1: [full description], Cell_R1C2: [full description], ..."
+const CONTENT_PROMPT = `You are a professional storyboard generator for video production. Given a voiceover script, generate a realistic storyboard breakdown.
 
-### 2. Visual Flow (Image-to-Video Prompts)
-- One prompt per cell describing how to animate that static frame into video
-- Reference what is visible in the first frame and describe the action/movement from there
-- DO NOT use character names — describe by appearance/role instead (e.g. "elderly man with grey beard" not "John")
-- Each prompt must include that there is no speech, only sound effects
+Rules:
+1. Voiceover Splitting and Grid Planning
+Target 2-6 seconds of speech per segment.
+Adjust your splitting strategy so the total segment count matches one of the valid grid sizes below. The squarest possible grid like  4x4(16), 5x5(25) that fits the segment count is preferred, but you can choose any valid grid size as long as it matches the segment count exactly.
+Valid grid sizes are: 2x2(4), 3x2(6), 3x3(9), 4x3(12), 4x4(16), 5x4(20), 5x5(25), 6x5(30), 6x6(36), 7x6(42), 7x7(49), 8x7(56), 8x8(64)
+Grid Image Prompt Format: "Cinematic realistic style. With 2 A [Rows]x[Cols] grid image with each cell in the same size with 2px green grid lines. Grid_1x1: [Full description], Grid_1x2: [Full description]..."
+Describe EVERY cell with full visual details including faces when people are shown. If there is a human in the scene the face must be shown in the grid image.
+Try to use modern islamic clothing styles if people are shown in the scenes. For girls use modest clothing with NO Hijab. The clothing should be modern muslim fashion styles like Turkey without any religious symbols. Mention this in grid image mention these in the grid image prompt
+Do not add any extra text to the grid image
+Do not add any violence ex: blood to the scenes.
 
-### 3. Real References
-- If the voiceover mentions real people, brands, landmarks, or locations, use their actual names and recognizable features in both grid_image_prompt and visual_flow
-- Only use generic descriptions for fictional or unspecified subjects
+2. Visual Flow (Image-to-Video Prompts)
+One prompt per cell describing how to animate that static frame into video.
+Reference what is visible in the first frame and describe the action/movement from there.
+When you create grid first frame and visual flow consider it will start first frame and do tha action.
+If there is conversation add those in the language of the voiceover and indicate which character is saying what in the visual flow prompt. 
 
-### 4. Voiceover Translations
-- After splitting, translate each segment into English, Turkish, and Arabic
-- Return voiceover_list as: { "en": [...], "tr": [...], "ar": [...] }
-- Each array must have the same number of segments
-- Use natural, fluent translations that a native speaker would say, not literal word-for-word translations
+3. Real References
+If the voiceover mentions real people, brands, landmarks, or locations, use their actual names and recognizable features.
 
-## Output:
+Output:
 Return ONLY valid JSON:
 {
-  "rows": <number>,
-  "cols": <number>,
-  "grid_image_prompt": "<string>",
-  "voiceover_list": { "en": ["<string>", ...], "tr": ["<string>", ...], "ar": ["<string>", ...] },
-  "visual_flow": ["<string>", ...]
-}
+"rows": <number>,
+"cols": <number>,
+"grid_image_prompt": "<string>",
+"voiceover_list": ["<string>", ...],
+"visual_flow": ["<string>", ...]
+}`;
 
-All three arrays (grid cells, voiceover_list, visual_flow) must have the EXACT same count.`;
+const TRANSLATION_PROMPT = `You are a professional translator for video voiceovers.
+Given voiceover segments in any language, translate ALL segments into English, Turkish, and Arabic.
+Use cultural nuances and idiomatic expressions — do not translate word-for-word.
+If the source is already in one of the target languages, still include it as-is in that language's array.
+Return exactly the same number of segments for each language.
+
+Output:
+Return ONLY valid JSON:
+{
+"en": ["<string>", ...],
+"tr": ["<string>", ...],
+"ar": ["<string>", ...]
+}`;
 
 const VALID_MODELS = [
   'google/gemini-3-pro-preview',
   'anthropic/claude-opus-4.6',
   'openai/gpt-5.2-pro',
+  'z-ai/glm-5',
 ] as const;
 
 export async function POST(req: NextRequest) {
@@ -116,64 +133,116 @@ ${voiceoverText}
 
 Generate the storyboard.`;
 
-    console.log('[Storyboard] LLM request:', {
+    // --- Call 1: Content generation (source language only) ---
+    console.log('[Storyboard] Content LLM request:', {
       model,
-      system: SYSTEM_PROMPT,
+      system: CONTENT_PROMPT,
       prompt: userPrompt,
     });
 
-    const { object } = await generateObject({
+    const { object: content } = await generateObject({
       model: openrouter.chat(model, {
         plugins: [{ id: 'response-healing' }],
       }),
-      system: SYSTEM_PROMPT,
+      system: CONTENT_PROMPT,
       prompt: userPrompt,
-      schema: storyboardSchema,
+      schema: contentSchema,
     });
 
-    console.log('[Storyboard] LLM response:', JSON.stringify(object, null, 2));
+    console.log(
+      '[Storyboard] Content LLM response:',
+      JSON.stringify(content, null, 2)
+    );
 
     // Validate grid bounds
     if (
-      object.rows < 2 ||
-      object.rows > 8 ||
-      object.cols < 2 ||
-      object.cols > 8
+      content.rows < 2 ||
+      content.rows > 8 ||
+      content.cols < 2 ||
+      content.cols > 8
     ) {
       return NextResponse.json(
         {
-          error: `LLM returned out-of-range grid: ${object.rows}x${object.cols}. rows and cols must be between 2 and 8.`,
+          error: `LLM returned out-of-range grid: ${content.rows}x${content.cols}. rows and cols must be between 2 and 8.`,
         },
         { status: 500 }
       );
     }
 
     // Validate grid constraint: rows must equal cols or cols + 1
-    if (object.rows !== object.cols && object.rows !== object.cols + 1) {
+    if (content.rows !== content.cols && content.rows !== content.cols + 1) {
       return NextResponse.json(
         {
-          error: `LLM returned invalid grid: ${object.rows}x${object.cols}. rows must equal cols or cols + 1.`,
+          error: `LLM returned invalid grid: ${content.rows}x${content.cols}. rows must equal cols or cols + 1.`,
         },
         { status: 500 }
       );
     }
 
     // Validate array lengths match grid dimensions
-    const expectedScenes = object.rows * object.cols;
-    const { en, tr, ar } = object.voiceover_list;
+    const expectedScenes = content.rows * content.cols;
     if (
-      en.length !== expectedScenes ||
-      tr.length !== expectedScenes ||
-      ar.length !== expectedScenes ||
-      object.visual_flow.length !== expectedScenes
+      content.voiceover_list.length !== expectedScenes ||
+      content.visual_flow.length !== expectedScenes
     ) {
       return NextResponse.json(
         {
-          error: `Scene count mismatch: grid is ${object.rows}x${object.cols}=${expectedScenes} but voiceover_list has en=${en.length}, tr=${tr.length}, ar=${ar.length} and visual_flow has ${object.visual_flow.length} items`,
+          error: `Scene count mismatch: grid is ${content.rows}x${content.cols}=${expectedScenes} but voiceover_list has ${content.voiceover_list.length} and visual_flow has ${content.visual_flow.length} items`,
         },
         { status: 500 }
       );
     }
+
+    // --- Call 2: Translation ---
+    const numberedSegments = content.voiceover_list
+      .map((seg, i) => `${i + 1}. ${seg}`)
+      .join('\n');
+
+    const translationPrompt = `Translate the following ${expectedScenes} voiceover segments:\n\n${numberedSegments}`;
+
+    console.log('[Storyboard] Translation LLM request:', {
+      model,
+      system: TRANSLATION_PROMPT,
+      prompt: translationPrompt,
+    });
+
+    const { object: translation } = await generateObject({
+      model: openrouter.chat(model, {
+        plugins: [{ id: 'response-healing' }],
+      }),
+      system: TRANSLATION_PROMPT,
+      prompt: translationPrompt,
+      schema: translationSchema,
+    });
+
+    console.log(
+      '[Storyboard] Translation LLM response:',
+      JSON.stringify(translation, null, 2)
+    );
+
+    // Validate all 3 language arrays match expected count
+    const { en, tr, ar } = translation;
+    if (
+      en.length !== expectedScenes ||
+      tr.length !== expectedScenes ||
+      ar.length !== expectedScenes
+    ) {
+      return NextResponse.json(
+        {
+          error: `Translation count mismatch: expected ${expectedScenes} segments but got en=${en.length}, tr=${tr.length}, ar=${ar.length}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    // Combine into final plan (identical shape to previous output)
+    const finalPlan = {
+      rows: content.rows,
+      cols: content.cols,
+      grid_image_prompt: content.grid_image_prompt,
+      voiceover_list: translation,
+      visual_flow: content.visual_flow,
+    };
 
     // Create draft storyboard record with the generated plan
     const { data: storyboard, error: dbError } = await supabase
@@ -182,7 +251,7 @@ Generate the storyboard.`;
         project_id: projectId,
         voiceover: voiceoverText,
         aspect_ratio: aspectRatio,
-        plan: object,
+        plan: finalPlan,
         plan_status: 'draft',
       })
       .select()
@@ -197,7 +266,7 @@ Generate the storyboard.`;
     }
 
     return NextResponse.json({
-      ...object,
+      ...finalPlan,
       storyboard_id: storyboard.id,
     });
   } catch (error) {

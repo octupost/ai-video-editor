@@ -1,0 +1,516 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createLogger } from '../_shared/logger.ts';
+
+function getRequiredEnv(name: string): string {
+  const value = Deno.env.get(name);
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return value;
+}
+
+const FAL_API_KEY = getRequiredEnv('FAL_KEY');
+const SUPABASE_URL = getRequiredEnv('SUPABASE_URL');
+const SUPABASE_SERVICE_ROLE_KEY = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers':
+    'authorization, content-type, x-client-info, apikey',
+};
+
+const JSON_HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+};
+
+function corsResponse(): Response {
+  return new Response(null, { headers: CORS_HEADERS });
+}
+
+function jsonResponse(data: object, status = 200): Response {
+  return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
+}
+
+function errorResponse(error: string, status = 500): Response {
+  return jsonResponse({ success: false, error }, status);
+}
+
+interface EditImageInput {
+  scene_ids: string[];
+  model?: 'kling' | 'banana' | 'fibo' | 'grok' | 'flux-pro';
+  action?: 'outpaint' | 'enhance' | 'custom_edit' | 'ref_to_image';
+  prompt?: string;
+  target_scene_id?: string;
+}
+
+const EDIT_ENDPOINTS: Record<string, string> = {
+  kling: 'workflows/octupost/edit-image-kling',
+  banana: 'workflows/octupost/edit-image-banana',
+  fibo: 'workflows/octupost/edit-image-fibo',
+  grok: 'workflows/octupost/edit-image-grok',
+  'flux-pro': 'workflows/octupost/edit-image-flux-pro',
+};
+
+const EDIT_PROMPT =
+  'Seamlessly extend the image into all masked areas. Fill every masked pixel completely. No borders, frames, panels, black bars, blank areas, transparent areas, or unfilled regions. No new subjects, text, watermarks, seams, or visible edges. Maintain the same scene, style, color palette, and perspective throughout.';
+
+const ENHANCE_PROMPT =
+  'Improve quality to 8k Do not change the image but fix the objects to make it more real';
+
+interface FirstFrameContext {
+  first_frame_id: string;
+  scene_id: string;
+  image_url: string;
+}
+
+type SupabaseClient = ReturnType<typeof createClient>;
+
+async function getFirstFrameContext(
+  supabase: SupabaseClient,
+  sceneId: string,
+  log: ReturnType<typeof createLogger>
+): Promise<FirstFrameContext | null> {
+  const { data: firstFrame, error: ffError } = await supabase
+    .from('first_frames')
+    .select('id, scene_id, out_padded_url, image_edit_status')
+    .eq('scene_id', sceneId)
+    .single();
+
+  if (ffError || !firstFrame) {
+    log.error('Failed to fetch first_frame', {
+      scene_id: sceneId,
+      error: ffError?.message,
+    });
+    return null;
+  }
+
+  if (!firstFrame.out_padded_url) {
+    log.warn('No out_padded_url for first_frame', {
+      first_frame_id: firstFrame.id,
+    });
+    return null;
+  }
+
+  if (firstFrame.image_edit_status === 'outpainting') {
+    log.warn('Outpaint already processing, skipping', {
+      first_frame_id: firstFrame.id,
+    });
+    return null;
+  }
+
+  return {
+    first_frame_id: firstFrame.id,
+    scene_id: sceneId,
+    image_url: firstFrame.out_padded_url,
+  };
+}
+
+async function sendEditRequest(
+  context: FirstFrameContext,
+  endpoint: string,
+  model: string,
+  prompt: string,
+  webhookStep: string,
+  log: ReturnType<typeof createLogger>,
+  referenceUrls?: string[]
+): Promise<{ requestId: string | null; error: string | null }> {
+  const webhookParams = new URLSearchParams({
+    step: webhookStep,
+    first_frame_id: context.first_frame_id,
+  });
+  const webhookUrl = `${SUPABASE_URL}/functions/v1/webhook?${webhookParams.toString()}`;
+
+  const falUrl = new URL(`https://queue.fal.run/${endpoint}`);
+  falUrl.searchParams.set('fal_webhook', webhookUrl);
+
+  log.api('fal.ai', endpoint, {
+    first_frame_id: context.first_frame_id,
+    has_image_url: !!context.image_url,
+    reference_count: referenceUrls?.length ?? 0,
+  });
+  log.startTiming('fal_outpaint_request');
+
+  // When referenceUrls are provided (ref_to_image), send all as image_urls array
+  // Otherwise: fibo and grok use image_url (singular string), others use image_urls (array)
+  let requestBody: Record<string, unknown>;
+  if (referenceUrls && referenceUrls.length > 0) {
+    requestBody = { image_urls: referenceUrls, prompt };
+  } else if (model === 'fibo' || model === 'grok') {
+    requestBody = { image_url: context.image_url, prompt };
+  } else {
+    requestBody = { image_urls: [context.image_url], prompt };
+  }
+
+  try {
+    const falResponse = await fetch(falUrl.toString(), {
+      method: 'POST',
+      headers: {
+        Authorization: `Key ${FAL_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!falResponse.ok) {
+      const errorText = await falResponse.text();
+      log.error('fal.ai outpaint request failed', {
+        status: falResponse.status,
+        error: errorText,
+        time_ms: log.endTiming('fal_outpaint_request'),
+      });
+      return {
+        requestId: null,
+        error: `fal.ai request failed: ${falResponse.status}`,
+      };
+    }
+
+    const falResult = await falResponse.json();
+    log.success('fal.ai outpaint request accepted', {
+      request_id: falResult.request_id,
+      time_ms: log.endTiming('fal_outpaint_request'),
+    });
+
+    return { requestId: falResult.request_id, error: null };
+  } catch (err) {
+    log.error('fal.ai outpaint request exception', {
+      error: err instanceof Error ? err.message : String(err),
+      time_ms: log.endTiming('fal_outpaint_request'),
+    });
+    return { requestId: null, error: 'Request exception' };
+  }
+}
+
+async function getFirstFrameContextForEnhance(
+  supabase: SupabaseClient,
+  sceneId: string,
+  log: ReturnType<typeof createLogger>
+): Promise<FirstFrameContext | null> {
+  const { data: firstFrame, error: ffError } = await supabase
+    .from('first_frames')
+    .select('id, scene_id, final_url, image_edit_status')
+    .eq('scene_id', sceneId)
+    .single();
+
+  if (ffError || !firstFrame) {
+    log.error('Failed to fetch first_frame', {
+      scene_id: sceneId,
+      error: ffError?.message,
+    });
+    return null;
+  }
+
+  if (!firstFrame.final_url) {
+    log.warn('No final_url for first_frame', {
+      first_frame_id: firstFrame.id,
+    });
+    return null;
+  }
+
+  if (
+    firstFrame.image_edit_status === 'enhancing' ||
+    firstFrame.image_edit_status === 'editing'
+  ) {
+    log.warn('Enhance/edit already processing, skipping', {
+      first_frame_id: firstFrame.id,
+    });
+    return null;
+  }
+
+  return {
+    first_frame_id: firstFrame.id,
+    scene_id: sceneId,
+    image_url: firstFrame.final_url,
+  };
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return corsResponse();
+  }
+
+  const log = createLogger();
+  log.setContext({ step: 'OutpaintImage' });
+
+  try {
+    log.info('Request received', { method: req.method });
+
+    const input: EditImageInput = await req.json();
+    const { scene_ids, model = 'kling', action = 'outpaint' } = input;
+
+    if (!scene_ids || !Array.isArray(scene_ids) || scene_ids.length === 0) {
+      log.error('Invalid input', { scene_ids });
+      return errorResponse('scene_ids must be a non-empty array', 400);
+    }
+
+    if (action === 'custom_edit' && !input.prompt) {
+      log.error('Missing prompt for custom_edit');
+      return errorResponse('prompt is required for custom_edit action', 400);
+    }
+
+    if (action === 'ref_to_image') {
+      if (!input.prompt) {
+        return errorResponse('prompt is required for ref_to_image action', 400);
+      }
+      if (!input.target_scene_id) {
+        return errorResponse(
+          'target_scene_id is required for ref_to_image action',
+          400
+        );
+      }
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const endpoint = EDIT_ENDPOINTS[model] ?? EDIT_ENDPOINTS.kling;
+
+    // --- ref_to_image: single request with multiple reference images ---
+    if (action === 'ref_to_image') {
+      log.setContext({ step: 'EnhanceImage' });
+      log.info('Processing ref_to_image request', {
+        reference_count: scene_ids.length,
+        target_scene_id: input.target_scene_id,
+        model,
+        endpoint,
+      });
+
+      // Collect reference image URLs from all scene_ids
+      const referenceUrls: string[] = [];
+      for (const sceneId of scene_ids) {
+        const ctx = await getFirstFrameContextForEnhance(
+          supabase,
+          sceneId,
+          log
+        );
+        if (ctx) {
+          referenceUrls.push(ctx.image_url);
+        }
+      }
+
+      if (referenceUrls.length === 0) {
+        return errorResponse('No valid reference images found', 400);
+      }
+
+      // Get target first_frame context
+      const targetContext = await getFirstFrameContextForEnhance(
+        supabase,
+        input.target_scene_id!,
+        log
+      );
+      if (!targetContext) {
+        return errorResponse(
+          'Target scene not found or already processing',
+          400
+        );
+      }
+
+      // Set target status to editing
+      await supabase
+        .from('first_frames')
+        .update({ image_edit_status: 'editing' })
+        .eq('id', targetContext.first_frame_id);
+
+      // Send single request with all reference URLs
+      const { requestId, error: reqError } = await sendEditRequest(
+        targetContext,
+        endpoint,
+        model,
+        input.prompt!,
+        'EnhanceImage',
+        log,
+        referenceUrls
+      );
+
+      if (reqError || !requestId) {
+        await supabase
+          .from('first_frames')
+          .update({
+            image_edit_status: 'failed',
+            image_edit_error_message: 'request_error',
+          })
+          .eq('id', targetContext.first_frame_id);
+
+        log.summary('error', { reason: 'fal_request_failed' });
+        return jsonResponse({
+          success: false,
+          error: reqError || 'Unknown error',
+          target_scene_id: input.target_scene_id,
+        });
+      }
+
+      await supabase
+        .from('first_frames')
+        .update({ image_edit_request_id: requestId })
+        .eq('id', targetContext.first_frame_id);
+
+      log.success('ref_to_image request queued', {
+        target_scene_id: input.target_scene_id,
+        first_frame_id: targetContext.first_frame_id,
+        request_id: requestId,
+        reference_count: referenceUrls.length,
+      });
+
+      log.summary('success', { total: 1, queued: 1, skipped: 0, failed: 0 });
+      return jsonResponse({
+        success: true,
+        target_scene_id: input.target_scene_id,
+        first_frame_id: targetContext.first_frame_id,
+        request_id: requestId,
+        reference_count: referenceUrls.length,
+        summary: { total: 1, queued: 1, skipped: 0, failed: 0 },
+      });
+    }
+
+    // --- Standard actions: outpaint / enhance / custom_edit ---
+    const isEnhance = action === 'enhance';
+    const isCustomEdit = action === 'custom_edit';
+    const useFinalUrl = isEnhance || isCustomEdit;
+    const prompt = isCustomEdit
+      ? input.prompt!
+      : isEnhance
+        ? ENHANCE_PROMPT
+        : EDIT_PROMPT;
+    const webhookStep = useFinalUrl ? 'EnhanceImage' : 'OutpaintImage';
+    const statusLabel = isCustomEdit
+      ? 'editing'
+      : isEnhance
+        ? 'enhancing'
+        : 'outpainting';
+
+    log.setContext({ step: webhookStep });
+    log.info(`Processing ${action} requests`, {
+      scene_count: scene_ids.length,
+      model,
+      endpoint,
+      action,
+    });
+
+    const results: Array<{
+      scene_id: string;
+      first_frame_id: string | null;
+      request_id: string | null;
+      status: 'queued' | 'skipped' | 'failed';
+      error?: string;
+    }> = [];
+
+    for (let i = 0; i < scene_ids.length; i++) {
+      const sceneId = scene_ids[i];
+
+      // Add delay between requests (except for the first one)
+      if (i > 0) {
+        log.info('Waiting before next request', { delay_ms: 1000, index: i });
+        await delay(1000);
+      }
+
+      // Get first_frame context
+      log.startTiming(`get_context_${i}`);
+      const context = useFinalUrl
+        ? await getFirstFrameContextForEnhance(supabase, sceneId, log)
+        : await getFirstFrameContext(supabase, sceneId, log);
+      log.info('First frame context fetched', {
+        scene_id: sceneId,
+        has_context: !!context,
+        time_ms: log.endTiming(`get_context_${i}`),
+      });
+
+      if (!context) {
+        results.push({
+          scene_id: sceneId,
+          first_frame_id: null,
+          request_id: null,
+          status: 'skipped',
+          error: 'First frame not found or already processing',
+        });
+        continue;
+      }
+
+      // Update status to processing
+      await supabase
+        .from('first_frames')
+        .update({ image_edit_status: statusLabel })
+        .eq('id', context.first_frame_id);
+
+      // Send edit request
+      const { requestId, error } = await sendEditRequest(
+        context,
+        endpoint,
+        model,
+        prompt,
+        webhookStep,
+        log
+      );
+
+      if (error || !requestId) {
+        // Mark as failed with request_error
+        await supabase
+          .from('first_frames')
+          .update({
+            image_edit_status: 'failed',
+            image_edit_error_message: 'request_error',
+          })
+          .eq('id', context.first_frame_id);
+
+        results.push({
+          scene_id: sceneId,
+          first_frame_id: context.first_frame_id,
+          request_id: null,
+          status: 'failed',
+          error: error || 'Unknown error',
+        });
+        continue;
+      }
+
+      // Store request_id
+      await supabase
+        .from('first_frames')
+        .update({ image_edit_request_id: requestId })
+        .eq('id', context.first_frame_id);
+
+      results.push({
+        scene_id: sceneId,
+        first_frame_id: context.first_frame_id,
+        request_id: requestId,
+        status: 'queued',
+      });
+
+      log.success(`${action} request queued`, {
+        scene_id: sceneId,
+        first_frame_id: context.first_frame_id,
+        request_id: requestId,
+      });
+    }
+
+    const queuedCount = results.filter((r) => r.status === 'queued').length;
+    const skippedCount = results.filter((r) => r.status === 'skipped').length;
+    const failedCount = results.filter((r) => r.status === 'failed').length;
+
+    log.summary('success', {
+      total: scene_ids.length,
+      queued: queuedCount,
+      skipped: skippedCount,
+      failed: failedCount,
+    });
+
+    return jsonResponse({
+      success: true,
+      results,
+      summary: {
+        total: scene_ids.length,
+        queued: queuedCount,
+        skipped: skippedCount,
+        failed: failedCount,
+      },
+    });
+  } catch (error) {
+    log.error('Unexpected error', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    log.summary('error', { reason: 'unexpected_exception' });
+    return errorResponse('Internal server error');
+  }
+});

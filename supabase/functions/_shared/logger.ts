@@ -18,7 +18,7 @@ const STEP_EMOJIS: Record<string, string> = {
   SplitGridImage: '✂️',
   StartWorkflow: '🚀',
   GenerateTTS: '🎙️',
-  EnhanceImage: '✨',
+  OutpaintImage: '✨',
   GenerateVideo: '🎬',
 };
 
